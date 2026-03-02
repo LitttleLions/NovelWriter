@@ -1,0 +1,154 @@
+✅ RomanForge AI – Prompt-Set fertig!
+Ich habe den Original-Thread (den du gerade nochmal verlinkt hast) frisch abgerufen – es sind exakt dieselben 9 Non-Fiction-Prompts wie beim ersten Mal.
+Genau wie besprochen habe ich sie komplett für Romane umgebaut. Du startest jetzt nicht mit „Idee“, sondern direkt mit:
+	•	Summary
+	•	Charakter-Bible
+	•	(optionale) Outline
+	•	Stil-Beispiele (3–10 Seiten hochladen)
+Hier sind die 10 fertigen Fiction-Prompts (kopierbereit als Code-Blöcke). Plus der neue Style Analyzer (Prompt 0) und der Consistency Guardian (Prompt 10).
+
+Prompt 0: STYLE ANALYZER (einmalig am Anfang)
+Du bist ein literarischer Stil-Forensiker mit 20 Jahren Erfahrung bei Penguin Random House.
+
+Analysiere die folgenden Beispieltexte und gib eine präzise Stil-Beschreibung im JSON-Format zurück:
+
+{
+  "author_style": "z.B. Stephen King / Jane Austen / Brandon Sanderson",
+  "sentence_length_avg": 12,
+  "vocabulary_complexity": 7,
+  "description_density": 8,
+  "dialogue_ratio_percent": 35,
+  "tense": "past",
+  "pacing": "fast / medium / slow-burn",
+  "favorite_literary_devices": ["short sentences for tension", "internal monologue", "sensory details"],
+  "tone": "dark / whimsical / gritty",
+  "example_sentence_patterns": ["3 Beispielsätze, die exakt so klingen sollen"]
+}
+
+Zusätzlich: Gib mir 5 fertige Beispiel-Sätze, wie der neue Roman in diesem Stil beginnen würde.
+
+Prompt 1: THE IDEA VALIDATOR → ROMAN PREMISE SHARPENER
+Du bist Senior Fiction Editor bei Tor Books. 
+
+Summary: [HIER EINFÜGEN]
+Charaktere: [CHARAKTER-BIBLE PASTE]
+Genre: [z.B. Dark Fantasy, Thriller, Romance]
+Zielwortzahl: [80.000]
+
+Validiere und schärfe die Prämisse:
+- Markt-Gap: Welche Lücke gibt es in diesem Subgenre?
+- Transformation: Welche emotionale Reise macht der Protagonist?
+- 10 Titel-Optionen (inkl. Untertitel)
+- Hook-Satz für die erste Seite
+- Gesamtbewertung (1–10) für Markt + Originalität + Charakter-Potenzial
+
+Erst wenn alles >8 ist, darfst du weiter.
+
+Prompt 2: THE CHAPTER ARCHITECT → NOVEL STRUCTURE ENGINE
+Du bist Master Book Architect für Bestseller-Romane.
+
+Titel: [TITEL]
+Summary: [SUMMARY]
+Charaktere: [BIBLE]
+Outline (falls vorhanden): [OUTLINE]
+Gesamtlänge: [80.000 Wörter]
+Akt-Struktur: 3-Akt oder 4-Akt
+
+Erstelle die komplette Kapitel-Struktur:
+- Jeder Kapitel-Titel als Cliffhanger-Benefit
+- 1-Satz-Zweck pro Kapitel
+- Character-Arc-Entwicklung pro Kapitel
+- Spannungskurve (Plot + Emotion)
+- Ende jedes Kapitels mit Hook zum nächsten
+
+Prompt 3: THE CHAPTER WRITING ENGINE (der wichtigste!)
+Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
+
+Kapitel-Nummer: [1]
+Kapitel-Titel: [TITEL]
+Kapitel-Zweck: [aus Prompt 2]
+Summary-Gesamt: [SUMMARY]
+Aktueller Stil: [JSON aus Prompt 0]
+Letzte 2 Kapitel (Context): [PASTE]
+
+Schreibe das komplette Kapitel (Ziel: 3.000–5.000 Wörter):
+- Show don’t tell
+- Sinnesdetails + innere Monologe
+- Natürliche Dialoge
+- Cliffhanger am Ende
+- Stil exakt nach dem JSON aus Prompt 0
+
+Prompt 4: THE STORY GENERATOR → SCENE & TWIST ENGINE
+Du bist Master Storyteller (Christopher Nolan + Neil Gaiman).
+
+Szene-Thema: [z.B. „Erstes Treffen der beiden Protagonisten“]
+Emotionale Wirkung: [Liebe / Schock / Verrat]
+Stil: [JSON aus Prompt 0]
+
+Erzeuge 3 Varianten der Szene mit:
+- Foreshadowing
+- Twist-Möglichkeiten
+- Sinnesdetails
+Wähle die stärkste aus und schreibe sie aus.
+
+Prompt 5: THE INTRODUCTION WRITER → PROLOG / ERSTES KAPITEL
+Schreibe das allererste Kapitel (oder Prolog) so, dass der Leser das Buch nicht mehr weglegen kann.
+Verwende exakt den Stil aus Prompt 0.
+Beginne mit einem Hook in den ersten 3 Sätzen.
+Stelle mindestens einen Charakter und das zentrale Problem vor.
+Ende mit einem massiven Cliffhanger.
+
+Prompt 6: THE EDITING ENGINE → CONSISTENCY + STYLE CHECK
+Du bist Senior Editor bei HarperCollins Fiction.
+
+Kapitel-Text: [PASTE]
+Stil-JSON: [aus Prompt 0]
+Charakter-Bible: [PASTE]
+
+Editiere in 5 Schritten:
+1. Stil-Konsistenz (Satzlänge, Vokabular, Tempo)
+2. Character-Voice (jeder spricht anders)
+3. Plot-Löcher & Continuity
+4. Spannung & Pacing
+5. Show-don’t-tell-Optimierung
+
+Prompt 7: THE COVER BRIEF (bleibt fast gleich – nur Fiction-optimiert)
+Erstelle ein vollständiges Cover-Briefing für einen [Genre]-Roman mit emotionaler Wirkung [z.B. düster, romantisch, episch].
+Titel: [TITEL]
+Untertitel: [SUB]
+Stil-Referenzen: 3 Bestseller-Cover im gleichen Genre
+
+Prompt 8: THE LAUNCH PLAN (angepasst für Self-Publishing-Romane)
+30-Tage-Launch-Plan für Amazon KDP + TikTok BookTok + Newsletter.
+Ziel: Bestseller in [Subgenre]-Kategorie.
+
+Prompt 9: THE MONETIZATION ARCHITECT (angepasst)
+Baue ein komplettes Roman-Ecosystem:
+- Buch + Audiobook
+- Serie (Buch 1 als Hook)
+- Patreon / Substack für Early Readers
+- Merch, Fan-Art, Companion-Novellen
+
+Prompt 10: CONSISTENCY GUARDIAN (neu & entscheidend!)
+Du bist der Roman-Consistency-Guardian.
+Aktuelle Chapter-Bible: [alle bisherigen Kapitel + Charakter-States]
+Neues Kapitel: [PASTE]
+
+Prüfe:
+- Charakter-Entwicklung stimmt?
+- Keine Plot-Löcher?
+- Stil 100% konsistent?
+- Foreshadowing aus früheren Kapiteln eingelöst?
+Gib grünes Licht oder exakte Korrekturvorschläge.
+
+Fertig! 🚀
+Du kannst jetzt direkt loslegen:
+	1	Projekt anlegen → Assets + 3–10 Seiten Stil-Beispiele hochladen
+	2	Prompt 0 laufen lassen → Style-JSON speichern
+	3	Dann Kapitel für Kapitel mit Prompt 3 + 10 generieren
+Möchtest du als Nächstes:
+	•	A) Die komplette JSON-Datei mit allen 10 Prompts + Variablen-Platzhaltern (einfach importierbar in LangGraph/Claude Projects)?
+	•	B) Ein fertiges Next.js + Supabase Repo-Template (GitHub-Link)?
+	•	C) Figma-ähnliche UI-Mockups als Text-Beschreibung (oder generiertes Bild)?
+Sag einfach A, B oder C – oder „Go full stack“ und ich baue dir den ersten Prototypen in der nächsten Nachricht.
+Dein Roman ist in 2 Stunden fertig. Lass uns starten!

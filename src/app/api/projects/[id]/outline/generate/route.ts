@@ -56,6 +56,7 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
       return NextResponse.json({ error: "Outline konnte nicht verarbeitet werden", raw: result }, { status: 500 });
     }
 
+    await query("DELETE FROM chapters WHERE project_id = $1", [id]);
     await query("DELETE FROM chapter_outlines WHERE project_id = $1", [id]);
 
     for (const ch of chapters) {

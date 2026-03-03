@@ -14,6 +14,18 @@ export const AVAILABLE_MODELS = [
     description: "Fast and affordable",
   },
   {
+    id: "anthropic/claude-3.5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    provider: "Anthropic",
+    description: "Previous-gen balanced model",
+  },
+  {
+    id: "anthropic/claude-3-opus",
+    name: "Claude 3 Opus",
+    provider: "Anthropic",
+    description: "Most capable Claude 3 model",
+  },
+  {
     id: "openai/gpt-4o",
     name: "GPT-4o",
     provider: "OpenAI",
@@ -24,6 +36,24 @@ export const AVAILABLE_MODELS = [
     name: "GPT-4o Mini",
     provider: "OpenAI",
     description: "Fast and cost-effective",
+  },
+  {
+    id: "openai/gpt-4-turbo",
+    name: "GPT-4 Turbo",
+    provider: "OpenAI",
+    description: "High capability with large context",
+  },
+  {
+    id: "openai/o1-mini",
+    name: "o1-mini",
+    provider: "OpenAI",
+    description: "Reasoning model, compact",
+  },
+  {
+    id: "openai/o3-mini",
+    name: "o3-mini",
+    provider: "OpenAI",
+    description: "Latest reasoning model",
   },
   {
     id: "google/gemini-2.0-flash-001",
@@ -38,10 +68,28 @@ export const AVAILABLE_MODELS = [
     description: "Advanced reasoning",
   },
   {
+    id: "google/gemini-pro-1.5",
+    name: "Gemini 1.5 Pro",
+    provider: "Google",
+    description: "Large context window",
+  },
+  {
     id: "meta-llama/llama-3.3-70b-instruct",
     name: "Llama 3.3 70B",
     provider: "Meta",
     description: "Open-source powerhouse",
+  },
+  {
+    id: "meta-llama/llama-3.1-405b-instruct",
+    name: "Llama 3.1 405B",
+    provider: "Meta",
+    description: "Largest open-source model",
+  },
+  {
+    id: "meta-llama/llama-3.1-70b-instruct",
+    name: "Llama 3.1 70B",
+    provider: "Meta",
+    description: "Strong open-source model",
   },
   {
     id: "deepseek/deepseek-chat",
@@ -50,10 +98,46 @@ export const AVAILABLE_MODELS = [
     description: "Strong reasoning, very affordable",
   },
   {
+    id: "deepseek/deepseek-r1",
+    name: "DeepSeek R1",
+    provider: "DeepSeek",
+    description: "Reasoning-focused model",
+  },
+  {
     id: "mistralai/mistral-large-2411",
     name: "Mistral Large",
     provider: "Mistral",
     description: "European flagship model",
+  },
+  {
+    id: "mistralai/mistral-medium",
+    name: "Mistral Medium",
+    provider: "Mistral",
+    description: "Balanced performance",
+  },
+  {
+    id: "mistralai/mixtral-8x22b-instruct",
+    name: "Mixtral 8x22B",
+    provider: "Mistral",
+    description: "Large MoE model",
+  },
+  {
+    id: "qwen/qwen-2.5-72b-instruct",
+    name: "Qwen 2.5 72B",
+    provider: "Qwen",
+    description: "Strong multilingual model",
+  },
+  {
+    id: "cohere/command-r-plus",
+    name: "Command R+",
+    provider: "Cohere",
+    description: "Enterprise-grade model",
+  },
+  {
+    id: "nvidia/llama-3.1-nemotron-70b-instruct",
+    name: "Nemotron 70B",
+    provider: "NVIDIA",
+    description: "NVIDIA-optimized Llama",
   },
 ];
 

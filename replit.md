@@ -32,6 +32,14 @@ src/
 │       ├── config/         # Public config (Google Client ID)
 │       ├── models/         # Available AI models list
 │       └── projects/       # CRUD + style analysis + outline + chapter generation + export
+│           └── [id]/
+│               ├── outline/
+│               │   ├── generate/    # POST: generate new outline (deletes chapters)
+│               │   ├── reorder/     # PUT: reorder outline items
+│               │   └── [outlineId]/ # PUT: edit, DELETE: remove outline item
+│               ├── chapters/        # generate, [chapterId] edit
+│               ├── style/analyze/   # POST: analyze style (modes: "analyze" or "direct")
+│               └── export/          # GET: export as DOCX/MD/TXT
 ├── components/
 │   ├── theme-toggle.tsx    # Light/dark mode toggle
 │   └── ui/                 # Reusable UI components
@@ -40,7 +48,7 @@ src/
 │   ├── db/
 │   │   ├── index.ts        # PostgreSQL connection pool
 │   │   └── schema.sql      # Database schema reference
-│   ├── openrouter.ts       # OpenRouter client + model list
+│   ├── openrouter.ts       # OpenRouter client + 24 models across 8 providers
 │   ├── prompts.ts          # AI prompt templates
 │   └── utils.ts            # cn() utility
 ```
@@ -61,9 +69,13 @@ src/
 1. **Auth**: Email/password + optional Google Sign-In
 2. **Theme**: Light/dark mode toggle on all pages
 3. **Project Creation**: Title, genre, word count, language, AI model selection
-4. **Style Engine**: Paste sample text OR upload files OR paste style descriptions → AI analyzes → JSON style profile
-5. **Outline Generation**: AI creates chapter structure from summary
-6. **Chapter Generation**: AI writes chapters following style, maintaining consistency
-7. **Live Editor**: Edit chapters directly, save changes
-8. **Export**: Word (DOCX), Markdown, and TXT download
-9. **Multi-Model**: Choose from 9+ AI models across multiple providers via OpenRouter
+4. **Style Engine**: Three input modes:
+   - **Beispieltext**: Paste book pages → KI analyzes and creates style profile
+   - **Eigene Stilbeschreibung**: Write style directly → saved as-is (no AI analysis)
+   - **Datei hochladen**: Upload .txt/.md file → switches to Beispieltext mode
+5. **Outline Generation**: AI creates chapter structure; can be re-generated (with confirmation if chapters exist)
+6. **Outline Editing**: Edit title/purpose/character_arc/tension_level per item; reorder items with up/down arrows
+7. **Chapter Generation**: AI writes chapters following style, maintaining consistency
+8. **Live Editor**: Edit chapters directly, save changes
+9. **Export**: Word (DOCX), Markdown, and TXT download
+10. **Multi-Model**: 24 AI models across 8 providers (Anthropic, OpenAI, Google, Meta, DeepSeek, Mistral, Qwen, Cohere, NVIDIA) via OpenRouter

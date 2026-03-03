@@ -9,7 +9,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
 
   const { id } = await params;
-  const { style_sample } = await req.json();
+  const { style_sample, mode } = await req.json();
 
   const project = await query(
     "SELECT * FROM projects WHERE id = $1 AND user_id = $2",
@@ -24,7 +24,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const sampleText = style_sample || p.style_sample;
 
   if (!sampleText) {
-    return NextResponse.json({ error: "Kein Stil-Beispiel vorhanden" }, { status: 400 });
+    return NextResponse.json({ error: "Kein Stil-Text vorhanden" }, { status: 400 });
+  }
+
+  if (mode === "direct") {
+    const styleJson = {
+      author_style: "Benutzerdefiniert",
+      raw_description: sampleText,
+      source: "direct_input",
+    };
+
+    await query(
+      "UPDATE projects SET style_sample = $1, style_json = $2, updated_at = NOW() WHERE id = $3",
+      [sampleText, JSON.stringify(styleJson), id]
+    );
+
+    return NextResponse.json({ style: styleJson });
   }
 
   try {
@@ -42,6 +57,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     } catch {
       styleJson = { raw_analysis: result };
     }
+
+    styleJson.source = "analyzed";
 
     await query(
       "UPDATE projects SET style_sample = $1, style_json = $2, updated_at = NOW() WHERE id = $3",

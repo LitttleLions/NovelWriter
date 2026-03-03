@@ -24,8 +24,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Summary ist erforderlich" }, { status: 400 });
   }
 
+  const { custom_outline } = await req.json().catch(() => ({}));
+
   try {
-    const userPrompt = `Titel: ${p.title}
+    let chapters;
+
+    if (custom_outline) {
+      const architectPrompt = `Wandle die folgende manuelle Outline in ein valides JSON-Array um, das für die Kapitel-Struktur genutzt werden kann.
+
+Outline:
+${custom_outline}
+
+${PROMPTS.chapterArchitect}`;
+
+      const result = await generateText(
+        p.ai_provider || "anthropic/claude-sonnet-4-5",
+        "Du bist ein Master Book Architect.",
+        architectPrompt,
+        8000
+      );
+
+      const jsonMatch = result.match(/\[[\s\S]*\]/);
+      chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
+    } else {
+      const userPrompt = `Titel: ${p.title}
 Genre: ${p.genre || "Nicht angegeben"}
 Gesamtlänge: ${p.target_word_count} Wörter
 Sprache: ${p.language}
@@ -41,19 +63,15 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
-    const result = await generateText(
-      p.ai_provider || "anthropic/claude-sonnet-4-5",
-      PROMPTS.chapterArchitect,
-      userPrompt,
-      8000
-    );
+      const result = await generateText(
+        p.ai_provider || "anthropic/claude-sonnet-4-5",
+        PROMPTS.chapterArchitect,
+        userPrompt,
+        8000
+      );
 
-    let chapters;
-    try {
       const jsonMatch = result.match(/\[[\s\S]*\]/);
       chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
-    } catch {
-      return NextResponse.json({ error: "Outline konnte nicht verarbeitet werden", raw: result }, { status: 500 });
     }
 
     await query("DELETE FROM chapters WHERE project_id = $1", [id]);

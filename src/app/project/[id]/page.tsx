@@ -80,6 +80,8 @@ export default function ProjectPage() {
   const [styleInputMode, setStyleInputMode] = useState<"sample" | "direct" | "upload">("sample");
   const [analyzingStyle, setAnalyzingStyle] = useState(false);
   const [generatingOutline, setGeneratingOutline] = useState(false);
+  const [outlineInputMode, setOutlineInputMode] = useState<"generate" | "paste">("generate");
+  const [pastedOutline, setPastedOutline] = useState("");
   const [generatingChapter, setGeneratingChapter] = useState<number | null>(null);
   const [editingChapter, setEditingChapter] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -152,12 +154,15 @@ export default function ProjectPage() {
       const res = await fetch(`/api/projects/${projectId}/outline/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: outlineInputMode === "paste" ? JSON.stringify({ custom_outline: pastedOutline }) : undefined,
       });
       const data = await res.json();
       if (res.ok) {
         setOutlines(data.outlines);
         setChapters([]);
         setActiveTab("outline");
+        setOutlineInputMode("generate");
+        setPastedOutline("");
       } else {
         alert(data.error || "Outline-Generierung fehlgeschlagen");
       }
@@ -685,7 +690,41 @@ export default function ProjectPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {showRegenerateConfirm ? (
+                  {outlines.length > 0 && (
+                    <div className="flex bg-muted rounded-lg p-1 mr-2">
+                      <Button
+                        variant={outlineInputMode === "generate" ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setOutlineInputMode("generate")}
+                      >
+                        KI-Modus
+                      </Button>
+                      <Button
+                        variant={outlineInputMode === "paste" ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setOutlineInputMode("paste")}
+                      >
+                        Manuell
+                      </Button>
+                    </div>
+                  )}
+
+                  {outlineInputMode === "paste" ? (
+                    <div className="flex items-center gap-2">
+                      <Textarea
+                        placeholder="Kapitel 1: Titel...&#10;Kapitel 2: Titel..."
+                        className="h-9 min-h-[36px] py-1 text-xs w-64"
+                        value={pastedOutline}
+                        onChange={(e) => setPastedOutline(e.target.value)}
+                      />
+                      <Button onClick={generateOutline} disabled={generatingOutline || !pastedOutline.trim()} size="sm">
+                        {generatingOutline ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Übernehmen
+                      </Button>
+                    </div>
+                  ) : showRegenerateConfirm ? (
                     <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
                       <AlertTriangle className="h-4 w-4 text-destructive" />
                       <span className="text-sm text-destructive">

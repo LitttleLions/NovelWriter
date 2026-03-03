@@ -17,17 +17,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const body = await req.json();
-  const { title, purpose, character_arc, tension_level } = body;
+  const { title, purpose, character_arc, tension_level, location, key_events, raw_notes } = body;
 
   const result = await query(
     `UPDATE chapter_outlines 
      SET title = COALESCE($1, title), 
          purpose = COALESCE($2, purpose), 
          character_arc = COALESCE($3, character_arc), 
-         tension_level = COALESCE($4, tension_level)
-     WHERE id = $5 AND project_id = $6
+         tension_level = COALESCE($4, tension_level),
+         location = COALESCE($5, location),
+         key_events = COALESCE($6, key_events),
+         raw_notes = COALESCE($7, raw_notes)
+     WHERE id = $8 AND project_id = $9
      RETURNING *`,
-    [title, purpose, character_arc, tension_level, outlineId, id]
+    [title, purpose, character_arc, tension_level, location, key_events, raw_notes, outlineId, id]
   );
 
   if (result.rows.length === 0) {

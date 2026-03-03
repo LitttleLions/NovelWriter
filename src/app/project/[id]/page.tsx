@@ -92,11 +92,19 @@ export default function ProjectPage() {
   const [savingChapter, setSavingChapter] = useState(false);
 
   const [editingOutline, setEditingOutline] = useState<number | null>(null);
-  const [outlineEditData, setOutlineEditData] = useState<{ title: string; purpose: string; character_arc: string; tension_level: number }>({ title: "", purpose: "", character_arc: "", tension_level: 5 });
+  const [outlineEditData, setOutlineEditData] = useState<{ 
+    title: string; 
+    purpose: string; 
+    character_arc: string; 
+    tension_level: number;
+    location: string;
+    key_events: string;
+    raw_notes: string;
+  }>({ title: "", purpose: "", character_arc: "", tension_level: 5, location: "", key_events: "", raw_notes: "" });
   const [savingOutline, setSavingOutline] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showAddOutline, setShowAddOutline] = useState(false);
-  const [newOutlineData, setNewOutlineData] = useState({ title: "", purpose: "", character_arc: "", tension_level: 5 });
+  const [newOutlineData, setNewOutlineData] = useState({ title: "", purpose: "", character_arc: "", tension_level: 5, location: "", key_events: "", raw_notes: "" });
   const [expandedOutline, setExpandedOutline] = useState<number | null>(null);
 
   const [generationLogs, setGenerationLogs] = useState<any[]>([]);
@@ -344,7 +352,7 @@ export default function ProjectPage() {
       if (res.ok) {
         setOutlines([...outlines, data.outline]);
         setShowAddOutline(false);
-        setNewOutlineData({ title: "", purpose: "", character_arc: "", tension_level: 5 });
+        setNewOutlineData({ title: "", purpose: "", character_arc: "", tension_level: 5, location: "", key_events: "", raw_notes: "" });
       }
     } finally {
       setSavingOutline(false);
@@ -912,14 +920,40 @@ export default function ProjectPage() {
                                 rows={2}
                               />
                             </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label className="text-xs">Ort & Zeit</Label>
+                                <Input
+                                  value={outlineEditData.location}
+                                  onChange={(e) => setOutlineEditData({ ...outlineEditData, location: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs">Spannungslevel (1-10)</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={outlineEditData.tension_level}
+                                  onChange={(e) => setOutlineEditData({ ...outlineEditData, tension_level: parseInt(e.target.value) || 5 })}
+                                />
+                              </div>
+                            </div>
                             <div className="space-y-2">
-                              <Label className="text-xs">Spannungslevel (1-10)</Label>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={10}
-                                value={outlineEditData.tension_level}
-                                onChange={(e) => setOutlineEditData({ ...outlineEditData, tension_level: parseInt(e.target.value) || 5 })}
+                              <Label className="text-xs">Schlüsselereignisse</Label>
+                              <Textarea
+                                value={outlineEditData.key_events}
+                                onChange={(e) => setOutlineEditData({ ...outlineEditData, key_events: e.target.value })}
+                                rows={2}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Original-Notizen / KI-Kontext</Label>
+                              <Textarea
+                                value={outlineEditData.raw_notes}
+                                onChange={(e) => setOutlineEditData({ ...outlineEditData, raw_notes: e.target.value })}
+                                rows={4}
+                                className="font-mono text-xs"
                               />
                             </div>
                             <div className="flex justify-end gap-2">
@@ -989,6 +1023,9 @@ export default function ProjectPage() {
                                     purpose: o.purpose,
                                     character_arc: o.character_arc || "",
                                     tension_level: o.tension_level,
+                                    location: o.location || "",
+                                    key_events: o.key_events || "",
+                                    raw_notes: o.raw_notes || "",
                                   });
                                 }}
                               >

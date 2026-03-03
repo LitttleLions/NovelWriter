@@ -123,7 +123,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   if (!isFiltered) {
     const allChars = await query(
-      "SELECT * FROM project_characters WHERE project_id = $1 ORDER BY pc.created_at",
+      "SELECT * FROM project_characters WHERE project_id = $1 ORDER BY created_at",
       [id]
     );
     characterRows = allChars.rows;

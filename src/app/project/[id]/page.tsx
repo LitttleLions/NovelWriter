@@ -1,0 +1,671 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
+} from "@/components/ui/select";
+import {
+  BookOpen, ArrowLeft, Sparkles, Layers, PenTool, Download,
+  RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
+} from "lucide-react";
+
+interface Project {
+  id: number;
+  title: string;
+  genre: string;
+  language: string;
+  target_word_count: number;
+  summary: string;
+  characters: string;
+  outline: string;
+  style_sample: string;
+  style_json: any;
+  ai_provider: string;
+  status: string;
+}
+
+interface Chapter {
+  id: number;
+  chapter_number: number;
+  title: string;
+  content: string;
+  word_count: number;
+  status: string;
+}
+
+interface ChapterOutline {
+  id: number;
+  chapter_number: number;
+  title: string;
+  purpose: string;
+  character_arc: string;
+  tension_level: number;
+}
+
+interface Model {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+}
+
+export default function ProjectPage() {
+  const router = useRouter();
+  const params = useParams();
+  const projectId = params.id;
+
+  const [project, setProject] = useState<Project | null>(null);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [outlines, setOutlines] = useState<ChapterOutline[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  const [styleSample, setStyleSample] = useState("");
+  const [analyzingStyle, setAnalyzingStyle] = useState(false);
+  const [generatingOutline, setGeneratingOutline] = useState(false);
+  const [generatingChapter, setGeneratingChapter] = useState<number | null>(null);
+  const [editingChapter, setEditingChapter] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
+  const [savingChapter, setSavingChapter] = useState(false);
+
+  const loadProject = useCallback(async () => {
+    const res = await fetch(`/api/projects/${projectId}`);
+    const data = await res.json();
+    if (data.error) {
+      router.push("/dashboard");
+      return;
+    }
+    setProject(data.project);
+    setChapters(data.chapters || []);
+    setOutlines(data.outlines || []);
+    setStyleSample(data.project.style_sample || "");
+    setLoading(false);
+  }, [projectId, router]);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then((r) => r.json()).then((d) => {
+      if (d.error) router.push("/");
+    });
+    fetch("/api/models").then((r) => r.json()).then((d) => setModels(d.models || []));
+    loadProject();
+  }, [router, loadProject]);
+
+  const groupedModels = models.reduce((acc, m) => {
+    if (!acc[m.provider]) acc[m.provider] = [];
+    acc[m.provider].push(m);
+    return acc;
+  }, {} as Record<string, Model[]>);
+
+  async function analyzeStyle() {
+    if (!styleSample.trim()) return;
+    setAnalyzingStyle(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/style/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ style_sample: styleSample }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProject((prev) => prev ? { ...prev, style_json: data.style, style_sample: styleSample } : null);
+      } else {
+        alert(data.error || "Stil-Analyse fehlgeschlagen");
+      }
+    } finally {
+      setAnalyzingStyle(false);
+    }
+  }
+
+  async function generateOutline() {
+    setGeneratingOutline(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/outline/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOutlines(data.outlines);
+        setActiveTab("outline");
+      } else {
+        alert(data.error || "Outline-Generierung fehlgeschlagen");
+      }
+    } finally {
+      setGeneratingOutline(false);
+    }
+  }
+
+  async function generateChapter(chapterNumber: number) {
+    setGeneratingChapter(chapterNumber);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chapters/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapter_number: chapterNumber }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setChapters((prev) => {
+          const existing = prev.findIndex((c) => c.chapter_number === chapterNumber);
+          if (existing >= 0) {
+            const updated = [...prev];
+            updated[existing] = data.chapter;
+            return updated;
+          }
+          return [...prev, data.chapter].sort((a, b) => a.chapter_number - b.chapter_number);
+        });
+        setActiveTab("chapters");
+        setExpandedChapter(chapterNumber);
+      } else {
+        alert(data.error || "Kapitel-Generierung fehlgeschlagen");
+      }
+    } finally {
+      setGeneratingChapter(null);
+    }
+  }
+
+  async function saveChapterEdit(chapterId: number) {
+    setSavingChapter(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setChapters((prev) =>
+          prev.map((c) => (c.id === chapterId ? data.chapter : c))
+        );
+        setEditingChapter(null);
+      }
+    } finally {
+      setSavingChapter(false);
+    }
+  }
+
+  async function updateModel(modelId: string) {
+    await fetch(`/api/projects/${projectId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ai_provider: modelId }),
+    });
+    setProject((prev) => prev ? { ...prev, ai_provider: modelId } : null);
+  }
+
+  function handleExport(format: string) {
+    window.open(`/api/projects/${projectId}/export?format=${format}`, "_blank");
+  }
+
+  if (loading || !project) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Laden...</div>
+      </div>
+    );
+  }
+
+  const totalWords = chapters.reduce((sum, c) => sum + (c.word_count || 0), 0);
+  const progress = Math.min(100, (totalWords / project.target_word_count) * 100);
+
+  return (
+    <div className="min-h-screen">
+      <header className="border-b border-border/60 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
+        <div className="container flex h-16 items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold truncate">{project.title}</h1>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {project.genre && <Badge variant="secondary" className="text-xs">{project.genre}</Badge>}
+              <span>{totalWords.toLocaleString("de-DE")} / {project.target_word_count.toLocaleString("de-DE")} Wörter</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={project.ai_provider} onValueChange={updateModel}>
+              <SelectTrigger className="w-[200px] h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(groupedModels).map(([provider, providerModels]) => (
+                  <SelectGroup key={provider}>
+                    <SelectLabel>{provider}</SelectLabel>
+                    {providerModels.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs">
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={() => handleExport("markdown")}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
+        </div>
+        <div className="container pb-2">
+          <Progress value={progress} className="h-1.5" />
+        </div>
+      </header>
+
+      <main className="container py-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="overview">Übersicht</TabsTrigger>
+            <TabsTrigger value="style">Stil-Engine</TabsTrigger>
+            <TabsTrigger value="outline">Outline ({outlines.length})</TabsTrigger>
+            <TabsTrigger value="chapters">Kapitel ({chapters.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {project.summary || "Keine Summary vorhanden"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Charaktere</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {project.characters || "Keine Charaktere definiert"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-lg">Fortschritt</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="text-3xl font-bold text-primary">
+                        {chapters.length}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Kapitel</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-primary">
+                        {totalWords.toLocaleString("de-DE")}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Wörter</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-primary">
+                        {Math.round(progress)}%
+                      </div>
+                      <div className="text-sm text-muted-foreground">Fertig</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="style">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    Stil-Beispiele
+                  </CardTitle>
+                  <CardDescription>
+                    Füge 3–10 Seiten aus Büchern ein, deren Stil du übernehmen möchtest
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Textarea
+                    placeholder="Kopiere hier 3–10 Seiten Text ein, die den gewünschten Schreibstil zeigen..."
+                    value={styleSample}
+                    onChange={(e) => setStyleSample(e.target.value)}
+                    rows={15}
+                  />
+                  <Button
+                    onClick={analyzeStyle}
+                    disabled={analyzingStyle || !styleSample.trim()}
+                    className="w-full"
+                  >
+                    {analyzingStyle ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Analysiere Stil...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Stil analysieren
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Stil-Analyse</CardTitle>
+                  <CardDescription>
+                    {project.style_json ? "Erkannter Stil" : "Noch keine Analyse durchgeführt"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {project.style_json ? (
+                    <div className="space-y-3">
+                      {project.style_json.author_style && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default">{project.style_json.author_style}</Badge>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {project.style_json.vocabulary_complexity !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Vokabular:</span>
+                            <div className="mt-1">
+                              <Progress value={project.style_json.vocabulary_complexity * 10} className="h-2" />
+                              <span className="text-xs">{project.style_json.vocabulary_complexity}/10</span>
+                            </div>
+                          </div>
+                        )}
+                        {project.style_json.description_density !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Beschreibungsdichte:</span>
+                            <div className="mt-1">
+                              <Progress value={project.style_json.description_density * 10} className="h-2" />
+                              <span className="text-xs">{project.style_json.description_density}/10</span>
+                            </div>
+                          </div>
+                        )}
+                        {project.style_json.dialogue_ratio_percent !== undefined && (
+                          <div>
+                            <span className="text-muted-foreground">Dialoganteil:</span>
+                            <span className="ml-2 font-medium">{project.style_json.dialogue_ratio_percent}%</span>
+                          </div>
+                        )}
+                        {project.style_json.pacing && (
+                          <div>
+                            <span className="text-muted-foreground">Tempo:</span>
+                            <span className="ml-2 font-medium">{project.style_json.pacing}</span>
+                          </div>
+                        )}
+                        {project.style_json.tense && (
+                          <div>
+                            <span className="text-muted-foreground">Tempus:</span>
+                            <span className="ml-2 font-medium">{project.style_json.tense}</span>
+                          </div>
+                        )}
+                        {project.style_json.tone && (
+                          <div>
+                            <span className="text-muted-foreground">Ton:</span>
+                            <span className="ml-2 font-medium">{project.style_json.tone}</span>
+                          </div>
+                        )}
+                      </div>
+                      {project.style_json.favorite_literary_devices && (
+                        <div>
+                          <span className="text-sm text-muted-foreground">Stilmittel:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {project.style_json.favorite_literary_devices.map((d: string, i: number) => (
+                              <Badge key={i} variant="outline" className="text-xs">{d}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                      <p>Lade Beispieltext hoch und klicke auf "Stil analysieren"</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="outline">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Kapitel-Struktur</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {outlines.length > 0
+                      ? `${outlines.length} Kapitel geplant`
+                      : "Generiere eine Kapitel-Struktur basierend auf deiner Summary"}
+                  </p>
+                </div>
+                <Button onClick={generateOutline} disabled={generatingOutline}>
+                  {generatingOutline ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Generiere...
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="h-4 w-4" />
+                      {outlines.length > 0 ? "Neu generieren" : "Outline generieren"}
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {outlines.length > 0 && (
+                <div className="space-y-3">
+                  {outlines.map((o) => {
+                    const chapter = chapters.find((c) => c.chapter_number === o.chapter_number);
+                    return (
+                      <Card key={o.id} className="overflow-hidden">
+                        <div className="flex items-center gap-4 p-4">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm shrink-0">
+                            {o.chapter_number}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold truncate">{o.title}</h4>
+                            <p className="text-sm text-muted-foreground truncate">{o.purpose}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="w-16">
+                              <div className="text-xs text-muted-foreground text-center mb-0.5">
+                                Spannung
+                              </div>
+                              <Progress value={o.tension_level * 10} className="h-1.5" />
+                            </div>
+                            {chapter ? (
+                              <Badge variant="success" className="text-xs">
+                                <Check className="h-3 w-3 mr-1" />
+                                {chapter.word_count} W.
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => generateChapter(o.chapter_number)}
+                                disabled={generatingChapter !== null}
+                              >
+                                {generatingChapter === o.chapter_number ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <PenTool className="h-3 w-3" />
+                                )}
+                                Schreiben
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Alle Kapitel generieren</span>
+                      <Button
+                        onClick={async () => {
+                          for (const o of outlines) {
+                            const ch = chapters.find((c) => c.chapter_number === o.chapter_number);
+                            if (!ch) {
+                              await generateChapter(o.chapter_number);
+                            }
+                          }
+                        }}
+                        disabled={generatingChapter !== null}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Alle generieren
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="chapters">
+            <div className="space-y-4">
+              {chapters.length === 0 ? (
+                <Card className="text-center py-12">
+                  <CardContent>
+                    <PenTool className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                    <h3 className="text-lg font-semibold mb-2">Noch keine Kapitel</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Erstelle zuerst eine Outline und generiere dann die Kapitel.
+                    </p>
+                    <Button onClick={() => setActiveTab("outline")}>
+                      <Layers className="h-4 w-4" />
+                      Zur Outline
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                chapters.map((ch) => (
+                  <Card key={ch.id} className="overflow-hidden">
+                    <div
+                      className="flex items-center gap-4 p-4 cursor-pointer"
+                      onClick={() =>
+                        setExpandedChapter(expandedChapter === ch.chapter_number ? null : ch.chapter_number)
+                      }
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm shrink-0">
+                        {ch.chapter_number}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold truncate">{ch.title}</h4>
+                        <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            generateChapter(ch.chapter_number);
+                          }}
+                          disabled={generatingChapter !== null}
+                        >
+                          {generatingChapter === ch.chapter_number ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3" />
+                          )}
+                          Neu
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (editingChapter === ch.id) {
+                              setEditingChapter(null);
+                            } else {
+                              setEditingChapter(ch.id);
+                              setEditContent(ch.content || "");
+                            }
+                          }}
+                        >
+                          <PenTool className="h-3 w-3" />
+                        </Button>
+                        {expandedChapter === ch.chapter_number ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    {expandedChapter === ch.chapter_number && (
+                      <div className="border-t px-4 py-4">
+                        {editingChapter === ch.id ? (
+                          <div className="space-y-3">
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              rows={20}
+                              className="font-mono text-sm"
+                            />
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">
+                                {editContent.trim().split(/\s+/).length} Wörter
+                              </span>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setEditingChapter(null)}>
+                                  Abbrechen
+                                </Button>
+                                <Button size="sm" onClick={() => saveChapterEdit(ch.id)} disabled={savingChapter}>
+                                  <Save className="h-3 w-3" />
+                                  {savingChapter ? "Speichern..." : "Speichern"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                              {ch.content || "Kein Inhalt"}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
+
+              {chapters.length > 0 && (
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Export</span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleExport("markdown")}>
+                        Markdown
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleExport("txt")}>
+                        TXT
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}

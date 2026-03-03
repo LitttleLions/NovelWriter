@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText } from "@/lib/openrouter";
+import { generateText, estimateCost } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -57,14 +57,11 @@ ${p.style_json ? `Aktueller Stil (halte dich strikt daran):\n${JSON.stringify(p.
 Kontext – Letzte Kapitel:
 ${contextText}`;
 
-    const result = await generateText(
-      p.ai_provider || "anthropic/claude-sonnet-4-5",
-      PROMPTS.chapterWriter,
-      userPrompt,
-      16000
-    );
+    const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
+    const result = await generateText(model, PROMPTS.chapterWriter, userPrompt, 16000);
 
-    const wordCount = result.trim().split(/\s+/).length;
+    const wordCount = result.content.trim().split(/\s+/).length;
+    const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
 
     const existing = await query(
       "SELECT id FROM chapters WHERE project_id = $1 AND chapter_number = $2",
@@ -76,21 +73,27 @@ ${contextText}`;
       const updated = await query(
         `UPDATE chapters SET content = $1, title = $2, word_count = $3, status = 'generated', updated_at = NOW()
          WHERE id = $4 RETURNING *`,
-        [result, chapterOutline?.title || `Kapitel ${chapter_number}`, wordCount, existing.rows[0].id]
+        [result.content, chapterOutline?.title || `Kapitel ${chapter_number}`, wordCount, existing.rows[0].id]
       );
       chapter = updated.rows[0];
     } else {
       const inserted = await query(
         `INSERT INTO chapters (project_id, chapter_number, title, content, word_count, status)
          VALUES ($1, $2, $3, $4, $5, 'generated') RETURNING *`,
-        [id, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`, result, wordCount]
+        [id, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`, result.content, wordCount]
       );
       chapter = inserted.rows[0];
     }
 
     await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [id]);
 
-    return NextResponse.json({ chapter });
+    await query(
+      `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [id, "Kapitel generiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`]
+    );
+
+    return NextResponse.json({ chapter, tokens: result.total_tokens, cost });
   } catch (error: any) {
     console.error("Chapter generation error:", error);
     return NextResponse.json({ error: "Kapitel-Generierung fehlgeschlagen: " + error.message }, { status: 500 });

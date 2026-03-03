@@ -110,12 +110,19 @@ export function getOpenRouterClient() {
   });
 }
 
+export interface GenerateResult {
+  content: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 export async function generateText(
   model: string,
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number = 8000
-): Promise<string> {
+): Promise<GenerateResult> {
   const client = getOpenRouterClient();
 
   const response = await client.chat.completions.create({
@@ -128,7 +135,34 @@ export async function generateText(
     temperature: 0.7,
   });
 
-  return response.choices[0]?.message?.content || "";
+  return {
+    content: response.choices[0]?.message?.content || "",
+    prompt_tokens: response.usage?.prompt_tokens || 0,
+    completion_tokens: response.usage?.completion_tokens || 0,
+    total_tokens: response.usage?.total_tokens || 0,
+  };
+}
+
+const MODEL_PRICES: Record<string, { prompt: number; completion: number }> = {
+  "anthropic/claude-3-5-sonnet": { prompt: 0.003, completion: 0.015 },
+  "anthropic/claude-3-5-haiku": { prompt: 0.0008, completion: 0.004 },
+  "anthropic/claude-3-opus": { prompt: 0.015, completion: 0.075 },
+  "openai/gpt-4o": { prompt: 0.0025, completion: 0.01 },
+  "openai/gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
+  "google/gemini-2.0-flash-001": { prompt: 0.0001, completion: 0.0004 },
+  "google/gemini-2.0-flash-lite-preview-02-05": { prompt: 0.000075, completion: 0.0003 },
+  "google/gemini-pro-1.5": { prompt: 0.00125, completion: 0.005 },
+  "deepseek/deepseek-v3": { prompt: 0.00027, completion: 0.0011 },
+  "minimax/minimax-01": { prompt: 0.0003, completion: 0.0011 },
+  "moonshotai/moonshot-v1-8k": { prompt: 0.0012, completion: 0.0012 },
+  "qwen/qwen-2.5-72b-instruct": { prompt: 0.0004, completion: 0.0004 },
+  "qwen/qwen-2.5-7b-instruct": { prompt: 0.0001, completion: 0.0002 },
+};
+
+export function estimateCost(modelId: string, promptTokens: number, completionTokens: number): number {
+  const prices = MODEL_PRICES[modelId];
+  if (!prices) return 0;
+  return (promptTokens / 1000) * prices.prompt + (completionTokens / 1000) * prices.completion;
 }
 
 export async function streamText(

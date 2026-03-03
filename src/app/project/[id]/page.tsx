@@ -18,7 +18,7 @@ import {
   BookOpen, ArrowLeft, Sparkles, Layers, PenTool, Download,
   RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
   Upload, FileText, ClipboardPaste, ArrowUp, ArrowDown, Pencil, X,
-  AlertTriangle, Type, Wand2,
+  AlertTriangle, Type, Wand2, Plus, Receipt, Zap,
 } from "lucide-react";
 
 interface Project {
@@ -94,6 +94,24 @@ export default function ProjectPage() {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showAddOutline, setShowAddOutline] = useState(false);
   const [newOutlineData, setNewOutlineData] = useState({ title: "", purpose: "", character_arc: "", tension_level: 5 });
+
+  const [generationLogs, setGenerationLogs] = useState<any[]>([]);
+  const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  const loadLogs = useCallback(async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/log`);
+      const data = await res.json();
+      if (res.ok) {
+        setGenerationLogs(data.logs || []);
+        setLogTotals(data.totals || null);
+      }
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, [projectId]);
 
   const loadProject = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}`);
@@ -417,12 +435,16 @@ export default function ProjectPage() {
       </header>
 
       <main className="container py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "log") loadLogs(); }}>
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="style">Stil-Engine</TabsTrigger>
             <TabsTrigger value="outline">Outline ({outlines.length})</TabsTrigger>
             <TabsTrigger value="chapters">Kapitel ({chapters.length})</TabsTrigger>
+            <TabsTrigger value="log">
+              <Receipt className="h-3.5 w-3.5 mr-1" />
+              KI-Log
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -1156,6 +1178,89 @@ export default function ProjectPage() {
                   </div>
                 </Card>
               )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="log">
+            <div className="space-y-4">
+              {logTotals && (
+                <div className="grid grid-cols-3 gap-4">
+                  <Card className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{parseInt(logTotals.total_tokens || "0").toLocaleString("de-DE")}</div>
+                    <div className="text-xs text-muted-foreground mt-1">Tokens gesamt</div>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">${parseFloat(logTotals.total_cost || "0").toFixed(4)}</div>
+                    <div className="text-xs text-muted-foreground mt-1">Geschätzte Kosten (USD)</div>
+                  </Card>
+                  <Card className="p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{generationLogs.length}</div>
+                    <div className="text-xs text-muted-foreground mt-1">Generierungen</div>
+                  </Card>
+                </div>
+              )}
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-primary" />
+                    Generierungs-Log
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={loadLogs} disabled={loadingLogs}>
+                    <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
+                    Aktualisieren
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {loadingLogs ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">Lade Logs...</div>
+                  ) : generationLogs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      Noch keine KI-Generierungen in diesem Projekt.
+                      <br />Starte mit der Stil-Analyse oder Outline-Generierung.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground text-xs">
+                            <th className="pb-2 pr-4">Zeitpunkt</th>
+                            <th className="pb-2 pr-4">Aktion</th>
+                            <th className="pb-2 pr-4">Details</th>
+                            <th className="pb-2 pr-4">Modell</th>
+                            <th className="pb-2 pr-4 text-right">Tokens</th>
+                            <th className="pb-2 text-right">Kosten (USD)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {generationLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="py-2.5 pr-4 text-xs text-muted-foreground whitespace-nowrap">
+                                {new Date(log.created_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                              </td>
+                              <td className="py-2.5 pr-4 font-medium">{log.action}</td>
+                              <td className="py-2.5 pr-4 text-muted-foreground text-xs max-w-[180px] truncate">{log.details || "–"}</td>
+                              <td className="py-2.5 pr-4">
+                                <Badge variant="secondary" className="text-xs font-mono truncate max-w-[140px]">
+                                  {log.model?.split("/")[1] || log.model}
+                                </Badge>
+                              </td>
+                              <td className="py-2.5 pr-4 text-right tabular-nums">{parseInt(log.total_tokens || 0).toLocaleString("de-DE")}</td>
+                              <td className="py-2.5 text-right tabular-nums text-primary font-medium">
+                                ${parseFloat(log.estimated_cost_usd || 0).toFixed(5)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Hinweis: Kosten sind Schätzwerte basierend auf hinterlegten Preistabellen. Abweichungen zum tatsächlichen OpenRouter-Guthaben sind möglich.
+              </p>
             </div>
           </TabsContent>
         </Tabs>

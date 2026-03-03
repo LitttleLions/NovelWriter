@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText } from "@/lib/openrouter";
+import { generateText, estimateCost } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,8 +43,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
+    const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
     const result = await generateText(
-      p.ai_provider || "anthropic/claude-sonnet-4-5",
+      model,
       PROMPTS.styleAnalyzer,
       `Analysiere den folgenden Text:\n\n${sampleText}`,
       4000
@@ -52,10 +53,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     let styleJson;
     try {
-      const jsonMatch = result.match(/\{[\s\S]*\}/);
-      styleJson = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
+      const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+      styleJson = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
     } catch {
-      styleJson = { raw_analysis: result };
+      styleJson = { raw_analysis: result.content };
     }
 
     styleJson.source = "analyzed";
@@ -63,6 +64,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await query(
       "UPDATE projects SET style_sample = $1, style_json = $2, updated_at = NOW() WHERE id = $3",
       [sampleText, JSON.stringify(styleJson), id]
+    );
+
+    const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
+    await query(
+      `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, "Stil analysiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, "Stil-Analyse"]
     );
 
     return NextResponse.json({ style: styleJson });

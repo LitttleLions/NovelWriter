@@ -39,14 +39,21 @@
 - **Radien**: Cards (16px / 1rem), Buttons (12px / 0.75rem), Inputs (8px / 0.5rem)
 - **Schatten**: Subtile Kartenschatten mit Hover-Effekt (Primary-Glow).
 
-## 4. Regeln für zukünftige Entwicklungen
-- **Aktualisierung**: Diese Datei (`PROJECT_DOC.md`) muss bei jeder neuen Funktion oder Architekturänderung aktualisiert werden.
-- **Design-Treue**: Neue UI-Elemente müssen dem PromptMate Design-System folgen.
-- **Datenbank-Sicherheit**: IDs und Schemata dürfen nicht destruktiv geändert werden (Drizzle push bevorzugt).
 ### Editieren & Löschen
 - **Stil**: Löschen der Analyse über das "X"-Icon in der Stil-Analyse Card.
-- **Outline**: Einzelne Punkte können editiert (Stift) oder gelöscht (X) werden. Neue Punkte können manuell hinzugefügt werden.
+- **Outline**: Einzelne Punkte können editiert (Stift) oder gelöscht (X) werden. Neue Punkte können manuell hinzugefügt werden (Formular unter "Punkt hinzufügen").
 - **Kapitel**: Generierte Kapitel können editiert oder gelöscht (X) werden.
 
-## 5. Kosten-Schätzung
-- Die App zeigt in der Modell-Auswahl oder im Workspace grobe Schätzungen basierend auf den OpenRouter-Preisen an (in Arbeit).
+## 5. KI-Kosten & Generierungs-Log
+- **Tabelle**: `generation_log` in PostgreSQL speichert jede KI-Anfrage mit Aktion, Modell, Token-Zählung und geschätzten Kosten (USD).
+- **API**: `GET /api/projects/[id]/log` liefert alle Einträge plus Summenwerte.
+- **Preistabelle**: `estimateCost()` in `openrouter.ts` berechnet Kosten basierend auf hinterlegten Preisen pro Modell.
+- **generateText()**: Gibt jetzt `{ content, prompt_tokens, completion_tokens, total_tokens }` zurück (statt nur String).
+- **UI**: Tab "KI-Log" zeigt alle Generierungen in einer Tabelle inkl. Zeitstempel, Aktion, Modell, Tokens und Kostenschätzung. Summenkarten zeigen Gesamtkosten und -tokens.
+
+## 6. Regeln für zukünftige Entwicklungen
+- **Aktualisierung**: Diese Datei (`PROJECT_DOC.md`) muss bei jeder neuen Funktion oder Architekturänderung aktualisiert werden.
+- **Design-Treue**: Neue UI-Elemente müssen dem PromptMate Design-System folgen.
+- **Datenbank-Sicherheit**: IDs und Schemata dürfen nicht destruktiv geändert werden.
+- **Modell-Liste**: Neue Modelle in `src/lib/openrouter.ts` müssen a) in `AVAILABLE_MODELS` und b) in `MODEL_PRICES` mit korrekten Preisen eingetragen werden.
+- **Logging**: Jede neue KI-Generierungsroute muss einen Eintrag in `generation_log` schreiben und `estimateCost()` verwenden.

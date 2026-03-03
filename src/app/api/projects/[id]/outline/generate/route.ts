@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText } from "@/lib/openrouter";
+import { generateText, estimateCost } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -27,6 +27,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { custom_outline } = await req.json().catch(() => ({}));
 
   try {
+    const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
+    let result;
     let chapters;
 
     if (custom_outline) {
@@ -37,15 +39,9 @@ ${custom_outline}
 
 ${PROMPTS.chapterArchitect}`;
 
-      const result = await generateText(
-        p.ai_provider || "anthropic/claude-sonnet-4-5",
-        "Du bist ein Master Book Architect.",
-        architectPrompt,
-        8000
-      );
-
-      const jsonMatch = result.match(/\[[\s\S]*\]/);
-      chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
+      result = await generateText(model, "Du bist ein Master Book Architect.", architectPrompt, 8000);
+      const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+      chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
     } else {
       const userPrompt = `Titel: ${p.title}
 Genre: ${p.genre || "Nicht angegeben"}
@@ -63,15 +59,9 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
-      const result = await generateText(
-        p.ai_provider || "anthropic/claude-sonnet-4-5",
-        PROMPTS.chapterArchitect,
-        userPrompt,
-        8000
-      );
-
-      const jsonMatch = result.match(/\[[\s\S]*\]/);
-      chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
+      result = await generateText(model, PROMPTS.chapterArchitect, userPrompt, 8000);
+      const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+      chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
     }
 
     await query("DELETE FROM chapters WHERE project_id = $1", [id]);
@@ -86,6 +76,13 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
     }
 
     await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [id]);
+
+    const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
+    await query(
+      `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, "Outline generiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, `${chapters.length} Kapitel-Punkte`]
+    );
 
     const outlines = await query(
       "SELECT * FROM chapter_outlines WHERE project_id = $1 ORDER BY chapter_number",

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText } from "@/lib/openrouter";
+import { generateText, estimateCost } from "@/lib/openrouter";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -29,19 +29,22 @@ Verwende ein klares Format, z.B. mit Überschriften oder Aufzählungszeichen.
 Charaktere:
 ${characters}`;
 
-    const result = await generateText(
-      p.ai_provider || "anthropic/claude-3-opus",
-      "Du bist ein erfahrener Roman-Editor.",
-      prompt,
-      4000
-    );
+    const model = p.ai_provider || "anthropic/claude-3-opus";
+    const result = await generateText(model, "Du bist ein erfahrener Roman-Editor.", prompt, 4000);
 
     await query(
       "UPDATE projects SET characters = $1, updated_at = NOW() WHERE id = $2",
-      [result, id]
+      [result.content, id]
     );
 
-    return NextResponse.json({ characters: result });
+    const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
+    await query(
+      `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, "Charaktere gesplittet", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, "KI-Splitting"]
+    );
+
+    return NextResponse.json({ characters: result.content });
   } catch (error: any) {
     console.error("Split characters error:", error);
     return NextResponse.json({ error: "Charakter-Splitting fehlgeschlagen: " + error.message }, { status: 500 });

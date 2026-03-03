@@ -48,6 +48,21 @@ CREATE TABLE IF NOT EXISTS chapter_outlines (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS generation_log (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  action VARCHAR(100) NOT NULL,
+  model VARCHAR(200),
+  prompt_tokens INTEGER DEFAULT 0,
+  completion_tokens INTEGER DEFAULT 0,
+  total_tokens INTEGER DEFAULT 0,
+  estimated_cost_usd NUMERIC(10, 6) DEFAULT 0,
+  chapter_number INTEGER,
+  details TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_chapters_project ON chapters(project_id);
 CREATE INDEX IF NOT EXISTS idx_chapter_outlines_project ON chapter_outlines(project_id);
+CREATE INDEX IF NOT EXISTS idx_generation_log_project ON generation_log(project_id);

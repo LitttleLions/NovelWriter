@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS chapter_outlines (
   purpose TEXT,
   character_arc TEXT,
   tension_level INTEGER DEFAULT 5,
+  location TEXT,
+  key_events TEXT,
+  raw_notes TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
 

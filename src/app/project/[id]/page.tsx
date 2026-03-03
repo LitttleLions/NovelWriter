@@ -52,6 +52,9 @@ interface ChapterOutline {
   purpose: string;
   character_arc: string;
   tension_level: number;
+  location?: string;
+  key_events?: string;
+  raw_notes?: string;
 }
 
 interface Model {
@@ -94,6 +97,7 @@ export default function ProjectPage() {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showAddOutline, setShowAddOutline] = useState(false);
   const [newOutlineData, setNewOutlineData] = useState({ title: "", purpose: "", character_arc: "", tension_level: 5 });
+  const [expandedOutline, setExpandedOutline] = useState<number | null>(null);
 
   const [generationLogs, setGenerationLogs] = useState<any[]>([]);
   const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
@@ -928,6 +932,7 @@ export default function ProjectPage() {
                             </div>
                           </div>
                         ) : (
+                          <>
                           <div className="flex items-center gap-4 p-4">
                             <div className="flex flex-col gap-1 shrink-0">
                               <Button
@@ -952,8 +957,15 @@ export default function ProjectPage() {
                                 <ArrowDown className="h-3 w-3" />
                               </Button>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold truncate">{o.title}</h4>
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedOutline(expandedOutline === o.id ? null : o.id)}>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold truncate">{o.title}</h4>
+                                {o.location && (
+                                  <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
+                                    {o.location.split(",")[0]}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-sm text-muted-foreground truncate">{o.purpose}</p>
                               {o.character_arc && (
                                 <p className="text-xs text-muted-foreground/70 truncate mt-0.5">{o.character_arc}</p>
@@ -1010,6 +1022,31 @@ export default function ProjectPage() {
                               )}
                             </div>
                           </div>
+                          {expandedOutline === o.id && (
+                            <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
+                              {o.location && (
+                                <div>
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ort & Zeit</span>
+                                  <p className="text-sm mt-0.5">{o.location}</p>
+                                </div>
+                              )}
+                              {o.key_events && (
+                                <div>
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Schlüsselereignisse</span>
+                                  <p className="text-sm mt-0.5">{o.key_events}</p>
+                                </div>
+                              )}
+                              {o.raw_notes && (
+                                <div>
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Original-Notizen</span>
+                                  <p className="text-sm mt-0.5 whitespace-pre-wrap leading-relaxed text-muted-foreground border-l-2 border-primary/30 pl-3">
+                                    {o.raw_notes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          </>
                         )}
                       </Card>
                     );

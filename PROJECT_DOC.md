@@ -19,8 +19,14 @@
 
 ### Outline-System
 - **KI-Generierung**: Erstellung einer Kapitelstruktur basierend auf der Zusammenfassung.
-- **Manueller Modus**: Importieren einer eigenen Outline (Text), die von der KI in das interne Format konvertiert wird.
-- **Bearbeitung**: Verschieben (Up/Down), Editieren von Titeln/Inhalten und Löschen von Kapiteln.
+- **Manueller Import (custom_outline)**: Eingefügter Outline-Text wird szenenweise geparst und mit dem `customOutlineConverter`-Prompt in JSON umgewandelt.
+  - Jede Szene wird als **eigener Eintrag** gespeichert (keine Zusammenfassungen).
+  - Felder: `title`, `purpose`, `character_arc`, `tension_level`, `location`, `key_events`, `raw_notes`.
+  - `raw_notes` enthält den **vollständigen Originaltext** der Szene.
+  - **Chunked Processing**: Bei mehr als 25 Szenen werden die Eingaben in Blöcken von 25 verarbeitet (je ein separater API-Aufruf).
+  - Output-Token-Limit: 32.000 (verhindert Abbruch bei langen Outlines).
+- **Bearbeitung**: Verschieben (Up/Down), Editieren, Löschen, einzelne Punkte hinzufügen.
+- **Detail-Ansicht**: Klick auf Szene expandiert `location`, `key_events` und `raw_notes`.
 
 ### Kapitel-Generierung
 - Sequentielle Generierung von Kapiteln unter Berücksichtigung von Stil und Charakter-Konsistenz.

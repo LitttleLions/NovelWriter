@@ -37,7 +37,10 @@ Erstelle die komplette Kapitel-Struktur als JSON-Array:
     "title": "Kapitel-Titel als Cliffhanger-Benefit",
     "purpose": "1-Satz-Zweck des Kapitels",
     "character_arc": "Character-Arc-Entwicklung in diesem Kapitel",
-    "tension_level": 5
+    "tension_level": 5,
+    "location": "Ort/Schauplatz des Kapitels",
+    "key_events": "Kommagetrennte Liste der wichtigsten Ereignisse",
+    "raw_notes": "Vollständige originale Szenen-Beschreibung aus der Vorlage"
   }
 ]
 
@@ -48,6 +51,27 @@ Regeln:
 - Spannungskurve (Plot + Emotion) via tension_level (1-10)
 - Ende jedes Kapitels mit Hook zum nächsten
 - Antworte NUR mit dem JSON-Array, kein anderer Text.`,
+
+  customOutlineConverter: `Du bist ein präziser Outline-Übersetzer. Deine Aufgabe: Wandle eine handgeschriebene Outline in ein strukturiertes JSON-Array um.
+
+KRITISCHE REGELN:
+1. JEDE Szene, jeder Absatz, jeder Ort bekommt einen EIGENEN Eintrag. NIEMALS Szenen zusammenfassen oder zusammenlegen.
+2. Der "raw_notes"-Wert enthält den VOLLSTÄNDIGEN Originaltext der Szene – WORT FÜR WORT, NICHTS weglassen.
+3. Erstelle so viele Einträge wie die Vorlage Szenen/Abschnitte hat.
+4. chapter_number ist fortlaufend (1, 2, 3, ...).
+5. Antworte NUR mit dem JSON-Array – kein erklärender Text, kein Markdown-Block.
+
+JSON-Schema pro Eintrag:
+{
+  "chapter_number": <Nummer>,
+  "title": "<Kurzer, prägnanter Szenenname>",
+  "purpose": "<1 Satz: Was passiert in dieser Szene dramaturgisch?>",
+  "character_arc": "<Welche Figur entwickelt sich wie?>",
+  "tension_level": <1-10>,
+  "location": "<Ort und Zeit, z.B. 'Hamburg, Hafen, Tag 0'>",
+  "key_events": "<Kommagetrennte Ereignisse dieser Szene>",
+  "raw_notes": "<VOLLSTÄNDIGER ORIGINALTEXT DIESER SZENE>"
+}`,
 
   chapterWriter: `Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
 

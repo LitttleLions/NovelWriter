@@ -1,0 +1,33 @@
+Feature Policy: Unbekannte Funktionalität (Feature) "usb" wird ignoriert. workspace_iframe.html:152:20
+Feature Policy: Unbekannte Funktionalität (Feature) "xr-spatial-tracking" wird ignoriert. workspace_iframe.html:152:20
+Feature Policy: Unbekannte Funktionalität (Feature) "clipboard-read" wird ignoriert. workspace_iframe.html:152:20
+Feature Policy: Unbekannte Funktionalität (Feature) "clipboard-write" wird ignoriert. workspace_iframe.html:152:20
+Cookie-Warnungen 5
+Für "https://1db0da66-38ea-407a-8824-9a287f7fba39-00-46747173vnxg.spock.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arou%3A" wurde partitionierter Cookie- oder Speicherzugriff verwendet, da es im Kontext eines Drittanbieters geladen wurde und dynamische Zustandspartitionierung aktiv ist. workspace_iframe.html:93:32
+stallwart: failed ping 1 stallwart.build.js:1:882
+stallwart: failed ping 2 stallwart.build.js:1:882
+Warnungen zu Content-Security-Policy 4
+Folgende nicht unterstützte entryTypes werden ignoriert: longtask. recaptcha__de.js:79:445
+Für "https://www.google.com/recaptcha/enterprise/anchor?ar=2&k=6LdqhwwoAAAAAFPdw8jCuvY3PaHQItGj3RzOS4fW&co=aHR0cHM6Ly9yZXBsaXQuY29tOjQ0Mw..&hl=de&v=AWtrSI7lAmTAfV1rzWqEqz54&size=invisible&anchor-ms=20000&execute-ms=30000&cb=o3vgijdmf0so" wurde partitionierter Cookie- oder Speicherzugriff verwendet, da es im Kontext eines Drittanbieters geladen wurde und dynamische Zustandspartitionierung aktiv ist. recaptcha__de.js:524:357
+Das Skript von "https://1db0da66-38ea-407a-8824-9a287f7fba39-00-46747173vnxg.spock.replit.dev/__replco/static/devtools/injected.js" wurde geladen, obwohl sein MIME-Typ ("text/plain") kein für JavaScript gültiger MIME-Typ ist. 1
+Für "https://1db0da66-38ea-407a-8824-9a287f7fba39-00-46747173vnxg.spock.replit.dev/project/1" wurde partitionierter Cookie- oder Speicherzugriff verwendet, da es im Kontext eines Drittanbieters geladen wurde und dynamische Zustandspartitionierung aktiv ist. 1:5:31
+Warning: Prop `dangerouslySetInnerHTML` did not match. Server: "" Client: "(self.__next_s=self.__next_s||[]).push([\"https://accounts.google.com/gsi/client\",{}])"
+script
+Script@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/script.js:180:130
+head
+html
+RootLayout (Server)
+RedirectErrorBoundary@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9
+RedirectBoundary@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:24
+NotFoundErrorBoundary@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9
+NotFoundBoundary@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:62
+DevRootNotFoundBoundary@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/dev-root-not-found-boundary.js:33:24
+ReactDevOverlay@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/ReactDevOverlay.js:87:9
+HotReload@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:321:37
+Router@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:207:134
+ErrorBoundaryHandler@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:113:9
+ErrorBoundary@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:67
+AppRouter@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:577:47
+ServerRoot@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:112:27
+Root@webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:117:24 injected.js:37:27
+Cookie-Warnunge

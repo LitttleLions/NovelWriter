@@ -188,7 +188,8 @@ export default function ProjectPage() {
         setOutlineInputMode("generate");
         setPastedOutline("");
       } else {
-        alert(data.error || "Outline-Generierung fehlgeschlagen");
+        console.error("Outline generation error:", data.error);
+        alert(data.error || "Outline-Generierung fehlgeschlagen. Bitte prüfe die Konsole.");
       }
     } finally {
       setGeneratingOutline(false);

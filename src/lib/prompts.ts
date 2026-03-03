@@ -59,12 +59,13 @@ KRITISCHE REGELN:
 2. Der "raw_notes"-Wert enthält den VOLLSTÄNDIGEN Originaltext der Szene – WORT FÜR WORT, NICHTS weglassen.
 3. Erstelle so viele Einträge wie die Vorlage Szenen/Abschnitte hat.
 4. chapter_number ist fortlaufend (1, 2, 3, ...).
-5. Antworte NUR mit dem JSON-Array – kein erklärender Text, kein Markdown-Block.
+5. SPRACHE: Erzeuge ALLE Texte (title, purpose, character_arc, location, key_events) in der Sprache des Projekts (Standard: Deutsch).
+6. Antworte NUR mit dem JSON-Array – kein erklärender Text, kein Markdown-Block.
 
 JSON-Schema pro Eintrag:
 {
   "chapter_number": <Nummer>,
-  "title": "<Kurzer, prägnanter Szenenname>",
+  "title": "<Kurzer, prägnanter Szenenname in Projektsprache>",
   "purpose": "<1 Satz: Was passiert in dieser Szene dramaturgisch?>",
   "character_arc": "<Welche Figur entwickelt sich wie?>",
   "tension_level": <1-10>,

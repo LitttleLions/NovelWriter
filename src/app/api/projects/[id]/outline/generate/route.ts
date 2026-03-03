@@ -7,33 +7,33 @@ import { PROMPTS } from "@/lib/prompts";
 const CHUNK_SIZE = 25;
 
 function splitOutlineIntoScenes(text: string): string[] {
-  const scenePattern = /^(?:\d+\.\s|Chapter\s+\d+|Kapitel\s+\d+|Scene\s+\d+|Szene\s+\d+|ACT\s+|PART\s+|Day\s+\d+|Tag\s+\d+|[A-Z][A-Za-z\s]+,\s+Day|[A-Z][A-Za-z\s]+,\s+Tag)/m;
-
+  // Verbesserter Splitter: Teilt bei Orten, Tagen oder expliziten Szenen-Markern
   const lines = text.split("\n");
   const scenes: string[] = [];
   let current: string[] = [];
 
+  const isNewScene = (line: string) => {
+    const l = line.trim();
+    return /^(?:\d+\.\s|Chapter\s+\d+|Kapitel\s+\d+|Scene\s+\d+|Szene\s+\d+|ACT\s+|PART\s+|Day\s+\d+|Tag\s+\d+|[A-Z][A-Za-z\s]+,\s+Day|[A-Z][A-Za-z\s]+,\s+Tag)/i.test(l);
+  };
+
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      if (current.length > 0) {
-        const block = current.join("\n").trim();
-        if (block.length > 20) scenes.push(block);
-        current = [];
-      }
-      continue;
+    if (isNewScene(line) && current.length > 0) {
+      scenes.push(current.join("\n").trim());
+      current = [];
     }
-    current.push(line);
+    if (line.trim()) {
+      current.push(line);
+    }
   }
 
   if (current.length > 0) {
-    const block = current.join("\n").trim();
-    if (block.length > 20) scenes.push(block);
+    scenes.push(current.join("\n").trim());
   }
 
+  // Fallback: Wenn kein Marker gefunden wurde, teile nach Absätzen
   if (scenes.length <= 1) {
-    const altSplit = text.split(/\n{2,}/);
-    return altSplit.filter((s) => s.trim().length > 20);
+    return text.split(/\n{2,}/).filter(s => s.trim().length > 10);
   }
 
   return scenes;
@@ -42,13 +42,15 @@ function splitOutlineIntoScenes(text: string): string[] {
 async function convertChunk(
   model: string,
   chunk: string[],
-  startNumber: number
+  startNumber: number,
+  language: string = "Deutsch"
 ): Promise<{ chapters: any[]; tokens: { prompt: number; completion: number; total: number } }> {
   const chunkText = chunk.join("\n\n---SZENE---\n\n");
 
   const userPrompt = `Wandle die folgenden ${chunk.length} Szenen in JSON um.
 Die Szenen sind durch "---SZENE---" getrennt.
 chapter_number beginnt bei ${startNumber}.
+ZIELSPRACHE: ${language} (Bitte alle Felder außer raw_notes in dieser Sprache ausgeben).
 BEHALTE jeden einzelnen Satz aus "raw_notes" 1:1 – kürze NICHTS.
 
 ${chunkText}`;
@@ -125,7 +127,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       let chapterCounter = 1;
       for (const chunk of chunks) {
-        const { chapters, tokens } = await convertChunk(model, chunk, chapterCounter);
+        const { chapters, tokens } = await convertChunk(model, chunk, chapterCounter, p.language || "Deutsch");
         allChapters = [...allChapters, ...chapters];
         chapterCounter += chapters.length;
         totalTokens.prompt += tokens.prompt;

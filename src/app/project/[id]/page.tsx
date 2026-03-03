@@ -229,6 +229,8 @@ export default function ProjectPage() {
       setSavingCharacters(false);
     }
   }
+
+  async function saveChapterEdit(chapterId: number) {
     setSavingChapter(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {

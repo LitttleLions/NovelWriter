@@ -96,6 +96,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Load characters: first try outline-specific, then fall back to all project characters
   let characterRows: any[] = [];
+  let isFiltered = false;
   if (chapterOutline) {
     const assignedChars = await query(
       `SELECT pc.* FROM project_characters pc
@@ -106,11 +107,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
     if (assignedChars.rows.length > 0) {
       characterRows = assignedChars.rows;
+      isFiltered = true;
     }
   }
-  if (characterRows.length === 0) {
+  if (!isFiltered) {
     const allChars = await query(
-      "SELECT * FROM project_characters WHERE project_id = $1 ORDER BY created_at",
+      "SELECT * FROM project_characters WHERE project_id = $1 ORDER BY pc.created_at",
       [id]
     );
     characterRows = allChars.rows;
@@ -138,7 +140,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const styleBlock = formatStyleForPrompt(p.style_json);
     const totalCharsResult = await query("SELECT COUNT(*) FROM project_characters WHERE project_id = $1", [id]);
     const totalCharsCount = parseInt(totalCharsResult.rows[0].count);
-    const characterLabel = characterRows.length > 0 && characterRows.length < totalCharsCount
+    const characterLabel = isFiltered
       ? "Charaktere in diesem Kapitel (nur diese Figuren auftreten lassen)"
       : "Charaktere";
 

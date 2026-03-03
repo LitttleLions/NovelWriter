@@ -151,7 +151,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
     
     // Explicit Style Wrapper for the LLM
+    const lang = p.language || "Deutsch";
     const finalStyleInstruction = `
+=== ABSOLUT ZWINGEND: ZIELSPRACHE ===
+Das gesamte Kapitel MUSS auf ${lang.toUpperCase()} geschrieben sein. Kein einziges Wort einer anderen Sprache (insbesondere KEIN Englisch). Auch Namen von Orten, Handlungen und Dialoge – alles auf ${lang}.
+=====================================
+
 === KRITISCHE STIL-VORGABE (DIESE REGELN ÜBERSCHREIBEN ALLES ANDERE) ===
 ${styleBlock}
 ======================================================================
@@ -192,7 +197,9 @@ Sprache: ${p.language || "Deutsch"}
 === KONTEXT – LETZTE KAPITEL (für Kontinuität) ===
 ${contextText}
 
-HINWEIS: Erinnere dich an die KRITISCHE STIL-VORGABE am Anfang dieses Prompts. Sie ist absolut bindend für den Rhythmus, die Wortwahl und die Atmosphäre dieses Kapitels.`;
+ABSCHLIESSENDE ERINNERUNG:
+1. Sprache: ${lang.toUpperCase()} – kein einziges Wort auf Englisch oder einer anderen Sprache.
+2. Stil: Die KRITISCHE STIL-VORGABE am Anfang dieses Prompts ist absolut bindend.`;
 
     const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
     const result = await generateText(model, PROMPTS.chapterWriter, userPrompt, 16000);

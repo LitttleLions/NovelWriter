@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -111,6 +111,9 @@ export default function ProjectPage() {
   const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const loadLogs = useCallback(async () => {
     setLoadingLogs(true);
     try {
@@ -153,6 +156,37 @@ export default function ProjectPage() {
     acc[m.provider].push(m);
     return acc;
   }, {} as Record<string, Model[]>);
+
+  const isAiWorking = generatingOutline || generatingChapter !== null || analyzingStyle;
+
+  useEffect(() => {
+    if (isAiWorking) {
+      setElapsedSeconds(0);
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds((s) => s + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isAiWorking]);
+
+  function formatElapsed(sec: number) {
+    if (sec < 60) return `${sec}s`;
+    return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+  }
+
+  function aiStatusLabel() {
+    if (analyzingStyle) return "Stil wird analysiert …";
+    if (generatingOutline) return "Outline wird generiert …";
+    if (generatingChapter !== null) return `Kapitel ${generatingChapter} wird geschrieben …`;
+    return "";
+  }
 
   async function analyzeStyle() {
     if (!styleSample.trim()) return;
@@ -881,7 +915,31 @@ export default function ProjectPage() {
                 )}
               </div>
 
-              {outlines.length > 0 && (
+              {generatingOutline && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground px-1">
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                    </span>
+                    KI analysiert deinen Text und strukturiert die Szenen …
+                  </div>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Card key={i} className="overflow-hidden">
+                      <div className="flex items-center gap-4 p-4">
+                        <div className="h-10 w-10 rounded-xl bg-muted animate-pulse shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 rounded bg-muted animate-pulse" style={{ width: `${55 + i * 8}%` }} />
+                          <div className="h-3 rounded bg-muted animate-pulse" style={{ width: `${35 + i * 5}%` }} />
+                        </div>
+                        <div className="h-8 w-24 rounded-xl bg-muted animate-pulse shrink-0" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {outlines.length > 0 && !generatingOutline && (
                 <div className="space-y-3">
                   {outlines.map((o, index) => {
                     const chapter = chapters.find((c) => c.chapter_number === o.chapter_number);
@@ -1132,14 +1190,23 @@ export default function ProjectPage() {
                 </Card>
               ) : (
                 chapters.map((ch) => (
-                  <Card key={ch.id} className="overflow-hidden">
+                  <Card key={ch.id} className={`overflow-hidden transition-all ${generatingChapter === ch.chapter_number ? "ring-1 ring-primary/40" : ""}`}>
+                    {generatingChapter === ch.chapter_number && (
+                      <div className="px-4 py-2.5 bg-primary/5 border-b border-primary/20 flex items-center gap-2">
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                        </span>
+                        <span className="text-xs text-primary font-medium">KI schreibt dieses Kapitel … {formatElapsed(elapsedSeconds)}</span>
+                      </div>
+                    )}
                     <div
                       className="flex items-center gap-4 p-4 cursor-pointer"
                       onClick={() =>
                         setExpandedChapter(expandedChapter === ch.chapter_number ? null : ch.chapter_number)
                       }
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm shrink-0">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-primary font-bold text-sm shrink-0 ${generatingChapter === ch.chapter_number ? "bg-primary/20 animate-pulse" : "bg-primary/10"}`}>
                         {ch.chapter_number}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1340,6 +1407,21 @@ export default function ProjectPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {isAiWorking && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 rounded-2xl bg-card border border-primary/30 shadow-glow px-5 py-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
+            </span>
+            <span className="text-sm font-medium">{aiStatusLabel()}</span>
+            <span className="text-xs font-mono text-muted-foreground bg-muted rounded-md px-2 py-0.5 tabular-nums">
+              {formatElapsed(elapsedSeconds)}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       path: "/",
     });
 
-    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name } });
+    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name }, token });
   } catch (error: any) {
     console.error("Registration error:", error);
     return NextResponse.json({ error: "Registrierung fehlgeschlagen" }, { status: 500 });

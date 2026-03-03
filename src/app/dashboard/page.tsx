@@ -45,6 +45,7 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem("rf_token");
     router.push("/");
   }
 

@@ -38,6 +38,7 @@ export default function LandingPage() {
       if (!res.ok) {
         setError(data.error || "Google-Anmeldung fehlgeschlagen");
       } else {
+        if (data.token) localStorage.setItem("rf_token", data.token);
         window.location.href = "/dashboard";
       }
     } catch {
@@ -111,6 +112,7 @@ export default function LandingPage() {
       if (!res.ok) {
         setError(data.error || "Ein Fehler ist aufgetreten");
       } else {
+        if (data.token) localStorage.setItem("rf_token", data.token);
         window.location.href = "/dashboard";
       }
     } catch {

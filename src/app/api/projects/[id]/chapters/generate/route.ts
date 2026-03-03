@@ -4,6 +4,67 @@ import { query } from "@/lib/db";
 import { generateText, estimateCost } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
+function formatStyleForPrompt(style_json: any): string {
+  if (!style_json) return "Kein spezieller Stil vorgegeben – schreibe in einem klaren, literarischen Stil.";
+
+  const s = style_json;
+
+  if (s.raw_description) {
+    return `STIL-VORGABE (strikt einhalten):\n${s.raw_description}`;
+  }
+
+  const lines: string[] = ["STIL-VORGABE (STRIKT EINHALTEN – das ist die wichtigste Anforderung):"];
+
+  if (s.author_style && s.author_style !== "Benutzerdefiniert") {
+    lines.push(`• Schreibstil orientiert sich an: ${s.author_style}`);
+  }
+  if (s.tone) lines.push(`• Grundton: ${s.tone}`);
+  if (s.tense) {
+    const tenseLabel = s.tense === "past" ? "Vergangenheit" : s.tense === "present" ? "Gegenwart" : s.tense;
+    lines.push(`• Zeitform: ${tenseLabel} – verwende AUSSCHLIESSLICH diese Zeitform`);
+  }
+  if (s.pacing) lines.push(`• Erzähltempo: ${s.pacing}`);
+  if (s.sentence_length_avg) {
+    const len = Number(s.sentence_length_avg);
+    const guidance =
+      len <= 8 ? "Kurze, prägnante Sätze. Kein Satzbau über 12 Wörter." :
+      len <= 14 ? "Mittellange Sätze. Variiere zwischen 6 und 18 Wörtern." :
+      "Ausgedehnte, fließende Sätze mit Nebensätzen und Einschüben.";
+    lines.push(`• Satzlänge: Ø ${len} Wörter – ${guidance}`);
+  }
+  if (s.vocabulary_complexity) {
+    const complexity = Number(s.vocabulary_complexity);
+    const label = complexity <= 3 ? "einfaches Alltagsvokabular" :
+      complexity <= 6 ? "mittleres Bildungsvokabular" : "gehobenes, literarisches Vokabular";
+    lines.push(`• Vokabular: ${label} (${complexity}/10)`);
+  }
+  if (s.description_density) {
+    const density = Number(s.description_density);
+    const guidance = density >= 7 ? "Reichhaltige sensorische Details – Gerüche, Geräusche, Texturen, Licht." :
+      density >= 4 ? "Selektive, präzise Details an entscheidenden Momenten." :
+      "Minimalistische Beschreibung – lass die Handlung sprechen.";
+    lines.push(`• Beschreibungsdichte: ${density}/10 – ${guidance}`);
+  }
+  if (s.dialogue_ratio_percent) {
+    const ratio = Number(s.dialogue_ratio_percent);
+    const guidance = ratio >= 50 ? "Dialog dominiert das Kapitel." :
+      ratio >= 25 ? "Ausgewogener Mix aus Dialog und Erzählung." :
+      "Wenig Dialog – Erzählerstimme steht im Vordergrund.";
+    lines.push(`• Dialog-Anteil: ca. ${ratio}% – ${guidance}`);
+  }
+  if (s.favorite_literary_devices?.length) {
+    lines.push(`• PFLICHT-Stilmittel (mindestens 3× pro Kapitel verwenden): ${s.favorite_literary_devices.join(", ")}`);
+  }
+  if (s.example_sentence_patterns?.length) {
+    lines.push(`\nSTIL-MASSTAB – so MUSS der Text klingen (exakt diesen Rhythmus und diese Satzstruktur verwenden):`);
+    s.example_sentence_patterns.forEach((p: string, i: number) => {
+      lines.push(`  ${i + 1}. "${p}"`);
+    });
+  }
+
+  return lines.join("\n");
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
@@ -40,10 +101,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ).join("\n\n")
       : "Dies ist das erste Kapitel.";
 
-    const userPrompt = `Kapitel-Nummer: ${chapter_number}
-Kapitel-Titel: ${chapterOutline?.title || `Kapitel ${chapter_number}`}
-Kapitel-Zweck: ${chapterOutline?.purpose || "Handlung vorantreiben"}
+    const styleBlock = formatStyleForPrompt(p.style_json);
 
+    const outlineBlock = chapterOutline ? `
+Kapitel-Titel: ${chapterOutline.title || `Kapitel ${chapter_number}`}
+Kapitel-Zweck: ${chapterOutline.purpose || "Handlung vorantreiben"}
+${chapterOutline.character_arc ? `Charakter-Entwicklung: ${chapterOutline.character_arc}` : ""}
+${chapterOutline.location ? `Ort & Zeit: ${chapterOutline.location}` : ""}
+${chapterOutline.key_events ? `Schlüsselereignisse (MÜSSEN vorkommen): ${chapterOutline.key_events}` : ""}
+${chapterOutline.tension_level ? `Spannungslevel: ${chapterOutline.tension_level}/10` : ""}
+${chapterOutline.raw_notes ? `\nSzenen-Vorlage des Autors (inhaltlich bindend, wortgetreu umsetzen):\n${chapterOutline.raw_notes}` : ""}`.trim()
+    : `Kapitel-Titel: Kapitel ${chapter_number}\nKapitel-Zweck: Handlung vorantreiben`;
+
+    const userPrompt = `Kapitel-Nummer: ${chapter_number}
+
+=== KAPITEL-VORGABE ===
+${outlineBlock}
+
+=== PROJEKT-KONTEXT ===
 Gesamte Summary:
 ${p.summary || "Nicht vorhanden"}
 
@@ -52,9 +127,9 @@ ${p.characters || "Aus der Summary ableiten"}
 
 Sprache: ${p.language || "Deutsch"}
 
-${p.style_json ? `Aktueller Stil (halte dich strikt daran):\n${JSON.stringify(p.style_json, null, 2)}` : "Kein spezieller Stil definiert."}
+=== ${styleBlock} ===
 
-Kontext – Letzte Kapitel:
+=== KONTEXT – LETZTE KAPITEL (für Kontinuität) ===
 ${contextText}`;
 
     const model = p.ai_provider || "anthropic/claude-sonnet-4-5";

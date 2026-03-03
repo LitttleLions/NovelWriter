@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -27,6 +27,7 @@
     --ring: 28 95% 55%;
     --radius: 1rem;
     --shadow-card: 0 2px 12px -2px hsla(230, 25%, 15%, 0.06);
+    --font-serif: 'Instrument Serif', serif;
   }
 
   .dark {
@@ -60,7 +61,12 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    font-family: 'Plus Jakarta Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  
+  h1, h2, h3, .font-serif {
+    font-family: var(--font-serif);
   }
 }

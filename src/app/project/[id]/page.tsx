@@ -12,9 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
 } from "@/components/ui/select";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   BookOpen, ArrowLeft, Sparkles, Layers, PenTool, Download,
   RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
+  Upload, FileText, ClipboardPaste,
 } from "lucide-react";
 
 interface Project {
@@ -70,6 +72,7 @@ export default function ProjectPage() {
   const [activeTab, setActiveTab] = useState("overview");
 
   const [styleSample, setStyleSample] = useState("");
+  const [styleInputMode, setStyleInputMode] = useState<"paste" | "upload">("paste");
   const [analyzingStyle, setAnalyzingStyle] = useState(false);
   const [generatingOutline, setGeneratingOutline] = useState(false);
   const [generatingChapter, setGeneratingChapter] = useState<number | null>(null);
@@ -250,7 +253,8 @@ export default function ProjectPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={() => handleExport("markdown")}>
+            <ThemeToggle />
+            <Button variant="outline" size="sm" onClick={() => handleExport("docx")}>
               <Download className="h-4 w-4" />
               Export
             </Button>
@@ -328,19 +332,79 @@ export default function ProjectPage() {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
-                    Stil-Beispiele
+                    Stil-Eingabe
                   </CardTitle>
                   <CardDescription>
-                    Füge 3–10 Seiten aus Büchern ein, deren Stil du übernehmen möchtest
+                    Wähle, wie du deinen Wunschstil definieren möchtest
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Textarea
-                    placeholder="Kopiere hier 3–10 Seiten Text ein, die den gewünschten Schreibstil zeigen..."
-                    value={styleSample}
-                    onChange={(e) => setStyleSample(e.target.value)}
-                    rows={15}
-                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant={styleInputMode === "paste" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setStyleInputMode("paste")}
+                    >
+                      <ClipboardPaste className="h-4 w-4" />
+                      Text einfügen
+                    </Button>
+                    <Button
+                      variant={styleInputMode === "upload" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setStyleInputMode("upload")}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Datei hochladen
+                    </Button>
+                  </div>
+
+                  {styleInputMode === "paste" ? (
+                    <div className="space-y-2">
+                      <Label>Stil-Text oder fertige Stil-Beschreibung</Label>
+                      <Textarea
+                        placeholder={`Option A: Kopiere hier 3–10 Seiten Text ein, die den gewünschten Schreibstil zeigen...\n\nOption B: Füge eine fertige Stil-Beschreibung ein, z.B.:\n"Kurze, prägnante Sätze. Viel Dialog. Schnelles Tempo. Innere Monologe des Protagonisten. Düsterer Ton. Vergangenheitsform. Detailreiche Actionszenen..."`}
+                        value={styleSample}
+                        onChange={(e) => setStyleSample(e.target.value)}
+                        rows={15}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Du kannst entweder Beispieltext aus Büchern einfügen oder direkt eine
+                        Stil-Beschreibung eingeben – die KI erkennt beides.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Label>Datei hochladen (.txt, .md)</Label>
+                      <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
+                        <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Ziehe eine Textdatei hierher oder klicke zum Auswählen
+                        </p>
+                        <input
+                          type="file"
+                          accept=".txt,.md,.text"
+                          className="hidden"
+                          id="style-file-upload"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const text = await file.text();
+                            setStyleSample(text);
+                            setStyleInputMode("paste");
+                          }}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById("style-file-upload")?.click()}
+                        >
+                          <FileText className="h-4 w-4" />
+                          Datei wählen
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <Button
                     onClick={analyzeStyle}
                     disabled={analyzingStyle || !styleSample.trim()}
@@ -652,6 +716,10 @@ export default function ProjectPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Export</span>
                     <div className="flex gap-2">
+                      <Button size="sm" onClick={() => handleExport("docx")}>
+                        <Download className="h-3 w-3" />
+                        Word (DOCX)
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => handleExport("markdown")}>
                         Markdown
                       </Button>

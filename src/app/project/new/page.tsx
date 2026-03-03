@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
 } from "@/components/ui/select";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { BookOpen, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 
 interface Model {
@@ -95,8 +96,9 @@ export default function NewProjectPage() {
             <BookOpen className="h-6 w-6 text-primary" />
             <span className="text-lg font-bold">Neues Projekt</span>
           </div>
-          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-            Schritt {step} von 2
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">Schritt {step} von 2</span>
+            <ThemeToggle />
           </div>
         </div>
       </header>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   BookOpen, Plus, Trash2, LogOut, Pencil, FileText,
 } from "lucide-react";
@@ -73,6 +74,7 @@ export default function DashboardPage() {
             <span className="text-sm text-muted-foreground">
               {user?.name || user?.email}
             </span>
+            <ThemeToggle />
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
             </Button>

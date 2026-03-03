@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { BookOpen, Sparkles, Layers, Download, PenTool, Shield, ArrowRight } from "lucide-react";
+
+declare global {
+  interface Window {
+    google?: any;
+    handleGoogleSignIn?: (response: any) => void;
+  }
+}
 
 export default function LandingPage() {
   const [authTab, setAuthTab] = useState("login");
@@ -15,6 +23,75 @@ export default function LandingPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [googleReady, setGoogleReady] = useState(false);
+
+  const handleGoogleCallback = useCallback(async (response: any) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Google-Anmeldung fehlgeschlagen");
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } catch {
+      setError("Verbindungsfehler");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.handleGoogleSignIn = handleGoogleCallback;
+
+    const interval = setInterval(() => {
+      if (window.google?.accounts?.id) {
+        setGoogleReady(true);
+        clearInterval(interval);
+      }
+    }, 200);
+
+    return () => {
+      clearInterval(interval);
+      delete window.handleGoogleSignIn;
+    };
+  }, [handleGoogleCallback]);
+
+  useEffect(() => {
+    if (!googleReady) return;
+
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((cfg) => {
+        if (!cfg.googleClientId) return;
+        try {
+          window.google.accounts.id.initialize({
+            client_id: cfg.googleClientId,
+            callback: handleGoogleCallback,
+          });
+
+          const btnContainer = document.getElementById("google-signin-btn");
+          if (btnContainer) {
+            btnContainer.innerHTML = "";
+            window.google.accounts.id.renderButton(btnContainer, {
+              theme: "outline",
+              size: "large",
+              width: "100%",
+              text: "signin_with",
+              shape: "rectangular",
+            });
+          }
+        } catch (e) {
+          console.log("Google Sign-In not configured");
+        }
+      });
+  }, [googleReady, authTab, handleGoogleCallback]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +124,7 @@ export default function LandingPage() {
     {
       icon: <Sparkles className="h-6 w-6" />,
       title: "Stil-Engine",
-      desc: "Lade Beispielseiten hoch – die App schreibt exakt in deinem Wunschstil.",
+      desc: "Lade Beispielseiten hoch oder füge Stil-Beschreibungen ein – die App schreibt exakt in deinem Wunschstil.",
     },
     {
       icon: <Layers className="h-6 w-6" />,
@@ -72,7 +149,7 @@ export default function LandingPage() {
     {
       icon: <Download className="h-6 w-6" />,
       title: "Export",
-      desc: "Exportiere als Markdown, TXT oder kopiere direkt in dein Schreibprogramm.",
+      desc: "Exportiere als Word (DOCX), Markdown oder TXT.",
     },
   ];
 
@@ -84,6 +161,7 @@ export default function LandingPage() {
             <BookOpen className="h-7 w-7 text-primary" />
             <span className="text-xl font-bold">RomanForge AI</span>
           </div>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -177,6 +255,20 @@ export default function LandingPage() {
                       </Button>
                     </form>
                   </Tabs>
+
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">oder</span>
+                    </div>
+                  </div>
+
+                  <div id="google-signin-btn" className="flex justify-center" />
+                  <p className="text-xs text-center text-muted-foreground mt-2">
+                    Google Sign-In benötigt eine Client-ID in den Einstellungen
+                  </p>
                 </CardContent>
               </Card>
             </div>

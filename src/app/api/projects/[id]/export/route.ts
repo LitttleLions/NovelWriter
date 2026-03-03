@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel,
+  AlignmentType, PageBreak,
+} from "docx";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -24,6 +28,80 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   );
 
   const p = project.rows[0];
+  const safeTitle = p.title.replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g, "");
+
+  if (format === "docx") {
+    const docChildren: Paragraph[] = [];
+
+    docChildren.push(
+      new Paragraph({
+        children: [new TextRun({ text: p.title, bold: true, size: 56, font: "Georgia" })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+      })
+    );
+
+    if (p.genre) {
+      docChildren.push(
+        new Paragraph({
+          children: [new TextRun({ text: `Genre: ${p.genre}`, italics: true, size: 24, color: "666666", font: "Georgia" })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 600 },
+        })
+      );
+    }
+
+    for (const ch of chapters.rows) {
+      docChildren.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      );
+
+      docChildren.push(
+        new Paragraph({
+          text: ch.title || `Kapitel ${ch.chapter_number}`,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 300 },
+        })
+      );
+
+      const content = ch.content || "(Noch nicht geschrieben)";
+      const paragraphs = content.split(/\n\n+/);
+
+      for (const para of paragraphs) {
+        if (!para.trim()) continue;
+        docChildren.push(
+          new Paragraph({
+            children: [new TextRun({ text: para.trim(), size: 24, font: "Georgia" })],
+            spacing: { after: 200 },
+            alignment: AlignmentType.JUSTIFIED,
+          })
+        );
+      }
+    }
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+          },
+        },
+        children: docChildren,
+      }],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    const uint8 = new Uint8Array(buffer);
+
+    return new NextResponse(uint8, {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Disposition": `attachment; filename="${safeTitle}.docx"`,
+      },
+    });
+  }
 
   if (format === "markdown") {
     let md = `# ${p.title}\n\n`;
@@ -39,7 +117,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(md, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${p.title.replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g, "")}.md"`,
+        "Content-Disposition": `attachment; filename="${safeTitle}.md"`,
       },
     });
   }
@@ -55,7 +133,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(txt, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${p.title.replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g, "")}.txt"`,
+        "Content-Disposition": `attachment; filename="${safeTitle}.txt"`,
       },
     });
   }

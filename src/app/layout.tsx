@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,8 +9,25 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de" className="dark">
+    <html lang="de" className="dark" suppressHydrationWarning>
+      <head>
+        <Script src="https://accounts.google.com/gsi/client" strategy="beforeInteractive" />
+      </head>
       <body className="min-h-screen font-sans antialiased">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
         {children}
       </body>
     </html>

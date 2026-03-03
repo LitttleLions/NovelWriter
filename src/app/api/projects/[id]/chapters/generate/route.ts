@@ -94,6 +94,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const chapterOutline = outline.rows[0];
 
+  // Load characters: first try outline-specific, then fall back to all project characters
+  let characterRows: any[] = [];
+  if (chapterOutline) {
+    const assignedChars = await query(
+      `SELECT pc.* FROM project_characters pc
+       INNER JOIN outline_characters oc ON oc.character_id = pc.id
+       WHERE oc.outline_id = $1
+       ORDER BY pc.created_at`,
+      [chapterOutline.id]
+    );
+    if (assignedChars.rows.length > 0) {
+      characterRows = assignedChars.rows;
+    }
+  }
+  if (characterRows.length === 0) {
+    const allChars = await query(
+      "SELECT * FROM project_characters WHERE project_id = $1 ORDER BY created_at",
+      [id]
+    );
+    characterRows = allChars.rows;
+  }
+
+  function formatCharactersForPrompt(chars: any[]): string {
+    if (chars.length === 0) return p.characters || "Nicht spezifiziert";
+    return chars.map((c) => [
+      `**${c.name}**${c.role ? ` (${c.role})` : ""}`,
+      c.description ? `Beschreibung: ${c.description}` : "",
+      c.traits ? `Eigenschaften: ${c.traits}` : "",
+      c.backstory ? `Hintergrund: ${c.backstory}` : "",
+      c.appearance ? `Aussehen: ${c.appearance}` : "",
+      c.notes ? `Notizen: ${c.notes}` : "",
+    ].filter(Boolean).join("\n")).join("\n\n");
+  }
+
   try {
     const contextText = prevChapters.rows.length > 0
       ? prevChapters.rows.map((c: any) =>
@@ -102,6 +136,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : "Dies ist das erste Kapitel.";
 
     const styleBlock = formatStyleForPrompt(p.style_json);
+    const totalCharsResult = await query("SELECT COUNT(*) FROM project_characters WHERE project_id = $1", [id]);
+    const totalCharsCount = parseInt(totalCharsResult.rows[0].count);
+    const characterLabel = characterRows.length > 0 && characterRows.length < totalCharsCount
+      ? "Charaktere in diesem Kapitel (nur diese Figuren auftreten lassen)"
+      : "Charaktere";
 
     const outlineBlock = chapterOutline ? `
 Kapitel-Titel: ${chapterOutline.title || `Kapitel ${chapter_number}`}
@@ -122,8 +161,8 @@ ${outlineBlock}
 Gesamte Summary:
 ${p.summary || "Nicht vorhanden"}
 
-Charaktere:
-${p.characters || "Aus der Summary ableiten"}
+${characterLabel}:
+${formatCharactersForPrompt(characterRows)}
 
 Sprache: ${p.language || "Deutsch"}
 

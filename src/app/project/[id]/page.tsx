@@ -57,6 +57,18 @@ interface ChapterOutline {
   raw_notes?: string;
 }
 
+interface ProjectCharacter {
+  id: number;
+  project_id: number;
+  name: string;
+  role?: string;
+  description?: string;
+  traits?: string;
+  backstory?: string;
+  appearance?: string;
+  notes?: string;
+}
+
 interface Model {
   id: string;
   name: string;
@@ -111,6 +123,16 @@ export default function ProjectPage() {
   const [newOutlineFreetext, setNewOutlineFreetext] = useState("");
   const [expandedOutline, setExpandedOutline] = useState<number | null>(null);
 
+  const [projectCharacters, setProjectCharacters] = useState<ProjectCharacter[]>([]);
+  const [extractingCharacters, setExtractingCharacters] = useState(false);
+  const [addingCharacter, setAddingCharacter] = useState(false);
+  const [newCharacterData, setNewCharacterData] = useState({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "" });
+  const [editingCharacter, setEditingCharacter] = useState<number | null>(null);
+  const [characterEditData, setCharacterEditData] = useState<any>({});
+  const [savingCharacter, setSavingCharacter] = useState(false);
+  const [expandedCharacter, setExpandedCharacter] = useState<number | null>(null);
+  const [outlineCharacterMap, setOutlineCharacterMap] = useState<Record<number, number[]>>({});
+
   const [generationLogs, setGenerationLogs] = useState<any[]>([]);
   const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -145,6 +167,10 @@ export default function ProjectPage() {
     setCharactersText(data.project.characters || "");
     setStyleSample(data.project.style_sample || "");
     setLoading(false);
+    // Load structured characters
+    const charRes = await fetch(`/api/projects/${projectId}/characters`);
+    const charData = await charRes.json();
+    if (charRes.ok) setProjectCharacters(charData.characters || []);
   }, [projectId, router]);
 
   useEffect(() => {
@@ -161,7 +187,7 @@ export default function ProjectPage() {
     return acc;
   }, {} as Record<string, Model[]>);
 
-  const isAiWorking = generatingOutline || generatingChapter !== null || analyzingStyle || savingOutline;
+  const isAiWorking = generatingOutline || generatingChapter !== null || analyzingStyle || savingOutline || extractingCharacters;
 
   useEffect(() => {
     if (isAiWorking) {
@@ -189,6 +215,7 @@ export default function ProjectPage() {
     if (analyzingStyle) return "Stil wird analysiert …";
     if (generatingOutline) return "Outline wird generiert …";
     if (savingOutline) return "Szenen werden strukturiert …";
+    if (extractingCharacters) return "Charaktere werden extrahiert …";
     if (generatingChapter !== null) return `Kapitel ${generatingChapter} wird geschrieben …`;
     return "";
   }
@@ -481,6 +508,88 @@ export default function ProjectPage() {
     }
   }
 
+  async function extractCharacters(replace = false) {
+    setExtractingCharacters(true);
+    try {
+      const sourceText = project?.characters || project?.summary || "";
+      const res = await fetch(`/api/projects/${projectId}/characters/extract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: sourceText, replace }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (replace) setProjectCharacters(data.characters);
+        else setProjectCharacters((prev) => [...prev, ...data.characters]);
+      } else {
+        alert(data.error || "Extraktion fehlgeschlagen");
+      }
+    } finally {
+      setExtractingCharacters(false);
+    }
+  }
+
+  async function addCharacter() {
+    if (!newCharacterData.name.trim()) return;
+    setSavingCharacter(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/characters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCharacterData),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProjectCharacters((prev) => [...prev, data.character]);
+        setNewCharacterData({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "" });
+        setAddingCharacter(false);
+      }
+    } finally {
+      setSavingCharacter(false);
+    }
+  }
+
+  async function saveCharacterEdit(charId: number) {
+    setSavingCharacter(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/characters/${charId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(characterEditData),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProjectCharacters((prev) => prev.map((c) => c.id === charId ? data.character : c));
+        setEditingCharacter(null);
+      }
+    } finally {
+      setSavingCharacter(false);
+    }
+  }
+
+  async function deleteCharacterRecord(charId: number) {
+    if (!confirm("Diesen Charakter wirklich löschen?")) return;
+    const res = await fetch(`/api/projects/${projectId}/characters/${charId}`, { method: "DELETE" });
+    if (res.ok) setProjectCharacters((prev) => prev.filter((c) => c.id !== charId));
+  }
+
+  async function loadOutlineCharacters(outlineId: number) {
+    const res = await fetch(`/api/projects/${projectId}/outline/${outlineId}/characters`);
+    const data = await res.json();
+    if (res.ok) {
+      setOutlineCharacterMap((prev) => ({ ...prev, [outlineId]: data.characters.map((c: any) => c.id) }));
+    }
+  }
+
+  async function saveOutlineCharacters(outlineId: number, characterIds: number[]) {
+    await fetch(`/api/projects/${projectId}/outline/${outlineId}/characters`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character_ids: characterIds }),
+    });
+    setOutlineCharacterMap((prev) => ({ ...prev, [outlineId]: characterIds }));
+  }
+
   if (loading || !project) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -541,6 +650,7 @@ export default function ProjectPage() {
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="style">Stil-Engine</TabsTrigger>
+            <TabsTrigger value="characters">Figuren ({projectCharacters.length})</TabsTrigger>
             <TabsTrigger value="outline">Outline ({outlines.length})</TabsTrigger>
             <TabsTrigger value="chapters">Kapitel ({chapters.length})</TabsTrigger>
             <TabsTrigger value="log">
@@ -991,6 +1101,211 @@ export default function ProjectPage() {
             </div>
           </TabsContent>
 
+          <TabsContent value="characters">
+            <div className="space-y-4">
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Figuren-Liste</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {projectCharacters.length > 0
+                        ? `${projectCharacters.length} Figuren angelegt`
+                        : "Noch keine Figuren angelegt"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => extractCharacters(projectCharacters.length === 0)}
+                      disabled={extractingCharacters}
+                    >
+                      {extractingCharacters ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                      {projectCharacters.length === 0 ? "Aus Text extrahieren" : "Weitere extrahieren"}
+                    </Button>
+                    <Button size="sm" onClick={() => setAddingCharacter(true)}>
+                      <Plus className="h-4 w-4" />
+                      Figur hinzufügen
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              {addingCharacter && (
+                <Card className="p-4 border-primary/30 bg-primary/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold">Neue Figur</span>
+                    <Button size="sm" variant="ghost" onClick={() => setAddingCharacter(false)}><X className="h-4 w-4" /></Button>
+                  </div>
+                  <div className="grid gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Name *</Label>
+                        <Input value={newCharacterData.name} onChange={(e) => setNewCharacterData({ ...newCharacterData, name: e.target.value })} placeholder="Vollständiger Name" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Rolle</Label>
+                        <Input value={newCharacterData.role} onChange={(e) => setNewCharacterData({ ...newCharacterData, role: e.target.value })} placeholder="Hauptfigur / Antagonist / …" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Beschreibung</Label>
+                      <Textarea value={newCharacterData.description} onChange={(e) => setNewCharacterData({ ...newCharacterData, description: e.target.value })} rows={2} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Eigenschaften</Label>
+                        <Input value={newCharacterData.traits} onChange={(e) => setNewCharacterData({ ...newCharacterData, traits: e.target.value })} placeholder="kommagetrennt" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Aussehen</Label>
+                        <Input value={newCharacterData.appearance} onChange={(e) => setNewCharacterData({ ...newCharacterData, appearance: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Hintergrundgeschichte</Label>
+                      <Textarea value={newCharacterData.backstory} onChange={(e) => setNewCharacterData({ ...newCharacterData, backstory: e.target.value })} rows={2} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Notizen / Beziehungen</Label>
+                      <Textarea value={newCharacterData.notes} onChange={(e) => setNewCharacterData({ ...newCharacterData, notes: e.target.value })} rows={2} />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setAddingCharacter(false)}>Abbrechen</Button>
+                      <Button size="sm" onClick={addCharacter} disabled={savingCharacter || !newCharacterData.name.trim()}>
+                        <Plus className="h-3 w-3" />
+                        {savingCharacter ? "Speichern…" : "Hinzufügen"}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {projectCharacters.length === 0 && !addingCharacter && (
+                <Card className="text-center py-12">
+                  <CardContent>
+                    <div className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3 text-4xl">👥</div>
+                    <h3 className="text-lg font-semibold mb-2">Noch keine Figuren</h3>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      Lass die KI die Figuren aus deinem Charaktertext oder deiner Summary extrahieren,<br/>oder füge sie manuell hinzu.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {projectCharacters.map((ch) => (
+                <Card key={ch.id} className="overflow-hidden">
+                  {editingCharacter === ch.id ? (
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-primary">Figur bearbeiten</span>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingCharacter(null)}><X className="h-4 w-4" /></Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Name *</Label>
+                          <Input value={characterEditData.name || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Rolle</Label>
+                          <Input value={characterEditData.role || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, role: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Beschreibung</Label>
+                        <Textarea value={characterEditData.description || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, description: e.target.value })} rows={2} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Eigenschaften</Label>
+                          <Input value={characterEditData.traits || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, traits: e.target.value })} placeholder="kommagetrennt" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Aussehen</Label>
+                          <Input value={characterEditData.appearance || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, appearance: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Hintergrundgeschichte</Label>
+                        <Textarea value={characterEditData.backstory || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, backstory: e.target.value })} rows={2} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Notizen / Beziehungen</Label>
+                        <Textarea value={characterEditData.notes || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, notes: e.target.value })} rows={2} />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditingCharacter(null)}>Abbrechen</Button>
+                        <Button size="sm" onClick={() => saveCharacterEdit(ch.id)} disabled={savingCharacter}>
+                          <Save className="h-3 w-3" />
+                          {savingCharacter ? "Speichern…" : "Speichern"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div
+                        className="flex items-center gap-4 p-4 cursor-pointer"
+                        onClick={() => setExpandedCharacter(expandedCharacter === ch.id ? null : ch.id)}
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm shrink-0 uppercase">
+                          {ch.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{ch.name}</span>
+                            {ch.role && <Badge variant="secondary" className="text-xs">{ch.role}</Badge>}
+                          </div>
+                          {ch.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{ch.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingCharacter(ch.id); setCharacterEditData({ ...ch }); }}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteCharacterRecord(ch.id); }}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                          {expandedCharacter === ch.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </div>
+                      {expandedCharacter === ch.id && (
+                        <div className="border-t px-4 py-3 bg-muted/20 grid grid-cols-2 gap-3 text-sm">
+                          {ch.traits && (
+                            <div>
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Eigenschaften</span>
+                              <p className="mt-0.5">{ch.traits}</p>
+                            </div>
+                          )}
+                          {ch.appearance && (
+                            <div>
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Aussehen</span>
+                              <p className="mt-0.5">{ch.appearance}</p>
+                            </div>
+                          )}
+                          {ch.backstory && (
+                            <div className="col-span-2">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Hintergrund</span>
+                              <p className="mt-0.5">{ch.backstory}</p>
+                            </div>
+                          )}
+                          {ch.notes && (
+                            <div className="col-span-2">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Notizen</span>
+                              <p className="mt-0.5">{ch.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
           <TabsContent value="outline">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1344,6 +1659,41 @@ export default function ProjectPage() {
                                   <p className="text-sm mt-0.5 whitespace-pre-wrap leading-relaxed text-muted-foreground border-l-2 border-primary/30 pl-3">
                                     {o.raw_notes}
                                   </p>
+                                </div>
+                              )}
+                              {projectCharacters.length > 0 && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Figuren in diesem Kapitel</span>
+                                    {!outlineCharacterMap.hasOwnProperty(o.id) && (
+                                      <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => loadOutlineCharacters(o.id)}>Laden</Button>
+                                    )}
+                                  </div>
+                                  {outlineCharacterMap.hasOwnProperty(o.id) ? (
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                      {projectCharacters.map((ch) => {
+                                        const assigned = outlineCharacterMap[o.id]?.includes(ch.id);
+                                        return (
+                                          <button
+                                            key={ch.id}
+                                            onClick={() => {
+                                              const cur = outlineCharacterMap[o.id] || [];
+                                              const next = assigned ? cur.filter((id) => id !== ch.id) : [...cur, ch.id];
+                                              saveOutlineCharacters(o.id, next);
+                                            }}
+                                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${assigned ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                                          >
+                                            {ch.name}
+                                          </button>
+                                        );
+                                      })}
+                                      {outlineCharacterMap[o.id]?.length === 0 && (
+                                        <span className="text-xs text-muted-foreground italic">Alle Figuren (kein Filter)</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground italic">Klick auf „Laden" um Figuren zuzuweisen</p>
+                                  )}
                                 </div>
                               )}
                             </div>

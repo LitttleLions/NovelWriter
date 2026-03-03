@@ -138,6 +138,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : "Dies ist das erste Kapitel.";
 
     const styleBlock = formatStyleForPrompt(p.style_json);
+    
+    // Explicit Style Wrapper for the LLM
+    const finalStyleInstruction = `
+=== KRITISCHE STIL-VORGABE (DIESE REGELN ÜBERSCHREIBEN ALLES ANDERE) ===
+${styleBlock}
+======================================================================
+`.trim();
+
     const totalCharsResult = await query("SELECT COUNT(*) FROM project_characters WHERE project_id = $1", [id]);
     const totalCharsCount = parseInt(totalCharsResult.rows[0].count);
     const characterLabel = isFiltered
@@ -156,6 +164,8 @@ ${chapterOutline.raw_notes ? `\nSzenen-Vorlage des Autors (inhaltlich bindend, w
 
     const userPrompt = `Kapitel-Nummer: ${chapter_number}
 
+${finalStyleInstruction}
+
 === KAPITEL-VORGABE ===
 ${outlineBlock}
 
@@ -168,10 +178,10 @@ ${formatCharactersForPrompt(characterRows)}
 
 Sprache: ${p.language || "Deutsch"}
 
-=== ${styleBlock} ===
-
 === KONTEXT – LETZTE KAPITEL (für Kontinuität) ===
-${contextText}`;
+${contextText}
+
+HINWEIS: Erinnere dich an die KRITISCHE STIL-VORGABE am Anfang dieses Prompts. Sie ist absolut bindend für den Rhythmus, die Wortwahl und die Atmosphäre dieses Kapitels.`;
 
     const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
     const result = await generateText(model, PROMPTS.chapterWriter, userPrompt, 16000);

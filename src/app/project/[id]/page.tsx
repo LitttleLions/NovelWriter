@@ -104,7 +104,7 @@ export default function ProjectPage() {
   const [savingOutline, setSavingOutline] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showAddOutline, setShowAddOutline] = useState(false);
-  const [newOutlineData, setNewOutlineData] = useState({ title: "", purpose: "", character_arc: "", tension_level: 5, location: "", key_events: "", raw_notes: "" });
+  const [newOutlineFreetext, setNewOutlineFreetext] = useState("");
   const [expandedOutline, setExpandedOutline] = useState<number | null>(null);
 
   const [generationLogs, setGenerationLogs] = useState<any[]>([]);
@@ -157,7 +157,7 @@ export default function ProjectPage() {
     return acc;
   }, {} as Record<string, Model[]>);
 
-  const isAiWorking = generatingOutline || generatingChapter !== null || analyzingStyle;
+  const isAiWorking = generatingOutline || generatingChapter !== null || analyzingStyle || savingOutline;
 
   useEffect(() => {
     if (isAiWorking) {
@@ -184,6 +184,7 @@ export default function ProjectPage() {
   function aiStatusLabel() {
     if (analyzingStyle) return "Stil wird analysiert …";
     if (generatingOutline) return "Outline wird generiert …";
+    if (savingOutline) return "Szenen werden strukturiert …";
     if (generatingChapter !== null) return `Kapitel ${generatingChapter} wird geschrieben …`;
     return "";
   }
@@ -375,18 +376,19 @@ export default function ProjectPage() {
   }
 
   async function addOutlineItem() {
+    if (!newOutlineFreetext.trim()) return;
     setSavingOutline(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/outline`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newOutlineData, chapter_number: outlines.length + 1 }),
+        body: JSON.stringify({ freetext: newOutlineFreetext, chapter_number_start: outlines.length + 1 }),
       });
       const data = await res.json();
       if (res.ok) {
-        setOutlines([...outlines, data.outline]);
+        setOutlines((prev) => [...prev, ...data.outlines]);
         setShowAddOutline(false);
-        setNewOutlineData({ title: "", purpose: "", character_arc: "", tension_level: 5, location: "", key_events: "", raw_notes: "" });
+        setNewOutlineFreetext("");
       }
     } finally {
       setSavingOutline(false);
@@ -884,31 +886,45 @@ export default function ProjectPage() {
 
                 {showAddOutline && (
                   <Card className="p-4 border-primary/30 bg-primary/5">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold">Neuen Outline-Punkt hinzufügen</span>
-                      <Button size="sm" variant="ghost" onClick={() => setShowAddOutline(false)}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold">Szenen / Kapitel hinzufügen</span>
+                      <Button size="sm" variant="ghost" onClick={() => { setShowAddOutline(false); setNewOutlineFreetext(""); }}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Beschreibe eine oder mehrere Szenen in beliebigem Format — Stichpunkte, Fließtext, Rohentwürfe. Die KI erkennt die Struktur und erstellt daraus die passenden Kapitel-Einträge.
+                    </p>
                     <div className="grid gap-3">
-                      <Input
-                        placeholder="Kapitel-Titel"
-                        value={newOutlineData.title}
-                        onChange={(e) => setNewOutlineData({ ...newOutlineData, title: e.target.value })}
-                      />
                       <Textarea
-                        placeholder="Zweck des Kapitels"
-                        value={newOutlineData.purpose}
-                        onChange={(e) => setNewOutlineData({ ...newOutlineData, purpose: e.target.value })}
-                        rows={2}
+                        placeholder={"Szene 1: Anna entdeckt das Tagebuch ihrer Mutter im Keller.\nSzene 2: Konfrontation mit dem Vater – er weiß mehr als er zugibt.\n\nOder einfach fließend: Die nächsten Kapitel drehen sich um die Reise nach Paris, wo..."}
+                        value={newOutlineFreetext}
+                        onChange={(e) => setNewOutlineFreetext(e.target.value)}
+                        rows={7}
+                        className="text-sm resize-none"
                       />
-                      <div className="flex gap-2">
-                        <Button className="flex-1" onClick={addOutlineItem} disabled={savingOutline || !newOutlineData.title}>
-                          Hinzufügen
-                        </Button>
-                        <Button variant="outline" onClick={() => setShowAddOutline(false)}>
-                          Abbrechen
-                        </Button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {newOutlineFreetext.trim() ? "KI erkennt automatisch, wie viele Kapitel erstellt werden sollen." : ""}
+                        </span>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setShowAddOutline(false); setNewOutlineFreetext(""); }}>
+                            Abbrechen
+                          </Button>
+                          <Button size="sm" onClick={addOutlineItem} disabled={savingOutline || !newOutlineFreetext.trim()}>
+                            {savingOutline ? (
+                              <>
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                                KI arbeitet …
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3 w-3" />
+                                Strukturieren & hinzufügen
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>

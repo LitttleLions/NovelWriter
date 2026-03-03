@@ -43,4 +43,10 @@
 - **Aktualisierung**: Diese Datei (`PROJECT_DOC.md`) muss bei jeder neuen Funktion oder Architekturänderung aktualisiert werden.
 - **Design-Treue**: Neue UI-Elemente müssen dem PromptMate Design-System folgen.
 - **Datenbank-Sicherheit**: IDs und Schemata dürfen nicht destruktiv geändert werden (Drizzle push bevorzugt).
-- **Modell-Liste**: Neue Modelle in `src/lib/openrouter.ts` müssen eine kurze, prägnante Beschreibung erhalten.
+### Editieren & Löschen
+- **Stil**: Löschen der Analyse über das "X"-Icon in der Stil-Analyse Card.
+- **Outline**: Einzelne Punkte können editiert (Stift) oder gelöscht (X) werden. Neue Punkte können manuell hinzugefügt werden.
+- **Kapitel**: Generierte Kapitel können editiert oder gelöscht (X) werden.
+
+## 5. Kosten-Schätzung
+- Die App zeigt in der Modell-Auswahl oder im Workspace grobe Schätzungen basierend auf den OpenRouter-Preisen an (in Arbeit).

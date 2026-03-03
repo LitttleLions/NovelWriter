@@ -50,16 +50,22 @@ export const AVAILABLE_MODELS = [
     description: "Strong for complex worlds, long context",
   },
   {
-    id: "deepseek/deepseek-chat",
-    name: "DeepSeek V3",
+    id: "deepseek/deepseek-v3",
+    name: "DeepSeek V3.2",
     provider: "DeepSeek",
-    description: "Powerful open-weights model",
+    description: "Latest DeepSeek flagship model",
   },
   {
-    id: "deepseek/deepseek-r1",
-    name: "DeepSeek R1",
-    provider: "DeepSeek",
-    description: "Reasoning-focused model",
+    id: "minimax/minimax-01",
+    name: "MiniMax M2-Her",
+    provider: "MiniMax",
+    description: "Strong performance across tasks",
+  },
+  {
+    id: "moonshotai/moonshot-v1-8k",
+    name: "Moonshot Kimi K2.5",
+    provider: "MoonshotAI",
+    description: "Excellent long-context and logic",
   },
   {
     id: "qwen/qwen-2.5-72b-instruct",
@@ -68,12 +74,23 @@ export const AVAILABLE_MODELS = [
     description: "Strong multilingual performance",
   },
   {
-    id: "qwen/qwen-turbo",
-    name: "Qwen Turbo",
+    id: "qwen/qwen-2.5-7b-instruct",
+    name: "Qwen 2.5 7B",
     provider: "Qwen",
-    description: "Fast and efficient",
+    description: "Fast and capable small model",
   },
 ];
+
+export async function getModelInfo(modelId: string) {
+  const client = getOpenRouterClient();
+  const response = await fetch(`https://openrouter.ai/api/v1/models`);
+  const data = await response.json();
+  const model = data.data?.find((m: any) => m.id === modelId);
+  return model ? {
+    price_per_1k_tokens: (parseFloat(model.pricing.prompt) + parseFloat(model.pricing.completion)) * 500, // Rough average
+    context_length: model.context_length
+  } : null;
+}
 
 export function getOpenRouterClient() {
   const apiKey = process.env.OPENROUTER_API_KEY;

@@ -92,6 +92,8 @@ export default function ProjectPage() {
   const [outlineEditData, setOutlineEditData] = useState<{ title: string; purpose: string; character_arc: string; tension_level: number }>({ title: "", purpose: "", character_arc: "", tension_level: 5 });
   const [savingOutline, setSavingOutline] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [showAddOutline, setShowAddOutline] = useState(false);
+  const [newOutlineData, setNewOutlineData] = useState({ title: "", purpose: "", character_arc: "", tension_level: 5 });
 
   const loadProject = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}`);
@@ -304,6 +306,58 @@ export default function ProjectPage() {
     const data = await res.json();
     if (res.ok) {
       setOutlines(data.outlines);
+    }
+  }
+
+  async function addOutlineItem() {
+    setSavingOutline(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/outline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newOutlineData, chapter_number: outlines.length + 1 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOutlines([...outlines, data.outline]);
+        setShowAddOutline(false);
+        setNewOutlineData({ title: "", purpose: "", character_arc: "", tension_level: 5 });
+      }
+    } finally {
+      setSavingOutline(false);
+    }
+  }
+
+  async function deleteOutlineItem(outlineId: number) {
+    if (!confirm("Diesen Outline-Punkt wirklich löschen?")) return;
+    const res = await fetch(`/api/projects/${projectId}/outline/${outlineId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setOutlines(outlines.filter((o) => o.id !== outlineId));
+    }
+  }
+
+  async function deleteChapter(chapterId: number) {
+    if (!confirm("Dieses Kapitel unwiderruflich löschen?")) return;
+    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setChapters(chapters.filter((c) => c.id !== chapterId));
+    }
+  }
+
+  async function deleteStyle() {
+    if (!confirm("Stil-Analyse wirklich löschen?")) return;
+    const res = await fetch(`/api/projects/${projectId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ style_json: null, style_sample: "" }),
+    });
+    if (res.ok) {
+      setProject((prev) => prev ? { ...prev, style_json: null, style_sample: "" } : null);
+      setStyleSample("");
     }
   }
 
@@ -583,15 +637,13 @@ export default function ProjectPage() {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-lg">Stil-Analyse</CardTitle>
-                  <CardDescription>
-                    {project.style_json
-                      ? project.style_json.source === "direct_input"
-                        ? "Benutzerdefinierter Stil"
-                        : "Erkannter Stil"
-                      : "Noch keine Analyse durchgeführt"}
-                  </CardDescription>
+                  {project.style_json && (
+                    <Button variant="ghost" size="sm" onClick={deleteStyle} className="text-destructive hover:text-destructive">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {project.style_json ? (
@@ -738,21 +790,60 @@ export default function ProjectPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Button onClick={generateOutline} disabled={generatingOutline}>
-                      {generatingOutline ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          Generiere...
-                        </>
-                      ) : (
-                        <>
-                          <Layers className="h-4 w-4" />
-                          {outlines.length > 0 ? "Neu generieren" : "Outline generieren"}
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Button onClick={() => setShowAddOutline(true)} variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-1" /> Punkt hinzufügen
+                        </Button>
+                        <Button onClick={generateOutline} disabled={generatingOutline}>
+                          {generatingOutline ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                              Generiere...
+                            </>
+                          ) : (
+                            <>
+                              <Layers className="h-4 w-4" />
+                              {outlines.length > 0 ? "Neu generieren" : "Outline generieren"}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
+
+                {showAddOutline && (
+                  <Card className="p-4 border-primary/30 bg-primary/5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold">Neuen Outline-Punkt hinzufügen</span>
+                      <Button size="sm" variant="ghost" onClick={() => setShowAddOutline(false)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      <Input
+                        placeholder="Kapitel-Titel"
+                        value={newOutlineData.title}
+                        onChange={(e) => setNewOutlineData({ ...newOutlineData, title: e.target.value })}
+                      />
+                      <Textarea
+                        placeholder="Zweck des Kapitels"
+                        value={newOutlineData.purpose}
+                        onChange={(e) => setNewOutlineData({ ...newOutlineData, purpose: e.target.value })}
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <Button className="flex-1" onClick={addOutlineItem} disabled={savingOutline || !newOutlineData.title}>
+                          Hinzufügen
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowAddOutline(false)}>
+                          Abbrechen
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
               </div>
 
               {outlines.length > 0 && (
@@ -868,6 +959,14 @@ export default function ProjectPage() {
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => deleteOutlineItem(o.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
                               {chapter ? (
                                 <Badge variant="success" className="text-xs">
                                   <Check className="h-3 w-3 mr-1" />
@@ -981,6 +1080,17 @@ export default function ProjectPage() {
                           }}
                         >
                           <PenTool className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChapter(ch.id);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
                         </Button>
                         {expandedChapter === ch.chapter_number ? (
                           <ChevronUp className="h-4 w-4 text-muted-foreground" />

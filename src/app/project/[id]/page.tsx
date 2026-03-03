@@ -32,6 +32,7 @@ interface Project {
   outline: string;
   style_sample: string;
   style_json: any;
+  style_notes: string;
   ai_provider: string;
   status: string;
 }
@@ -92,7 +93,9 @@ export default function ProjectPage() {
   const [savingCharacters, setSavingCharacters] = useState(false);
 
   const [styleSample, setStyleSample] = useState("");
-  const [styleInputMode, setStyleInputMode] = useState<"sample" | "direct" | "upload">("sample");
+  const [styleInputMode, setStyleInputMode] = useState<"sample" | "upload">("sample");
+  const [styleNotes, setStyleNotes] = useState("");
+  const [savingStyleNotes, setSavingStyleNotes] = useState(false);
   const [analyzingStyle, setAnalyzingStyle] = useState(false);
   const [editingStyle, setEditingStyle] = useState(false);
   const [styleEditData, setStyleEditData] = useState<any>({});
@@ -166,6 +169,7 @@ export default function ProjectPage() {
     setOutlines(data.outlines || []);
     setCharactersText(data.project.characters || "");
     setStyleSample(data.project.style_sample || "");
+    setStyleNotes(data.project.style_notes || "");
     setLoading(false);
     // Load structured characters
     const charRes = await fetch(`/api/projects/${projectId}/characters`);
@@ -224,11 +228,10 @@ export default function ProjectPage() {
     if (!styleSample.trim()) return;
     setAnalyzingStyle(true);
     try {
-      const mode = styleInputMode === "direct" ? "direct" : "analyze";
       const res = await fetch(`/api/projects/${projectId}/style/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ style_sample: styleSample, mode }),
+        body: JSON.stringify({ style_sample: styleSample, mode: "analyze" }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -508,6 +511,25 @@ export default function ProjectPage() {
     }
   }
 
+  async function saveStyleNotes() {
+    setSavingStyleNotes(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ style_notes: styleNotes }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProject((prev) => prev ? { ...prev, style_notes: styleNotes } : null);
+      } else {
+        alert(data.error || "Speichern fehlgeschlagen");
+      }
+    } finally {
+      setSavingStyleNotes(false);
+    }
+  }
+
   async function extractCharacters(replace = false) {
     setExtractingCharacters(true);
     try {
@@ -746,10 +768,11 @@ export default function ProjectPage() {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
-                    Stil-Eingabe
+                    <span className="text-primary font-bold">[A]</span> Stil-Analyse (KI-generiertes Profil)
                   </CardTitle>
                   <CardDescription>
-                    Wähle, wie du deinen Wunschstil definieren möchtest
+                    Füge Beispieltext aus einem Buch ein, das den gewünschten Stil hat.
+                    Die KI erstellt daraus ein strukturiertes Stil-Profil, das im rechten Panel gespeichert und bearbeitet werden kann.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -760,15 +783,7 @@ export default function ProjectPage() {
                       onClick={() => setStyleInputMode("sample")}
                     >
                       <BookOpen className="h-4 w-4" />
-                      Beispieltext
-                    </Button>
-                    <Button
-                      variant={styleInputMode === "direct" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setStyleInputMode("direct")}
-                    >
-                      <Type className="h-4 w-4" />
-                      Eigene Stilbeschreibung
+                      Beispieltext einfügen
                     </Button>
                     <Button
                       variant={styleInputMode === "upload" ? "default" : "outline"}
@@ -796,21 +811,6 @@ export default function ProjectPage() {
                     </div>
                   )}
 
-                  {styleInputMode === "direct" && (
-                    <div className="space-y-2">
-                      <Label>Fertige Stilbeschreibung</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Beschreibe den gewünschten Stil direkt in eigenen Worten.
-                        Diese Beschreibung wird ohne KI-Analyse als Stil-Vorgabe übernommen.
-                      </p>
-                      <Textarea
-                        placeholder={"Zum Beispiel:\nKurze, prägnante Sätze. Viel Dialog. Schnelles Tempo.\nInnere Monologe des Protagonisten. Düsterer Ton.\nVergangenheitsform. Detailreiche Actionszenen.\nMetaphern sparsam einsetzen. Erzähler in dritter Person."}
-                        value={styleSample}
-                        onChange={(e) => setStyleSample(e.target.value)}
-                        rows={15}
-                      />
-                    </div>
-                  )}
 
                   {styleInputMode === "upload" && (
                     <div className="space-y-3">
@@ -853,12 +853,7 @@ export default function ProjectPage() {
                     {analyzingStyle ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin" />
-                        {styleInputMode === "direct" ? "Übernehme Stil..." : "Analysiere Stil..."}
-                      </>
-                    ) : styleInputMode === "direct" ? (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Stil übernehmen
+                        Analysiere Stil...
                       </>
                     ) : (
                       <>
@@ -873,10 +868,11 @@ export default function ProjectPage() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <div>
-                    <CardTitle className="text-lg">Stil-Analyse</CardTitle>
-                    {project.style_json && !editingStyle && (
-                      <p className="text-xs text-muted-foreground mt-0.5">Wird bei jeder Kapitelgenerierung als Pflicht-Vorgabe verwendet.</p>
-                    )}
+                    <CardTitle className="text-lg">Aktives Stil-Profil</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Dieses Profil wird bei jeder Kapitelgenerierung als Vorgabe verwendet.<br/>
+                      <span className="font-medium text-primary">[A]</span> KI-Profil (aus Beispieltext) &nbsp;+&nbsp; <span className="font-medium text-primary">[B]</span> Manuelle Ergänzungen
+                    </p>
                   </div>
                   {project.style_json && (
                     <div className="flex items-center gap-1">
@@ -1096,6 +1092,40 @@ export default function ProjectPage() {
                       <p>Lade Beispieltext hoch und klicke auf "Stil analysieren"</p>
                     </div>
                   )}
+
+                  <div className="border-t pt-4 mt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold flex items-center gap-1">
+                          <span className="text-primary font-bold">[B]</span> Manuelle Ergänzungen & Korrekturen
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Direkt vom Autor – werden dem KI-Profil <strong>übergeordnet</strong> und bei jeder Generierung mitgeschickt.
+                          Hier kannst du das KI-Profil gezielt korrigieren oder erweitern.
+                        </p>
+                      </div>
+                    </div>
+                    <Textarea
+                      value={styleNotes}
+                      onChange={(e) => setStyleNotes(e.target.value)}
+                      placeholder={"Zum Beispiel:\n• Zeitform immer Präteritum, keine Ausnahme\n• Kein innerer Monolog in Kursivschrift\n• Dialoge knapp halten, maximal 3 Zeilen\n• Protagonist spricht immer formell"}
+                      rows={5}
+                      className="text-sm"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        onClick={saveStyleNotes}
+                        disabled={savingStyleNotes}
+                      >
+                        {savingStyleNotes ? (
+                          <><RefreshCw className="h-3 w-3 animate-spin" />Speichere...</>
+                        ) : (
+                          <><Save className="h-3 w-3" />Ergänzungen speichern</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>

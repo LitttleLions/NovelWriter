@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS projects (
   outline TEXT,
   style_sample TEXT,
   style_json JSONB,
+  style_notes TEXT,
   ai_provider VARCHAR(100) DEFAULT 'anthropic/claude-sonnet-4-5',
   status VARCHAR(50) DEFAULT 'draft',
   created_at TIMESTAMP DEFAULT NOW(),

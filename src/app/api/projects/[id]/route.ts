@@ -43,7 +43,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const values: any[] = [];
   let idx = 1;
 
-  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "ai_provider", "status"]) {
+  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "ai_provider", "status"]) {
     if (body[key] !== undefined) {
       fields.push(`${key} = $${idx}`);
       values.push(key === "style_json" ? JSON.stringify(body[key]) : body[key]);

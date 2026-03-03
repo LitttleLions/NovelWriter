@@ -4,65 +4,76 @@ import { query } from "@/lib/db";
 import { generateText, estimateCost } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
-function formatStyleForPrompt(style_json: any): string {
-  if (!style_json) return "Kein spezieller Stil vorgegeben – schreibe in einem klaren, literarischen Stil.";
+function formatStyleForPrompt(style_json: any, style_notes?: string): string {
+  const parts: string[] = [];
 
-  const s = style_json;
+  // --- Part 1: System-generated style profile (AI-analyzed or direct input) ---
+  if (style_json) {
+    const s = style_json;
+    const profileLines: string[] = ["[A] KI-GENERIERTES STIL-PROFIL (systemseitig hinterlegt):"];
 
-  if (s.raw_description) {
-    return `STIL-VORGABE (strikt einhalten):\n${s.raw_description}`;
+    if (s.raw_description) {
+      profileLines.push(s.raw_description);
+    } else {
+      if (s.author_style && s.author_style !== "Benutzerdefiniert") {
+        profileLines.push(`• Schreibstil orientiert sich an: ${s.author_style}`);
+      }
+      if (s.tone) profileLines.push(`• Grundton: ${s.tone}`);
+      if (s.tense) {
+        const tenseLabel = s.tense === "past" ? "Vergangenheit" : s.tense === "present" ? "Gegenwart" : s.tense;
+        profileLines.push(`• Zeitform: ${tenseLabel} – verwende AUSSCHLIESSLICH diese Zeitform`);
+      }
+      if (s.pacing) profileLines.push(`• Erzähltempo: ${s.pacing}`);
+      if (s.sentence_length_avg) {
+        const len = Number(s.sentence_length_avg);
+        const guidance =
+          len <= 8 ? "Kurze, prägnante Sätze. Kein Satzbau über 12 Wörter." :
+          len <= 14 ? "Mittellange Sätze. Variiere zwischen 6 und 18 Wörtern." :
+          "Ausgedehnte, fließende Sätze mit Nebensätzen und Einschüben.";
+        profileLines.push(`• Satzlänge: Ø ${len} Wörter – ${guidance}`);
+      }
+      if (s.vocabulary_complexity) {
+        const complexity = Number(s.vocabulary_complexity);
+        const label = complexity <= 3 ? "einfaches Alltagsvokabular" :
+          complexity <= 6 ? "mittleres Bildungsvokabular" : "gehobenes, literarisches Vokabular";
+        profileLines.push(`• Vokabular: ${label} (${complexity}/10)`);
+      }
+      if (s.description_density) {
+        const density = Number(s.description_density);
+        const guidance = density >= 7 ? "Reichhaltige sensorische Details – Gerüche, Geräusche, Texturen, Licht." :
+          density >= 4 ? "Selektive, präzise Details an entscheidenden Momenten." :
+          "Minimalistische Beschreibung – lass die Handlung sprechen.";
+        profileLines.push(`• Beschreibungsdichte: ${density}/10 – ${guidance}`);
+      }
+      if (s.dialogue_ratio_percent) {
+        const ratio = Number(s.dialogue_ratio_percent);
+        const guidance = ratio >= 50 ? "Dialog dominiert das Kapitel." :
+          ratio >= 25 ? "Ausgewogener Mix aus Dialog und Erzählung." :
+          "Wenig Dialog – Erzählerstimme steht im Vordergrund.";
+        profileLines.push(`• Dialog-Anteil: ca. ${ratio}% – ${guidance}`);
+      }
+      if (s.favorite_literary_devices?.length) {
+        profileLines.push(`• PFLICHT-Stilmittel (mindestens 3× pro Kapitel verwenden): ${s.favorite_literary_devices.join(", ")}`);
+      }
+      if (s.example_sentence_patterns?.length) {
+        profileLines.push(`\nSTIL-MASSTAB – so MUSS der Text klingen (exakt diesen Rhythmus und diese Satzstruktur verwenden):`);
+        s.example_sentence_patterns.forEach((ex: string, i: number) => {
+          profileLines.push(`  ${i + 1}. "${ex}"`);
+        });
+      }
+    }
+
+    parts.push(profileLines.join("\n"));
+  } else {
+    parts.push("[A] KI-GENERIERTES STIL-PROFIL: Kein Profil vorhanden – schreibe in einem klaren, literarischen Stil.");
   }
 
-  const lines: string[] = ["STIL-VORGABE (STRIKT EINHALTEN – das ist die wichtigste Anforderung):"];
-
-  if (s.author_style && s.author_style !== "Benutzerdefiniert") {
-    lines.push(`• Schreibstil orientiert sich an: ${s.author_style}`);
-  }
-  if (s.tone) lines.push(`• Grundton: ${s.tone}`);
-  if (s.tense) {
-    const tenseLabel = s.tense === "past" ? "Vergangenheit" : s.tense === "present" ? "Gegenwart" : s.tense;
-    lines.push(`• Zeitform: ${tenseLabel} – verwende AUSSCHLIESSLICH diese Zeitform`);
-  }
-  if (s.pacing) lines.push(`• Erzähltempo: ${s.pacing}`);
-  if (s.sentence_length_avg) {
-    const len = Number(s.sentence_length_avg);
-    const guidance =
-      len <= 8 ? "Kurze, prägnante Sätze. Kein Satzbau über 12 Wörter." :
-      len <= 14 ? "Mittellange Sätze. Variiere zwischen 6 und 18 Wörtern." :
-      "Ausgedehnte, fließende Sätze mit Nebensätzen und Einschüben.";
-    lines.push(`• Satzlänge: Ø ${len} Wörter – ${guidance}`);
-  }
-  if (s.vocabulary_complexity) {
-    const complexity = Number(s.vocabulary_complexity);
-    const label = complexity <= 3 ? "einfaches Alltagsvokabular" :
-      complexity <= 6 ? "mittleres Bildungsvokabular" : "gehobenes, literarisches Vokabular";
-    lines.push(`• Vokabular: ${label} (${complexity}/10)`);
-  }
-  if (s.description_density) {
-    const density = Number(s.description_density);
-    const guidance = density >= 7 ? "Reichhaltige sensorische Details – Gerüche, Geräusche, Texturen, Licht." :
-      density >= 4 ? "Selektive, präzise Details an entscheidenden Momenten." :
-      "Minimalistische Beschreibung – lass die Handlung sprechen.";
-    lines.push(`• Beschreibungsdichte: ${density}/10 – ${guidance}`);
-  }
-  if (s.dialogue_ratio_percent) {
-    const ratio = Number(s.dialogue_ratio_percent);
-    const guidance = ratio >= 50 ? "Dialog dominiert das Kapitel." :
-      ratio >= 25 ? "Ausgewogener Mix aus Dialog und Erzählung." :
-      "Wenig Dialog – Erzählerstimme steht im Vordergrund.";
-    lines.push(`• Dialog-Anteil: ca. ${ratio}% – ${guidance}`);
-  }
-  if (s.favorite_literary_devices?.length) {
-    lines.push(`• PFLICHT-Stilmittel (mindestens 3× pro Kapitel verwenden): ${s.favorite_literary_devices.join(", ")}`);
-  }
-  if (s.example_sentence_patterns?.length) {
-    lines.push(`\nSTIL-MASSTAB – so MUSS der Text klingen (exakt diesen Rhythmus und diese Satzstruktur verwenden):`);
-    s.example_sentence_patterns.forEach((p: string, i: number) => {
-      lines.push(`  ${i + 1}. "${p}"`);
-    });
+  // --- Part 2: Manual notes (user additions that override or extend the profile) ---
+  if (style_notes?.trim()) {
+    parts.push(`[B] MANUELLE ERGÄNZUNGEN & KORREKTUREN (haben Vorrang vor Teil A – direkt vom Autor vorgegeben):\n${style_notes.trim()}`);
   }
 
-  return lines.join("\n");
+  return parts.join("\n\n");
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -137,7 +148,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ).join("\n\n")
       : "Dies ist das erste Kapitel.";
 
-    const styleBlock = formatStyleForPrompt(p.style_json);
+    const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
     
     // Explicit Style Wrapper for the LLM
     const finalStyleInstruction = `

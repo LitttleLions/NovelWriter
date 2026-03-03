@@ -332,8 +332,27 @@ export default function ProjectPage() {
     setProject((prev) => prev ? { ...prev, ai_provider: modelId } : null);
   }
 
-  function handleExport(format: string) {
-    window.open(`/api/projects/${projectId}/export?format=${format}`, "_blank");
+  async function handleExport(format: string) {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/export?format=${format}`);
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Export fehlgeschlagen");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ext = format === "docx" ? "docx" : format === "markdown" ? "md" : "txt";
+      a.download = `${project?.title || "roman"}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Export fehlgeschlagen");
+    }
   }
 
   async function saveOutlineEdit(outlineId: number) {

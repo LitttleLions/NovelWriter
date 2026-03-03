@@ -72,6 +72,9 @@ export default function ProjectPage() {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [editingCharacters, setEditingCharacters] = useState(false);
+  const [charactersText, setCharactersText] = useState("");
+  const [savingCharacters, setSavingCharacters] = useState(false);
 
   const [styleSample, setStyleSample] = useState("");
   const [styleInputMode, setStyleInputMode] = useState<"sample" | "direct" | "upload">("sample");
@@ -98,6 +101,7 @@ export default function ProjectPage() {
     setProject(data.project);
     setChapters(data.chapters || []);
     setOutlines(data.outlines || []);
+    setCharactersText(data.project.characters || "");
     setStyleSample(data.project.style_sample || "");
     setLoading(false);
   }, [projectId, router]);
@@ -191,7 +195,40 @@ export default function ProjectPage() {
     }
   }
 
-  async function saveChapterEdit(chapterId: number) {
+  async function saveCharacters() {
+    setSavingCharacters(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characters: charactersText }),
+      });
+      if (res.ok) {
+        setProject((prev) => prev ? { ...prev, characters: charactersText } : null);
+        setEditingCharacters(false);
+      }
+    } finally {
+      setSavingCharacters(false);
+    }
+  }
+
+  async function splitCharacters() {
+    setSavingCharacters(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/characters/split`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ characters: charactersText }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCharactersText(data.characters);
+        setProject((prev) => prev ? { ...prev, characters: data.characters } : null);
+      }
+    } finally {
+      setSavingCharacters(false);
+    }
+  }
     setSavingChapter(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {
@@ -340,13 +377,42 @@ export default function ProjectPage() {
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-lg">Charaktere</CardTitle>
+                  <div className="flex gap-2">
+                    {!editingCharacters ? (
+                      <Button variant="ghost" size="sm" onClick={() => setEditingCharacters(true)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={splitCharacters} title="Charaktere in Blöcke unterteilen" disabled={savingCharacters}>
+                          <Wand2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingCharacters(false); setCharactersText(project?.characters || ""); }} disabled={savingCharacters}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={saveCharacters} disabled={savingCharacters}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {project.characters || "Keine Charaktere definiert"}
-                  </p>
+                  {editingCharacters ? (
+                    <Textarea
+                      value={charactersText}
+                      onChange={(e) => setCharactersText(e.target.value)}
+                      rows={10}
+                      className="text-sm"
+                      placeholder="Beschreibe deine Charaktere hier..."
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {project.characters || "Keine Charaktere definiert"}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
               <Card className="md:col-span-2">

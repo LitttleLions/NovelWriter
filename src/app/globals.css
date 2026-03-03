@@ -10,6 +10,8 @@
     --foreground: 230 25% 15%;
     --card: 0 0% 100%;
     --card-foreground: 230 25% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 15%;
     --primary: 28 95% 55%;
     --primary-foreground: 0 0% 100%;
     --secondary: 28 30% 95%;
@@ -24,6 +26,7 @@
     --input: 230 20% 90%;
     --ring: 28 95% 55%;
     --radius: 1rem;
+    --shadow-card: 0 2px 12px -2px hsla(230, 25%, 15%, 0.06);
   }
 
   .dark {
@@ -31,6 +34,8 @@
     --foreground: 230 20% 95%;
     --card: 230 25% 12%;
     --card-foreground: 230 20% 95%;
+    --popover: 230 25% 12%;
+    --popover-foreground: 230 20% 95%;
     --primary: 28 95% 58%;
     --primary-foreground: 230 25% 8%;
     --secondary: 230 25% 18%;
@@ -44,6 +49,7 @@
     --border: 230 25% 20%;
     --input: 230 25% 20%;
     --ring: 28 95% 58%;
+    --shadow-card: 0 2px 12px -2px hsla(0, 0%, 0%, 0.3);
   }
 }
 

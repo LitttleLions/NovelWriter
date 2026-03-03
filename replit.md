@@ -5,8 +5,8 @@ RomanForge AI is a web application for generating complete, style-consistent nov
 
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router) + React 18 + TypeScript
-- **Styling**: Tailwind CSS 3 with custom design system (Plus Jakarta Sans, warm orange primary, light/dark mode)
-- **UI Components**: Custom shadcn/ui-style components (Button, Card, Input, Select, Tabs, Badge, Progress, etc.)
+- **Styling**: Tailwind CSS 3 with PromptMate Design System (Plus Jakarta Sans, warm orange primary, 16px radius for cards, 12px for buttons). Reference `design-system.md` for full specs.
+- **UI Components**: Custom shadcn/ui-style components. All cards must use `rounded-2xl` and shadow-card. All buttons must use `rounded-xl`.
 - **Backend**: Next.js API Routes
 - **Database**: Replit PostgreSQL (via `pg` package)
 - **Auth**: JWT-based (bcryptjs + jose) + optional Google Sign-In

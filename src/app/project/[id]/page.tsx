@@ -82,6 +82,10 @@ export default function ProjectPage() {
   const [styleSample, setStyleSample] = useState("");
   const [styleInputMode, setStyleInputMode] = useState<"sample" | "direct" | "upload">("sample");
   const [analyzingStyle, setAnalyzingStyle] = useState(false);
+  const [editingStyle, setEditingStyle] = useState(false);
+  const [styleEditData, setStyleEditData] = useState<any>({});
+  const [showOriginalSample, setShowOriginalSample] = useState(false);
+  const [savingStyle, setSavingStyle] = useState(false);
   const [generatingOutline, setGeneratingOutline] = useState(false);
   const [outlineInputMode, setOutlineInputMode] = useState<"generate" | "paste">("generate");
   const [pastedOutline, setPastedOutline] = useState("");
@@ -447,6 +451,36 @@ export default function ProjectPage() {
     }
   }
 
+  async function saveStyleEdit() {
+    setSavingStyle(true);
+    try {
+      const updated = {
+        ...styleEditData,
+        favorite_literary_devices: typeof styleEditData.favorite_literary_devices === "string"
+          ? styleEditData.favorite_literary_devices.split(",").map((s: string) => s.trim()).filter(Boolean)
+          : styleEditData.favorite_literary_devices,
+        example_sentence_patterns: typeof styleEditData.example_sentence_patterns === "string"
+          ? styleEditData.example_sentence_patterns.split("\n").map((s: string) => s.trim()).filter(Boolean)
+          : styleEditData.example_sentence_patterns,
+        sentence_length_avg: Number(styleEditData.sentence_length_avg) || styleEditData.sentence_length_avg,
+        vocabulary_complexity: Number(styleEditData.vocabulary_complexity) || styleEditData.vocabulary_complexity,
+        description_density: Number(styleEditData.description_density) || styleEditData.description_density,
+        dialogue_ratio_percent: Number(styleEditData.dialogue_ratio_percent) || styleEditData.dialogue_ratio_percent,
+      };
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ style_json: updated }),
+      });
+      if (res.ok) {
+        setProject((prev) => prev ? { ...prev, style_json: updated } : null);
+        setEditingStyle(false);
+      }
+    } finally {
+      setSavingStyle(false);
+    }
+  }
+
   if (loading || !project) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -728,87 +762,224 @@ export default function ProjectPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                  <CardTitle className="text-lg">Stil-Analyse</CardTitle>
+                  <div>
+                    <CardTitle className="text-lg">Stil-Analyse</CardTitle>
+                    {project.style_json && !editingStyle && (
+                      <p className="text-xs text-muted-foreground mt-0.5">Wird bei jeder Kapitelgenerierung als Pflicht-Vorgabe verwendet.</p>
+                    )}
+                  </div>
                   {project.style_json && (
-                    <Button variant="ghost" size="sm" onClick={deleteStyle} className="text-destructive hover:text-destructive">
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {!editingStyle && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const sj = project.style_json;
+                            setStyleEditData({
+                              ...sj,
+                              favorite_literary_devices: Array.isArray(sj.favorite_literary_devices)
+                                ? sj.favorite_literary_devices.join(", ")
+                                : sj.favorite_literary_devices || "",
+                              example_sentence_patterns: Array.isArray(sj.example_sentence_patterns)
+                                ? sj.example_sentence_patterns.join("\n")
+                                : sj.example_sentence_patterns || "",
+                            });
+                            setEditingStyle(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={deleteStyle} className="text-destructive hover:text-destructive">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </CardHeader>
                 <CardContent>
                   {project.style_json ? (
-                    <div className="space-y-3">
-                      {project.style_json.source === "direct_input" ? (
-                        <div className="space-y-3">
-                          <Badge variant="default">Benutzerdefiniert</Badge>
-                          <div className="bg-muted/50 rounded-lg p-4">
-                            <p className="text-sm whitespace-pre-wrap">{project.style_json.raw_description}</p>
+                    editingStyle ? (
+                      <div className="space-y-4">
+                        <p className="text-xs text-muted-foreground">Bearbeite die Stil-Parameter direkt. Änderungen wirken sich auf alle zukünftigen Kapitel aus.</p>
+
+                        {project.style_json.source === "direct_input" ? (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Stilbeschreibung</Label>
+                            <Textarea
+                              value={styleEditData.raw_description || ""}
+                              onChange={(e) => setStyleEditData({ ...styleEditData, raw_description: e.target.value })}
+                              rows={8}
+                            />
                           </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Autoren-Stil</Label>
+                                <Input value={styleEditData.author_style || ""} onChange={(e) => setStyleEditData({ ...styleEditData, author_style: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Ton</Label>
+                                <Input value={styleEditData.tone || ""} onChange={(e) => setStyleEditData({ ...styleEditData, tone: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Zeitform (past / present)</Label>
+                                <Input value={styleEditData.tense || ""} onChange={(e) => setStyleEditData({ ...styleEditData, tense: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Tempo</Label>
+                                <Input value={styleEditData.pacing || ""} onChange={(e) => setStyleEditData({ ...styleEditData, pacing: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Ø Satzlänge (Wörter)</Label>
+                                <Input type="number" value={styleEditData.sentence_length_avg || ""} onChange={(e) => setStyleEditData({ ...styleEditData, sentence_length_avg: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Vokabular-Komplexität (1–10)</Label>
+                                <Input type="number" min={1} max={10} value={styleEditData.vocabulary_complexity || ""} onChange={(e) => setStyleEditData({ ...styleEditData, vocabulary_complexity: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Beschreibungsdichte (1–10)</Label>
+                                <Input type="number" min={1} max={10} value={styleEditData.description_density || ""} onChange={(e) => setStyleEditData({ ...styleEditData, description_density: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Dialoganteil (%)</Label>
+                                <Input type="number" min={0} max={100} value={styleEditData.dialogue_ratio_percent || ""} onChange={(e) => setStyleEditData({ ...styleEditData, dialogue_ratio_percent: e.target.value })} />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Stilmittel (kommagetrennt)</Label>
+                              <Input
+                                value={styleEditData.favorite_literary_devices || ""}
+                                onChange={(e) => setStyleEditData({ ...styleEditData, favorite_literary_devices: e.target.value })}
+                                placeholder="innerer Monolog, kurze Sätze für Spannung, sensorische Details"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Beispiel-Sätze (einer pro Zeile) — werden direkt als Stil-Maßstab an die KI übergeben</Label>
+                              <Textarea
+                                value={styleEditData.example_sentence_patterns || ""}
+                                onChange={(e) => setStyleEditData({ ...styleEditData, example_sentence_patterns: e.target.value })}
+                                rows={5}
+                                placeholder={"Sie rannte. Keine Zeit zum Denken.\nDas Licht starb, bevor ihre Augen es sahen."}
+                                className="text-sm"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setEditingStyle(false)}>Abbrechen</Button>
+                          <Button size="sm" onClick={saveStyleEdit} disabled={savingStyle}>
+                            <Save className="h-3 w-3" />
+                            {savingStyle ? "Speichern…" : "Speichern"}
+                          </Button>
                         </div>
-                      ) : (
-                        <>
-                          {project.style_json.author_style && (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="default">{project.style_json.author_style}</Badge>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {project.style_json.source === "direct_input" ? (
+                          <div className="space-y-3">
+                            <Badge variant="default">Eigene Stilbeschreibung</Badge>
+                            <div className="bg-muted/50 rounded-lg p-4">
+                              <p className="text-sm whitespace-pre-wrap">{project.style_json.raw_description}</p>
                             </div>
-                          )}
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            {project.style_json.vocabulary_complexity !== undefined && (
+                          </div>
+                        ) : (
+                          <>
+                            {project.style_json.author_style && (
+                              <Badge variant="default">{project.style_json.author_style}</Badge>
+                            )}
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              {project.style_json.vocabulary_complexity !== undefined && (
+                                <div>
+                                  <span className="text-muted-foreground">Vokabular:</span>
+                                  <div className="mt-1">
+                                    <Progress value={project.style_json.vocabulary_complexity * 10} className="h-2" />
+                                    <span className="text-xs">{project.style_json.vocabulary_complexity}/10</span>
+                                  </div>
+                                </div>
+                              )}
+                              {project.style_json.description_density !== undefined && (
+                                <div>
+                                  <span className="text-muted-foreground">Beschreibungsdichte:</span>
+                                  <div className="mt-1">
+                                    <Progress value={project.style_json.description_density * 10} className="h-2" />
+                                    <span className="text-xs">{project.style_json.description_density}/10</span>
+                                  </div>
+                                </div>
+                              )}
+                              {project.style_json.dialogue_ratio_percent !== undefined && (
+                                <div>
+                                  <span className="text-muted-foreground">Dialoganteil:</span>
+                                  <span className="ml-2 font-medium">{project.style_json.dialogue_ratio_percent}%</span>
+                                </div>
+                              )}
+                              {project.style_json.pacing && (
+                                <div>
+                                  <span className="text-muted-foreground">Tempo:</span>
+                                  <span className="ml-2 font-medium">{project.style_json.pacing}</span>
+                                </div>
+                              )}
+                              {project.style_json.tense && (
+                                <div>
+                                  <span className="text-muted-foreground">Zeitform:</span>
+                                  <span className="ml-2 font-medium">{project.style_json.tense}</span>
+                                </div>
+                              )}
+                              {project.style_json.tone && (
+                                <div>
+                                  <span className="text-muted-foreground">Ton:</span>
+                                  <span className="ml-2 font-medium">{project.style_json.tone}</span>
+                                </div>
+                              )}
+                              {project.style_json.sentence_length_avg !== undefined && (
+                                <div>
+                                  <span className="text-muted-foreground">Ø Satzlänge:</span>
+                                  <span className="ml-2 font-medium">{project.style_json.sentence_length_avg} Wörter</span>
+                                </div>
+                              )}
+                            </div>
+                            {project.style_json.favorite_literary_devices?.length > 0 && (
                               <div>
-                                <span className="text-muted-foreground">Vokabular:</span>
-                                <div className="mt-1">
-                                  <Progress value={project.style_json.vocabulary_complexity * 10} className="h-2" />
-                                  <span className="text-xs">{project.style_json.vocabulary_complexity}/10</span>
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stilmittel</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {project.style_json.favorite_literary_devices.map((d: string, i: number) => (
+                                    <Badge key={i} variant="outline" className="text-xs">{d}</Badge>
+                                  ))}
                                 </div>
                               </div>
                             )}
-                            {project.style_json.description_density !== undefined && (
+                            {project.style_json.example_sentence_patterns?.length > 0 && (
                               <div>
-                                <span className="text-muted-foreground">Beschreibungsdichte:</span>
-                                <div className="mt-1">
-                                  <Progress value={project.style_json.description_density * 10} className="h-2" />
-                                  <span className="text-xs">{project.style_json.description_density}/10</span>
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stil-Maßstab — so klingt der Roman</span>
+                                <div className="mt-2 space-y-2">
+                                  {project.style_json.example_sentence_patterns.map((s: string, i: number) => (
+                                    <p key={i} className="text-sm italic border-l-2 border-primary/40 pl-3 text-muted-foreground">„{s}"</p>
+                                  ))}
                                 </div>
                               </div>
                             )}
-                            {project.style_json.dialogue_ratio_percent !== undefined && (
-                              <div>
-                                <span className="text-muted-foreground">Dialoganteil:</span>
-                                <span className="ml-2 font-medium">{project.style_json.dialogue_ratio_percent}%</span>
-                              </div>
-                            )}
-                            {project.style_json.pacing && (
-                              <div>
-                                <span className="text-muted-foreground">Tempo:</span>
-                                <span className="ml-2 font-medium">{project.style_json.pacing}</span>
-                              </div>
-                            )}
-                            {project.style_json.tense && (
-                              <div>
-                                <span className="text-muted-foreground">Tempus:</span>
-                                <span className="ml-2 font-medium">{project.style_json.tense}</span>
-                              </div>
-                            )}
-                            {project.style_json.tone && (
-                              <div>
-                                <span className="text-muted-foreground">Ton:</span>
-                                <span className="ml-2 font-medium">{project.style_json.tone}</span>
+                          </>
+                        )}
+                        {project.style_sample && (
+                          <div className="border-t pt-3">
+                            <button
+                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                              onClick={() => setShowOriginalSample((v) => !v)}
+                            >
+                              {showOriginalSample ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              {showOriginalSample ? "Original-Text ausblenden" : "Original-Text anzeigen"}
+                            </button>
+                            {showOriginalSample && (
+                              <div className="mt-2 bg-muted/30 rounded-lg p-3 max-h-48 overflow-y-auto">
+                                <p className="text-xs whitespace-pre-wrap text-muted-foreground leading-relaxed">{project.style_sample}</p>
                               </div>
                             )}
                           </div>
-                          {project.style_json.favorite_literary_devices && (
-                            <div>
-                              <span className="text-sm text-muted-foreground">Stilmittel:</span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {project.style_json.favorite_literary_devices.map((d: string, i: number) => (
-                                  <Badge key={i} variant="outline" className="text-xs">{d}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-30" />

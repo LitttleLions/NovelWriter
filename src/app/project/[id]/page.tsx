@@ -178,6 +178,16 @@ export default function ProjectPage() {
   }, [projectId, router]);
 
   useEffect(() => {
+    if (outlines.length > 0 && projectCharacters.length > 0) {
+      outlines.forEach(o => {
+        if (!outlineCharacterMap.hasOwnProperty(o.id)) {
+          loadOutlineCharacters(o.id);
+        }
+      });
+    }
+  }, [outlines.length, projectCharacters.length]);
+
+  useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
@@ -1601,9 +1611,14 @@ export default function ProjectPage() {
                                 <ArrowDown className="h-3 w-3" />
                               </Button>
                             </div>
-                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedOutline(expandedOutline === o.id ? null : o.id)}>
+                            <div className="flex-1 min-w-0 cursor-pointer group" onClick={() => setExpandedOutline(expandedOutline === o.id ? null : o.id)}>
                               <div className="flex items-center gap-2">
                                 <h4 className="font-semibold truncate">{o.title}</h4>
+                                {expandedOutline === o.id ? (
+                                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                )}
                                 {o.location && (
                                   <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
                                     {o.location.split(",")[0]}

@@ -44,6 +44,8 @@ interface Chapter {
   content: string;
   word_count: number;
   status: string;
+  narrative_summary?: string;
+  character_states?: any;
 }
 
 interface ChapterOutline {
@@ -179,7 +181,9 @@ export default function ProjectPage() {
   }, [projectId]);
 
   const loadProject = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}`);
+    const token = localStorage.getItem("rf_token");
+    const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(`/api/projects/${projectId}`, { headers: authHeaders });
     const data = await res.json();
     if (data.error) {
       router.push("/dashboard");
@@ -193,7 +197,7 @@ export default function ProjectPage() {
     setStyleNotes(data.project.style_notes || "");
     setLoading(false);
     // Load structured characters
-    const charRes = await fetch(`/api/projects/${projectId}/characters`);
+    const charRes = await fetch(`/api/projects/${projectId}/characters`, { headers: authHeaders });
     const charData = await charRes.json();
     if (charRes.ok) setProjectCharacters(charData.characters || []);
   }, [projectId, router]);
@@ -211,10 +215,12 @@ export default function ProjectPage() {
   }, [outlines.length, projectCharacters.length]);
 
   useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.json()).then((d) => {
+    const token = localStorage.getItem("rf_token");
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch("/api/auth/me", { headers: authHeaders }).then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
-    fetch("/api/models").then((r) => r.json()).then((d) => setModels(d.models || []));
+    fetch("/api/models", { headers: authHeaders }).then((r) => r.json()).then((d) => setModels(d.models || []));
     loadProject();
   }, [router, loadProject]);
 
@@ -1863,20 +1869,18 @@ export default function ProjectPage() {
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-semibold truncate">{ch.title}</h4>
                             <div className="flex items-center gap-1">
-                              {ch.narrative_summary && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-primary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingNarrative(ch.id);
-                                    setNarrativeEditContent(ch.narrative_summary || "");
-                                  }}
-                                >
-                                  Gedächtnis Editieren
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingNarrative(ch.id);
+                                  setNarrativeEditContent(ch.narrative_summary || "");
+                                }}
+                              >
+                                {ch.narrative_summary ? "Gedächtnis" : "Gedächtnis +"}
+                              </Button>
                             </div>
                           </div>
                         <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>

@@ -49,6 +49,20 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
+    const existingToken = localStorage.getItem("rf_token");
+    if (existingToken) {
+      fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${existingToken}` },
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.user) window.location.href = "/dashboard";
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     window.handleGoogleSignIn = handleGoogleCallback;
 
     const interval = setInterval(() => {

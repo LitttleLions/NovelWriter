@@ -29,9 +29,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem("rf_token");
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
     Promise.all([
-      fetch("/api/auth/me").then((r) => r.json()),
-      fetch("/api/projects").then((r) => r.json()),
+      fetch("/api/auth/me", { headers: authHeaders }).then((r) => r.json()),
+      fetch("/api/projects", { headers: authHeaders }).then((r) => r.json()),
     ]).then(([userData, projectData]) => {
       if (userData.error) {
         router.push("/");

@@ -56,8 +56,9 @@ src/
 ## Database Schema
 - **users**: id, email, password_hash, name
 - **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider, status
-- **chapters**: id, project_id, chapter_number, title, content, word_count, status
-- **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level
+- **chapters**: id, project_id, chapter_number, title, content, word_count, status, narrative_summary, character_states
+- **project_characters**: id, project_id, name, description, role, first_appears_chapter
+- **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection (auto-set by Replit)

@@ -28,9 +28,19 @@
 - **Bearbeitung**: Verschieben (Up/Down), Editieren, Löschen, einzelne Punkte hinzufügen.
 - **Detail-Ansicht**: Klick auf Szene expandiert `location`, `key_events` und `raw_notes`.
 
-### Kapitel-Generierung
-- Sequentielle Generierung von Kapiteln unter Berücksichtigung von Stil und Charakter-Konsistenz.
-- Live-Editor zur manuellen Nachbearbeitung.
+### Kapitel-Generierung & Konsistenz (Narrative Memory)
+- **Sequentielle Generierung**: AI schreibt Kapitel basierend auf Stil und Charakter-Profilen.
+- **Narrative Memory System**: 
+  - Nach jeder Generierung wird eine `narrative_summary` (200-300 Wörter) und `character_states` (JSON) erstellt.
+  - Das nächste Kapitel erhält alle bisherigen Zusammenfassungen ("The Story So Far") plus den Volltext des unmittelbar vorangegangenen Kapitels.
+- **Charakter-Filter**: Nur Charaktere mit `first_appears_chapter <= aktuelle_nummer` werden an die KI gesendet (außer die Outline ordnet sie explizit zu).
+- **Stil-Injektion**: Stilvorgaben und Sprachregeln werden direkt in den *System Prompt* injiziert (`buildDynamicSystemPrompt`), um maximale Treue zu gewährleisten.
+
+### Fehlerbehebung (Bugfixes)
+- **Hydration**: Badge-Komponenten im Dashboard von `<CardDescription>` (p) in `<div>` verschoben.
+- **AuthInterceptor**: Header-Handling korrigiert (Verwendung von `Object.fromEntries` für `Headers`-Objekte).
+- **Double-Requests**: `useRef`-Guards verhindern doppelte API-Aufrufe durch React StrictMode bei Outline-Charakteren und Auth-Initialisierung.
+- **Publishing**: `deploymentTarget: "autoscale"` mit `npm run build` und `npm run start` auf Port 5000 konfiguriert.
 
 ### Charaktere
 - Zentrales Management der Charakterbeschreibungen.

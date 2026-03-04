@@ -51,8 +51,9 @@ export default function LandingPage() {
   useEffect(() => {
     const existingToken = localStorage.getItem("rf_token");
     if (existingToken) {
+      const authHeaders: HeadersInit = { Authorization: `Bearer ${existingToken}` };
       fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${existingToken}` },
+        headers: authHeaders,
       })
         .then((r) => r.json())
         .then((d) => {

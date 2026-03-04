@@ -224,7 +224,7 @@ export default function ProjectPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("rf_token");
-    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
     fetch("/api/auth/me", { headers: authHeaders }).then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });

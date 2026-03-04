@@ -30,7 +30,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("rf_token");
-    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
     Promise.all([
       fetch("/api/auth/me", { headers: authHeaders }).then((r) => r.json()),
       fetch("/api/projects", { headers: authHeaders }).then((r) => r.json()),

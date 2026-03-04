@@ -125,14 +125,14 @@ export default function DashboardPage() {
                       <CardTitle className="text-lg truncate">
                         {project.title}
                       </CardTitle>
-                      <CardDescription className="mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {project.genre && (
-                          <Badge variant="secondary" className="mr-2">
+                          <Badge variant="secondary">
                             {project.genre}
                           </Badge>
                         )}
                         <Badge variant="outline">{project.language}</Badge>
-                      </CardDescription>
+                      </div>
                     </div>
                     <Button
                       variant="ghost"

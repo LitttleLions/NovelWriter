@@ -178,10 +178,12 @@ export default function ProjectPage() {
     if (charRes.ok) setProjectCharacters(charData.characters || []);
   }, [projectId, router]);
 
+  const outlineCharLoadedRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (outlines.length > 0 && projectCharacters.length > 0) {
       outlines.forEach(o => {
-        if (!outlineCharacterMap.hasOwnProperty(o.id)) {
+        if (!outlineCharLoadedRef.current.has(o.id)) {
+          outlineCharLoadedRef.current.add(o.id);
           loadOutlineCharacters(o.id);
         }
       });

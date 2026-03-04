@@ -1713,20 +1713,29 @@ export default function ProjectPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => deleteOutlineItem(o.id)}
+                                className="text-destructive hover:text-destructive relative z-10"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  deleteOutlineItem(o.id);
+                                }}
                               >
                                 <X className="h-3 w-3" />
                               </Button>
                               {chapter ? (
-                                <Badge variant="success" className="text-xs">
+                                <Badge variant="success" className="text-xs relative z-10">
                                   <Check className="h-3 w-3 mr-1" />
                                   {chapter.word_count} W.
                                 </Badge>
                               ) : (
                                 <Button
                                   size="sm"
-                                  onClick={() => generateChapter(o.chapter_number)}
+                                  className="relative z-10"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    generateChapter(o.chapter_number);
+                                  }}
                                   disabled={generatingChapter !== null}
                                 >
                                   {generatingChapter === o.chapter_number ? (
@@ -1766,7 +1775,18 @@ export default function ProjectPage() {
                                   <div className="flex items-center justify-between mb-1">
                                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Figuren in diesem Kapitel</span>
                                     {!outlineCharacterMap.hasOwnProperty(o.id) && (
-                                      <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => loadOutlineCharacters(o.id)}>Laden</Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="h-6 text-xs px-2 relative z-10" 
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          loadOutlineCharacters(o.id);
+                                        }}
+                                      >
+                                        Laden
+                                      </Button>
                                     )}
                                   </div>
                                   {outlineCharacterMap.hasOwnProperty(o.id) ? (
@@ -1776,12 +1796,14 @@ export default function ProjectPage() {
                                         return (
                                           <button
                                             key={ch.id}
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
                                               const cur = outlineCharacterMap[o.id] || [];
                                               const next = assigned ? cur.filter((id) => id !== ch.id) : [...cur, ch.id];
                                               saveOutlineCharacters(o.id, next);
                                             }}
-                                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${assigned ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors relative z-10 ${assigned ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
                                           >
                                             {ch.name}
                                           </button>
@@ -1872,8 +1894,9 @@ export default function ProjectPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-primary"
+                                className="h-7 px-2 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-primary relative z-10"
                                 onClick={(e) => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   setEditingNarrative(ch.id);
                                   setNarrativeEditContent(ch.narrative_summary || "");
@@ -1885,11 +1908,12 @@ export default function ProjectPage() {
                           </div>
                         <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 relative z-10">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             generateChapter(ch.chapter_number);
                           }}
@@ -1905,7 +1929,9 @@ export default function ProjectPage() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="relative z-10"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             if (editingChapter === ch.id) {
                               setEditingChapter(null);
@@ -1920,8 +1946,9 @@ export default function ProjectPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-destructive hover:text-destructive"
+                          className="text-destructive hover:text-destructive relative z-10"
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
                             deleteChapter(ch.id);
                           }}

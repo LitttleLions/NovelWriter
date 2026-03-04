@@ -250,20 +250,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       [id, chapter_number]
     );
     characterRows = eligibleChars.rows;
-
-    // Also check if there are future characters (for context about who NOT to include)
-    const futureChars = await query(
-      `SELECT name FROM project_characters
-       WHERE project_id = $1 AND first_appears_chapter > 0 AND first_appears_chapter > $2
-       ORDER BY first_appears_chapter`,
-      [id, chapter_number]
-    );
-    if (futureChars.rows.length > 0) {
-      characterLabel = `Figuren (bereits eingeführt bis Kapitel ${chapter_number}) – NICHT auftreten lassen: ${futureChars.rows.map((c: any) => c.name).join(", ")}`;
-    } else {
-      characterLabel = "Figuren";
-    }
+    characterLabel = `Figuren (bereits eingeführt bis Kapitel ${chapter_number})`;
   }
+
+  // ALWAYS compute future characters and add a hard prohibition — regardless of whether the outline has assigned chars
+  const futureChars = await query(
+    `SELECT name, first_appears_chapter FROM project_characters
+     WHERE project_id = $1 AND first_appears_chapter > 0 AND first_appears_chapter > $2
+     ORDER BY first_appears_chapter`,
+    [id, chapter_number]
+  );
 
   // Build the outline block
   const outlineBlock = chapterOutline ? `
@@ -280,6 +276,15 @@ ${chapterOutline.raw_notes ? `\nAutoren-Vorlage (inhaltlich bindend, wortgetreu 
   const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
   const dynamicSystemPrompt = buildDynamicSystemPrompt(styleBlock, lang);
 
+  // Build future characters prohibition block
+  const futureCharsBlock = futureChars.rows.length > 0
+    ? `\n════════════════════════════════════════
+ABSOLUTES VERBOT – NOCH NICHT EINGEFÜHRTE FIGUREN:
+Die folgenden Figuren treten erst in späteren Kapiteln auf und DÜRFEN in diesem Kapitel NICHT erwähnt, angedeutet oder sonstwie eingebaut werden. Auch keine indirekten Hinweise, Gerüchte, oder Erwähnungen durch Dritte:
+${futureChars.rows.map((c: any) => `  • ${c.name} (erscheint erst ab Kapitel ${c.first_appears_chapter})`).join("\n")}
+════════════════════════════════════════`
+    : "";
+
   // Compose the user prompt
   const userPrompt = `KAPITEL ${chapter_number} SCHREIBEN
 
@@ -292,6 +297,7 @@ ${p.summary || "Nicht vorhanden"}
 
 ${characterLabel}:
 ${formatCharactersForPrompt(characterRows)}
+${futureCharsBlock}
 
 === NARRATIVE VORGESCHICHTE ===
 ${storySoFarBlock}

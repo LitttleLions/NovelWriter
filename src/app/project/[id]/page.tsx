@@ -142,7 +142,10 @@ export default function ProjectPage() {
   const [editingNarrative, setEditingNarrative] = useState<number | null>(null);
   const [narrativeEditContent, setNarrativeEditContent] = useState("");
 
+  const [narrativeSaveStatus, setNarrativeSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
   const updateNarrativeSummary = async (chapterId: number, summary: string) => {
+    setNarrativeSaveStatus("saving");
     try {
       const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {
         method: "PUT",
@@ -152,10 +155,15 @@ export default function ProjectPage() {
       if (res.ok) {
         setChapters(chapters.map(c => c.id === chapterId ? { ...c, narrative_summary: summary } : c));
         setEditingNarrative(null);
-        toast({ title: "Zusammenfassung gespeichert" });
+        setNarrativeSaveStatus("saved");
+        setTimeout(() => setNarrativeSaveStatus("idle"), 2000);
+      } else {
+        setNarrativeSaveStatus("error");
+        setTimeout(() => setNarrativeSaveStatus("idle"), 3000);
       }
     } catch (e) {
-      toast({ title: "Fehler beim Speichern", variant: "destructive" });
+      setNarrativeSaveStatus("error");
+      setTimeout(() => setNarrativeSaveStatus("idle"), 3000);
     }
   };
 
@@ -1958,9 +1966,13 @@ export default function ProjectPage() {
                           <div className="space-y-2 bg-primary/5 p-3 rounded-xl border border-primary/20">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs font-bold uppercase text-primary">Narratives Gedächtnis (KI-Handoff)</Label>
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 items-center">
+                                {narrativeSaveStatus === "saved" && <span className="text-xs text-green-600 font-medium">Gespeichert ✓</span>}
+                                {narrativeSaveStatus === "error" && <span className="text-xs text-destructive font-medium">Fehler beim Speichern</span>}
                                 <Button size="sm" variant="ghost" onClick={() => setEditingNarrative(null)}>Abbrechen</Button>
-                                <Button size="sm" onClick={() => updateNarrativeSummary(ch.id, narrativeEditContent)}>Speichern</Button>
+                                <Button size="sm" disabled={narrativeSaveStatus === "saving"} onClick={() => updateNarrativeSummary(ch.id, narrativeEditContent)}>
+                                  {narrativeSaveStatus === "saving" ? "Speichert…" : "Speichern"}
+                                </Button>
                               </div>
                             </div>
                             <Textarea 

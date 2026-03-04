@@ -241,10 +241,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   if (!isFiltered) {
     // Filter by first_appears_chapter: only show characters who have been introduced by this chapter
+    // first_appears_chapter <= 0 means they are available for all chapters
     const eligibleChars = await query(
       `SELECT * FROM project_characters
        WHERE project_id = $1
-         AND (first_appears_chapter IS NULL OR first_appears_chapter <= $2)
+         AND (first_appears_chapter IS NULL OR first_appears_chapter <= 0 OR first_appears_chapter <= $2)
        ORDER BY created_at`,
       [id, chapter_number]
     );
@@ -253,7 +254,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Also check if there are future characters (for context about who NOT to include)
     const futureChars = await query(
       `SELECT name FROM project_characters
-       WHERE project_id = $1 AND first_appears_chapter > $2
+       WHERE project_id = $1 AND first_appears_chapter > 0 AND first_appears_chapter > $2
        ORDER BY first_appears_chapter`,
       [id, chapter_number]
     );

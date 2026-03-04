@@ -93,6 +93,25 @@ Weitere Regeln:
 - Schreibe NUR den Kapiteltext, keine Einleitung, keine Metadaten.
 - Setze die Autoren-Notizen (raw_notes) inhaltlich präzise um.`,
 
+  narrativeSummarizer: `Du bist ein präziser Romanarchiv-Assistent. Deine Aufgabe: Analysiere das soeben generierte Kapitel und erstelle ein kompaktes Narratives Handoff-Dokument für das nächste Kapitel.
+
+Antworte AUSSCHLIESSLICH mit validem JSON in folgendem Format:
+{
+  "summary": "Prägnante Zusammenfassung in 200-300 Wörtern: Was ist passiert? Welche Ereignisse waren dramaturgisch relevant? Welche Konflikte wurden eröffnet oder gelöst? Wie endet das Kapitel?",
+  "character_states": {
+    "Figurenname": {
+      "location": "Wo befindet sich die Figur am Ende des Kapitels?",
+      "emotional_state": "Emotionaler/psychischer Zustand",
+      "key_decisions": "Wichtige Entscheidungen oder Handlungen dieser Figur im Kapitel",
+      "open_threads": "Ungelöste Konflikte oder offene Handlungsstränge dieser Figur"
+    }
+  },
+  "last_scene_ending": "Die letzten 2-3 Sätze Zusammenfassung: Wie endet das Kapitel genau? Was ist der letzte emotionale/atmosphärische Eindruck?",
+  "open_plot_threads": ["Liste der offenen Handlungsstränge, die im weiteren Verlauf aufgegriffen werden müssen"]
+}
+
+Kein erklärender Text, nur das JSON.`,
+
   consistencyGuardian: `Du bist der Roman-Consistency-Guardian.
 
 Prüfe:

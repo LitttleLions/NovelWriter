@@ -68,6 +68,7 @@ interface ProjectCharacter {
   backstory?: string;
   appearance?: string;
   notes?: string;
+  first_appears_chapter?: number;
 }
 
 interface Model {
@@ -129,7 +130,7 @@ export default function ProjectPage() {
   const [projectCharacters, setProjectCharacters] = useState<ProjectCharacter[]>([]);
   const [extractingCharacters, setExtractingCharacters] = useState(false);
   const [addingCharacter, setAddingCharacter] = useState(false);
-  const [newCharacterData, setNewCharacterData] = useState({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "" });
+  const [newCharacterData, setNewCharacterData] = useState({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "", first_appears_chapter: 1 });
   const [editingCharacter, setEditingCharacter] = useState<number | null>(null);
   const [characterEditData, setCharacterEditData] = useState<any>({});
   const [savingCharacter, setSavingCharacter] = useState(false);
@@ -573,7 +574,7 @@ export default function ProjectPage() {
       const data = await res.json();
       if (res.ok) {
         setProjectCharacters((prev) => [...prev, data.character]);
-        setNewCharacterData({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "" });
+        setNewCharacterData({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "", first_appears_chapter: 1 });
         setAddingCharacter(false);
       }
     } finally {
@@ -1214,6 +1215,18 @@ export default function ProjectPage() {
                       <Label className="text-xs">Notizen / Beziehungen</Label>
                       <Textarea value={newCharacterData.notes} onChange={(e) => setNewCharacterData({ ...newCharacterData, notes: e.target.value })} rows={2} />
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Erstes Auftreten – Kapitel</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={newCharacterData.first_appears_chapter}
+                        onChange={(e) => setNewCharacterData({ ...newCharacterData, first_appears_chapter: parseInt(e.target.value) || 1 })}
+                        placeholder="1"
+                        className="w-32"
+                      />
+                      <p className="text-xs text-muted-foreground">Figur wird erst ab diesem Kapitel in den Prompt einbezogen</p>
+                    </div>
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => setAddingCharacter(false)}>Abbrechen</Button>
                       <Button size="sm" onClick={addCharacter} disabled={savingCharacter || !newCharacterData.name.trim()}>
@@ -1277,6 +1290,17 @@ export default function ProjectPage() {
                         <Label className="text-xs">Notizen / Beziehungen</Label>
                         <Textarea value={characterEditData.notes || ""} onChange={(e) => setCharacterEditData({ ...characterEditData, notes: e.target.value })} rows={2} />
                       </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Erstes Auftreten – Kapitel</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={characterEditData.first_appears_chapter || 1}
+                          onChange={(e) => setCharacterEditData({ ...characterEditData, first_appears_chapter: parseInt(e.target.value) || 1 })}
+                          className="w-32"
+                        />
+                        <p className="text-xs text-muted-foreground">Figur wird erst ab diesem Kapitel in den Prompt einbezogen</p>
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => setEditingCharacter(null)}>Abbrechen</Button>
                         <Button size="sm" onClick={() => saveCharacterEdit(ch.id)} disabled={savingCharacter}>
@@ -1295,9 +1319,12 @@ export default function ProjectPage() {
                           {ch.name.charAt(0)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold">{ch.name}</span>
                             {ch.role && <Badge variant="secondary" className="text-xs">{ch.role}</Badge>}
+                            {ch.first_appears_chapter && ch.first_appears_chapter > 1 && (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">ab Kap. {ch.first_appears_chapter}</Badge>
+                            )}
                           </div>
                           {ch.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{ch.description}</p>}
                         </div>

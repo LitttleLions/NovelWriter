@@ -7,10 +7,9 @@ import { PROMPTS } from "@/lib/prompts";
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
   const parts: string[] = [];
 
-  // --- Part 1: System-generated style profile (AI-analyzed or direct input) ---
   if (style_json) {
     const s = style_json;
-    const profileLines: string[] = ["[A] KI-GENERIERTES STIL-PROFIL (systemseitig hinterlegt):"];
+    const profileLines: string[] = ["[A] KI-GENERIERTES STIL-PROFIL:"];
 
     if (s.raw_description) {
       profileLines.push(s.raw_description);
@@ -53,27 +52,91 @@ function formatStyleForPrompt(style_json: any, style_notes?: string): string {
         profileLines.push(`• Dialog-Anteil: ca. ${ratio}% – ${guidance}`);
       }
       if (s.favorite_literary_devices?.length) {
-        profileLines.push(`• PFLICHT-Stilmittel (mindestens 3× pro Kapitel verwenden): ${s.favorite_literary_devices.join(", ")}`);
+        profileLines.push(`• PFLICHT-Stilmittel (mindestens 3× pro Kapitel): ${s.favorite_literary_devices.join(", ")}`);
       }
       if (s.example_sentence_patterns?.length) {
-        profileLines.push(`\nSTIL-MASSTAB – so MUSS der Text klingen (exakt diesen Rhythmus und diese Satzstruktur verwenden):`);
+        profileLines.push(`\nSTIL-MASSSTAB (exakt diesen Rhythmus und diese Satzstruktur nachahmen):`);
         s.example_sentence_patterns.forEach((ex: string, i: number) => {
           profileLines.push(`  ${i + 1}. "${ex}"`);
         });
       }
     }
-
     parts.push(profileLines.join("\n"));
   } else {
     parts.push("[A] KI-GENERIERTES STIL-PROFIL: Kein Profil vorhanden – schreibe in einem klaren, literarischen Stil.");
   }
 
-  // --- Part 2: Manual notes (user additions that override or extend the profile) ---
   if (style_notes?.trim()) {
-    parts.push(`[B] MANUELLE ERGÄNZUNGEN & KORREKTUREN (haben Vorrang vor Teil A – direkt vom Autor vorgegeben):\n${style_notes.trim()}`);
+    parts.push(`[B] MANUELLE STIL-DIREKTIVEN VOM AUTOR (höchste Priorität – überschreibt alles andere):\n${style_notes.trim()}`);
   }
 
   return parts.join("\n\n");
+}
+
+function buildDynamicSystemPrompt(styleBlock: string, lang: string): string {
+  return `Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
+
+════════════════════════════════════════
+SPRACH-GESETZ (nicht verhandelbar):
+Das gesamte Kapitel MUSS auf ${lang.toUpperCase()} geschrieben sein. Kein einziges Wort auf Englisch oder einer anderen Sprache. Dialoge, Erzähltext, Ortsbezeichnungen, innere Monologe – alles auf ${lang}.
+════════════════════════════════════════
+
+════════════════════════════════════════
+STIL-GESETZ (deine künstlerische Persönlichkeit für dieses Werk):
+${styleBlock}
+
+Diese Stilvorhaben sind dein Grundgesetz. Du hast keinen eigenen KI-Stil – du verkörperst ausschließlich den oben definierten Stil. Jeder Satz, jede Wortwahl, jede Rhythmusentscheidung folgt dieser Vorlage.
+════════════════════════════════════════
+
+ARBEITSWEISE:
+1. SPRACHE → ${lang} ohne Ausnahme
+2. STIL → Exakt wie oben definiert. Stilmittel, Zeitform, Satzlänge, Tonfall – alles bindend.
+3. KONTINUITÄT → Das Narrativ-Gedächtnis im User-Prompt ist deine verbindliche Vorgeschichte. Baue nahtlos darauf auf.
+4. INHALT → Alle Vorgaben aus der Kapitel-Anweisung präzise umsetzen.
+5. QUALITÄT → Show don't tell, starke Verben, keine Klischees, kein generischer KI-Stil.
+
+Schreibe 3.000–5.000 Wörter. Nur den reinen Kapiteltext – keine Überschriften, keine Metadaten, kein "Hier ist Kapitel X".`;
+}
+
+function formatCharactersForPrompt(chars: any[], tierMode = false): string {
+  if (chars.length === 0) return "Keine spezifischen Figuren definiert.";
+  return chars.map((c) => {
+    const lines = [
+      `**${c.name}**${c.role ? ` (${c.role})` : ""}`,
+      c.description ? `Beschreibung: ${c.description}` : "",
+      c.traits ? `Eigenschaften: ${c.traits}` : "",
+      c.backstory ? `Hintergrund: ${c.backstory}` : "",
+      c.appearance ? `Aussehen: ${c.appearance}` : "",
+      c.notes ? `Notizen: ${c.notes}` : "",
+    ].filter(Boolean);
+    return lines.join("\n");
+  }).join("\n\n");
+}
+
+async function generateNarrativeSummary(
+  model: string,
+  chapterContent: string,
+  chapterNumber: number,
+  chapterTitle: string,
+  characterNames: string[]
+): Promise<{ summary: string; character_states: any; last_scene_ending: string; open_plot_threads: string[] } | null> {
+  try {
+    const userPrompt = `Kapitel ${chapterNumber}: "${chapterTitle}"
+
+Vorkommende Figuren: ${characterNames.join(", ") || "unbekannt"}
+
+KAPITELTEXT:
+${chapterContent.substring(0, 12000)}
+
+Erstelle jetzt das Narrative Handoff-Dokument für das nächste Kapitel.`;
+
+    const result = await generateText(model, PROMPTS.narrativeSummarizer, userPrompt, 2000);
+    const cleaned = result.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("Narrative summary generation failed:", e);
+    return null;
+  }
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -92,22 +155,75 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const p = project.rows[0];
+  const lang = p.language || "Deutsch";
 
   const outline = await query(
     "SELECT * FROM chapter_outlines WHERE project_id = $1 AND chapter_number = $2",
     [id, chapter_number]
   );
+  const chapterOutline = outline.rows[0];
 
+  // Load ALL previous chapters with their narrative summaries, ordered ascending
   const prevChapters = await query(
-    "SELECT chapter_number, title, content FROM chapters WHERE project_id = $1 AND chapter_number < $2 ORDER BY chapter_number DESC LIMIT 2",
+    `SELECT chapter_number, title, content, narrative_summary, character_states
+     FROM chapters
+     WHERE project_id = $1 AND chapter_number < $2
+     ORDER BY chapter_number ASC`,
     [id, chapter_number]
   );
 
-  const chapterOutline = outline.rows[0];
+  // --- Build "Story So Far" block ---
+  let storySoFarBlock = "";
+  if (prevChapters.rows.length === 0) {
+    storySoFarBlock = "Dies ist das erste Kapitel. Es gibt keine Vorgeschichte.";
+  } else {
+    const summaryLines: string[] = ["=== STORY SO FAR – Narrative Gedächtnisprotokoll ===\n"];
 
-  // Load characters: first try outline-specific, then fall back to all project characters
+    // All previous chapters: use narrative_summary if available, otherwise truncate content
+    for (const prev of prevChapters.rows) {
+      const hasSummary = prev.narrative_summary && prev.narrative_summary.trim().length > 0;
+      summaryLines.push(
+        `── Kapitel ${prev.chapter_number}: "${prev.title}" ──\n` +
+        (hasSummary
+          ? prev.narrative_summary
+          : `[Keine Zusammenfassung vorhanden – Rohtextauszug:]\n${(prev.content || "").substring(0, 800)}…`)
+      );
+    }
+
+    // Add character states from the most recent chapter that has them
+    const lastWithStates = [...prevChapters.rows].reverse().find(c => c.character_states);
+    if (lastWithStates?.character_states) {
+      summaryLines.push("\n=== AKTUELLER FIGURENSTATUS (Ende Kapitel " + lastWithStates.chapter_number + ") ===");
+      const states = lastWithStates.character_states;
+      for (const [name, state] of Object.entries(states as Record<string, any>)) {
+        summaryLines.push(
+          `${name}:\n` +
+          (state.location ? `  Aufenthaltsort: ${state.location}\n` : "") +
+          (state.emotional_state ? `  Zustand: ${state.emotional_state}\n` : "") +
+          (state.open_threads ? `  Offene Fäden: ${state.open_threads}` : "")
+        );
+      }
+    }
+
+    // Full text of the immediately previous chapter (for style and seamless transition)
+    const lastChapter = prevChapters.rows[prevChapters.rows.length - 1];
+    if (lastChapter?.content) {
+      const lastContent = lastChapter.content;
+      // Take the last ~2500 chars to capture the ending of the previous chapter
+      const snippet = lastContent.length > 2500 ? "…" + lastContent.slice(-2500) : lastContent;
+      summaryLines.push(
+        `\n=== VOLLTEXT-ENDE KAPITEL ${lastChapter.chapter_number} (für nahtlosen Übergang) ===\n${snippet}`
+      );
+    }
+
+    storySoFarBlock = summaryLines.join("\n");
+  }
+
+  // --- Character loading with first_appears_chapter filter ---
   let characterRows: any[] = [];
   let isFiltered = false;
+  let characterLabel = "Figuren";
+
   if (chapterOutline) {
     const assignedChars = await query(
       `SELECT pc.* FROM project_characters pc
@@ -119,90 +235,72 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (assignedChars.rows.length > 0) {
       characterRows = assignedChars.rows;
       isFiltered = true;
+      characterLabel = "Figuren in diesem Kapitel (NUR diese dürfen auftreten)";
     }
   }
+
   if (!isFiltered) {
-    const allChars = await query(
-      "SELECT * FROM project_characters WHERE project_id = $1 ORDER BY created_at",
-      [id]
+    // Filter by first_appears_chapter: only show characters who have been introduced by this chapter
+    const eligibleChars = await query(
+      `SELECT * FROM project_characters
+       WHERE project_id = $1
+         AND (first_appears_chapter IS NULL OR first_appears_chapter <= $2)
+       ORDER BY created_at`,
+      [id, chapter_number]
     );
-    characterRows = allChars.rows;
+    characterRows = eligibleChars.rows;
+
+    // Also check if there are future characters (for context about who NOT to include)
+    const futureChars = await query(
+      `SELECT name FROM project_characters
+       WHERE project_id = $1 AND first_appears_chapter > $2
+       ORDER BY first_appears_chapter`,
+      [id, chapter_number]
+    );
+    if (futureChars.rows.length > 0) {
+      characterLabel = `Figuren (bereits eingeführt bis Kapitel ${chapter_number}) – NICHT auftreten lassen: ${futureChars.rows.map((c: any) => c.name).join(", ")}`;
+    } else {
+      characterLabel = "Figuren";
+    }
   }
 
-  function formatCharactersForPrompt(chars: any[]): string {
-    if (chars.length === 0) return p.characters || "Nicht spezifiziert";
-    return chars.map((c) => [
-      `**${c.name}**${c.role ? ` (${c.role})` : ""}`,
-      c.description ? `Beschreibung: ${c.description}` : "",
-      c.traits ? `Eigenschaften: ${c.traits}` : "",
-      c.backstory ? `Hintergrund: ${c.backstory}` : "",
-      c.appearance ? `Aussehen: ${c.appearance}` : "",
-      c.notes ? `Notizen: ${c.notes}` : "",
-    ].filter(Boolean).join("\n")).join("\n\n");
-  }
-
-  try {
-    const contextText = prevChapters.rows.length > 0
-      ? prevChapters.rows.map((c: any) =>
-          `--- Kapitel ${c.chapter_number}: ${c.title} ---\n${(c.content || "").substring(0, 2000)}...`
-        ).join("\n\n")
-      : "Dies ist das erste Kapitel.";
-
-    const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
-    
-    // Explicit Style Wrapper for the LLM
-    const lang = p.language || "Deutsch";
-    const finalStyleInstruction = `
-=== ABSOLUT ZWINGEND: ZIELSPRACHE ===
-Das gesamte Kapitel MUSS auf ${lang.toUpperCase()} geschrieben sein. Kein einziges Wort einer anderen Sprache (insbesondere KEIN Englisch). Auch Namen von Orten, Handlungen und Dialoge – alles auf ${lang}.
-=====================================
-
-=== KRITISCHE STIL-VORGABE (DIESE REGELN ÜBERSCHREIBEN ALLES ANDERE) ===
-${styleBlock}
-======================================================================
-`.trim();
-
-    const totalCharsResult = await query("SELECT COUNT(*) FROM project_characters WHERE project_id = $1", [id]);
-    const totalCharsCount = parseInt(totalCharsResult.rows[0].count);
-    const characterLabel = isFiltered
-      ? "Charaktere in diesem Kapitel (nur diese Figuren auftreten lassen)"
-      : "Charaktere";
-
-    const outlineBlock = chapterOutline ? `
+  // Build the outline block
+  const outlineBlock = chapterOutline ? `
 Kapitel-Titel: ${chapterOutline.title || `Kapitel ${chapter_number}`}
 Kapitel-Zweck: ${chapterOutline.purpose || "Handlung vorantreiben"}
 ${chapterOutline.character_arc ? `Charakter-Entwicklung: ${chapterOutline.character_arc}` : ""}
 ${chapterOutline.location ? `Ort & Zeit: ${chapterOutline.location}` : ""}
 ${chapterOutline.key_events ? `Schlüsselereignisse (MÜSSEN vorkommen): ${chapterOutline.key_events}` : ""}
 ${chapterOutline.tension_level ? `Spannungslevel: ${chapterOutline.tension_level}/10` : ""}
-${chapterOutline.raw_notes ? `\nSzenen-Vorlage des Autors (inhaltlich bindend, wortgetreu umsetzen):\n${chapterOutline.raw_notes}` : ""}`.trim()
+${chapterOutline.raw_notes ? `\nAutoren-Vorlage (inhaltlich bindend, wortgetreu umsetzen):\n${chapterOutline.raw_notes}` : ""}`.trim()
     : `Kapitel-Titel: Kapitel ${chapter_number}\nKapitel-Zweck: Handlung vorantreiben`;
 
-    const userPrompt = `Kapitel-Nummer: ${chapter_number}
+  // Build the style block and dynamic system prompt
+  const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
+  const dynamicSystemPrompt = buildDynamicSystemPrompt(styleBlock, lang);
 
-${finalStyleInstruction}
+  // Compose the user prompt
+  const userPrompt = `KAPITEL ${chapter_number} SCHREIBEN
 
-=== KAPITEL-VORGABE ===
+=== KAPITEL-ANWEISUNG ===
 ${outlineBlock}
 
 === PROJEKT-KONTEXT ===
-Gesamte Summary:
+Gesamte Handlung (Summary):
 ${p.summary || "Nicht vorhanden"}
 
 ${characterLabel}:
 ${formatCharactersForPrompt(characterRows)}
 
-Sprache: ${p.language || "Deutsch"}
+=== NARRATIVE VORGESCHICHTE ===
+${storySoFarBlock}
 
-=== KONTEXT – LETZTE KAPITEL (für Kontinuität) ===
-${contextText}
+---
+ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.`;
 
-ABSCHLIESSENDE ERINNERUNG:
-1. Sprache: ${lang.toUpperCase()} – kein einziges Wort auf Englisch oder einer anderen Sprache.
-2. Stil: Die KRITISCHE STIL-VORGABE am Anfang dieses Prompts ist absolut bindend.`;
-
+  try {
     const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
-    const result = await generateText(model, PROMPTS.chapterWriter, userPrompt, 16000);
+    const result = await generateText(model, dynamicSystemPrompt, userPrompt, 16000);
 
     const wordCount = result.content.trim().split(/\s+/).length;
     const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
@@ -236,6 +334,28 @@ ABSCHLIESSENDE ERINNERUNG:
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [id, "Kapitel generiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`]
     );
+
+    // Generate narrative summary in background (fire and await — ensures next chapter has memory)
+    const characterNames = characterRows.map((c: any) => c.name);
+    const handoff = await generateNarrativeSummary(
+      model,
+      result.content,
+      chapter_number,
+      chapterOutline?.title || `Kapitel ${chapter_number}`,
+      characterNames
+    );
+
+    if (handoff) {
+      await query(
+        `UPDATE chapters SET narrative_summary = $1, character_states = $2 WHERE id = $3`,
+        [handoff.summary, JSON.stringify(handoff.character_states), chapter.id]
+      );
+      await query(
+        `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [id, "Narrative Zusammenfassung", model, 0, 0, 0, 0, chapter_number, "Auto-generiertes Handoff-Dokument"]
+      );
+    }
 
     return NextResponse.json({ chapter, tokens: result.total_tokens, cost });
   } catch (error: any) {

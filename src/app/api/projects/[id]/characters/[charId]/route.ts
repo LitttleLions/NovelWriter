@@ -11,7 +11,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (project.rows.length === 0) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
   const body = await req.json();
-  const { name, role, description, traits, backstory, appearance, notes } = body;
+  const { name, role, description, traits, backstory, appearance, notes, first_appears_chapter } = body;
 
   const result = await query(
     `UPDATE project_characters
@@ -22,10 +22,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
          backstory = COALESCE($5, backstory),
          appearance = COALESCE($6, appearance),
          notes = COALESCE($7, notes),
+         first_appears_chapter = COALESCE($8, first_appears_chapter),
          updated_at = NOW()
-     WHERE id = $8 AND project_id = $9
+     WHERE id = $9 AND project_id = $10
      RETURNING *`,
-    [name, role, description, traits, backstory, appearance, notes, charId, id]
+    [name, role, description, traits, backstory, appearance, notes, first_appears_chapter ?? null, charId, id]
   );
 
   if (result.rows.length === 0) return NextResponse.json({ error: "Charakter nicht gefunden" }, { status: 404 });

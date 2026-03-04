@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS chapters (
   content TEXT,
   word_count INTEGER DEFAULT 0,
   status VARCHAR(50) DEFAULT 'pending',
+  narrative_summary TEXT,
+  character_states JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

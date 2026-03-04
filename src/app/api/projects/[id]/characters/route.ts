@@ -26,14 +26,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (project.rows.length === 0) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
   const body = await req.json();
-  const { name, role, description, traits, backstory, appearance, notes } = body;
+  const { name, role, description, traits, backstory, appearance, notes, first_appears_chapter } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "Name erforderlich" }, { status: 400 });
 
   const result = await query(
-    `INSERT INTO project_characters (project_id, name, role, description, traits, backstory, appearance, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [id, name, role || null, description || null, traits || null, backstory || null, appearance || null, notes || null]
+    `INSERT INTO project_characters (project_id, name, role, description, traits, backstory, appearance, notes, first_appears_chapter)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [id, name, role || null, description || null, traits || null, backstory || null, appearance || null, notes || null, first_appears_chapter || 1]
   );
   return NextResponse.json({ character: result.rows[0] });
 }

@@ -130,12 +130,32 @@ export default function ProjectPage() {
   const [projectCharacters, setProjectCharacters] = useState<ProjectCharacter[]>([]);
   const [extractingCharacters, setExtractingCharacters] = useState(false);
   const [addingCharacter, setAddingCharacter] = useState(false);
-  const [newCharacterData, setNewCharacterData] = useState({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "", first_appears_chapter: 1 });
+  const [newCharacterData, setNewCharacterData] = useState({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "", first_appears_chapter: 0 });
   const [editingCharacter, setEditingCharacter] = useState<number | null>(null);
-  const [characterEditData, setCharacterEditData] = useState<any>({});
+  const [characterEditData, setCharacterEditData] = useState<any>({ first_appears_chapter: 0 });
   const [savingCharacter, setSavingCharacter] = useState(false);
   const [expandedCharacter, setExpandedCharacter] = useState<number | null>(null);
   const [outlineCharacterMap, setOutlineCharacterMap] = useState<Record<number, number[]>>({});
+
+  const [editingNarrative, setEditingNarrative] = useState<number | null>(null);
+  const [narrativeEditContent, setNarrativeEditContent] = useState("");
+
+  const updateNarrativeSummary = async (chapterId: number, summary: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ narrative_summary: summary }),
+      });
+      if (res.ok) {
+        setChapters(chapters.map(c => c.id === chapterId ? { ...c, narrative_summary: summary } : c));
+        setEditingNarrative(null);
+        toast({ title: "Zusammenfassung gespeichert" });
+      }
+    } catch (e) {
+      toast({ title: "Fehler beim Speichern", variant: "destructive" });
+    }
+  };
 
   const [generationLogs, setGenerationLogs] = useState<any[]>([]);
   const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
@@ -576,7 +596,7 @@ export default function ProjectPage() {
       const data = await res.json();
       if (res.ok) {
         setProjectCharacters((prev) => [...prev, data.character]);
-        setNewCharacterData({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "", first_appears_chapter: 1 });
+        setNewCharacterData({ name: "", role: "", description: "", traits: "", backstory: "", appearance: "", notes: "", first_appears_chapter: 0 });
         setAddingCharacter(false);
       }
     } finally {
@@ -1223,7 +1243,7 @@ export default function ProjectPage() {
                         type="number"
                         min={1}
                         value={newCharacterData.first_appears_chapter}
-                        onChange={(e) => setNewCharacterData({ ...newCharacterData, first_appears_chapter: parseInt(e.target.value) || 1 })}
+                        onChange={(e) => setNewCharacterData({ ...newCharacterData, first_appears_chapter: parseInt(e.target.value) || 0 })}
                         placeholder="1"
                         className="w-32"
                       />
@@ -1297,8 +1317,8 @@ export default function ProjectPage() {
                         <Input
                           type="number"
                           min={1}
-                          value={characterEditData.first_appears_chapter || 1}
-                          onChange={(e) => setCharacterEditData({ ...characterEditData, first_appears_chapter: parseInt(e.target.value) || 1 })}
+                          value={characterEditData.first_appears_chapter || 0}
+                          onChange={(e) => setCharacterEditData({ ...characterEditData, first_appears_chapter: parseInt(e.target.value) || 0 })}
                           className="w-32"
                         />
                         <p className="text-xs text-muted-foreground">Figur wird erst ab diesem Kapitel in den Prompt einbezogen</p>
@@ -1324,7 +1344,7 @@ export default function ProjectPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold">{ch.name}</span>
                             {ch.role && <Badge variant="secondary" className="text-xs">{ch.role}</Badge>}
-                            {ch.first_appears_chapter && ch.first_appears_chapter > 1 && (
+                            {ch.first_appears_chapter !== undefined && ch.first_appears_chapter > 0 && (
                               <Badge variant="outline" className="text-xs text-muted-foreground">ab Kap. {ch.first_appears_chapter}</Badge>
                             )}
                           </div>
@@ -1840,7 +1860,25 @@ export default function ProjectPage() {
                         {ch.chapter_number}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold truncate">{ch.title}</h4>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold truncate">{ch.title}</h4>
+                            <div className="flex items-center gap-1">
+                              {ch.narrative_summary && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingNarrative(ch.id);
+                                    setNarrativeEditContent(ch.narrative_summary || "");
+                                  }}
+                                >
+                                  Gedächtnis Editieren
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -1894,7 +1932,32 @@ export default function ProjectPage() {
                       </div>
                     </div>
                     {expandedChapter === ch.chapter_number && (
-                      <div className="border-t px-4 py-4">
+                      <div className="border-t px-4 py-4 space-y-4 bg-muted/30">
+                        {editingNarrative === ch.id ? (
+                          <div className="space-y-2 bg-primary/5 p-3 rounded-xl border border-primary/20">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-bold uppercase text-primary">Narratives Gedächtnis (KI-Handoff)</Label>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => setEditingNarrative(null)}>Abbrechen</Button>
+                                <Button size="sm" onClick={() => updateNarrativeSummary(ch.id, narrativeEditContent)}>Speichern</Button>
+                              </div>
+                            </div>
+                            <Textarea 
+                              value={narrativeEditContent} 
+                              onChange={(e) => setNarrativeEditContent(e.target.value)}
+                              className="min-h-[100px] text-sm bg-background"
+                              placeholder="Zusammenfassung für das nächste Kapitel..."
+                            />
+                          </div>
+                        ) : ch.narrative_summary && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-tight">Narratives Gedächtnis (KI-Handoff)</Label>
+                            <p className="text-xs text-muted-foreground leading-relaxed italic line-clamp-2 hover:line-clamp-none transition-all cursor-help">
+                              "{ch.narrative_summary}"
+                            </p>
+                          </div>
+                        )}
+
                         {editingChapter === ch.id ? (
                           <div className="space-y-3">
                             <Textarea

@@ -10,7 +10,7 @@ export async function PUT(
   if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
 
   const { id, chapterId } = await params;
-  const { content, title } = await req.json();
+  const { content, title, narrative_summary } = await req.json();
 
   const project = await query(
     "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
@@ -39,13 +39,18 @@ export async function PUT(
     values.push(title);
     idx++;
   }
+  if (narrative_summary !== undefined) {
+    fields.push(`narrative_summary = $${idx}`);
+    values.push(narrative_summary);
+    idx++;
+  }
 
-  fields.push(`updated_at = NOW()`);
-  values.push(chapterId, id);
+  const finalIdxForId = idx;
+  const finalIdxForProjectId = idx + 1;
 
   const result = await query(
-    `UPDATE chapters SET ${fields.join(", ")} WHERE id = $${idx} AND project_id = $${idx + 1} RETURNING *`,
-    values
+    `UPDATE chapters SET ${fields.join(", ")}, updated_at = NOW() WHERE id = $${finalIdxForId} AND project_id = $${finalIdxForProjectId} RETURNING *`,
+    [...values, chapterId, id]
   );
 
   if (result.rows.length === 0) {

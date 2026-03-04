@@ -1890,11 +1890,11 @@ export default function ProjectPage() {
                       <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-semibold truncate">{ch.title}</h4>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-[10px] uppercase tracking-wider font-bold text-muted-foreground hover:text-primary relative z-10"
+                                className="h-8 px-3 text-xs font-semibold relative z-50 shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -1902,16 +1902,18 @@ export default function ProjectPage() {
                                   setNarrativeEditContent(ch.narrative_summary || "");
                                 }}
                               >
+                                <Sparkles className="h-3.5 w-3.5 mr-1.5 opacity-70" />
                                 {ch.narrative_summary ? "Gedächtnis" : "Gedächtnis +"}
                               </Button>
                             </div>
                           </div>
                         <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0 relative z-10">
+                      <div className="flex items-center gap-2 shrink-0 relative z-50">
                         <Button
                           size="sm"
                           variant="outline"
+                          className="h-8 shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -1929,7 +1931,7 @@ export default function ProjectPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="relative z-10"
+                          className="h-8 w-8 relative z-50 hover:bg-primary/10"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -1941,12 +1943,12 @@ export default function ProjectPage() {
                             }
                           }}
                         >
-                          <PenTool className="h-3 w-3" />
+                          <PenTool className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-destructive hover:text-destructive relative z-10"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 relative z-50"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();

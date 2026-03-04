@@ -1878,66 +1878,63 @@ export default function ProjectPage() {
                         <span className="text-xs text-primary font-medium">KI schreibt dieses Kapitel … {formatElapsed(elapsedSeconds)}</span>
                       </div>
                     )}
-                    <div
-                      className="flex items-center gap-4 p-4 cursor-pointer"
-                      onClick={() =>
-                        setExpandedChapter(expandedChapter === ch.chapter_number ? null : ch.chapter_number)
-                      }
-                    >
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-primary font-bold text-sm shrink-0 ${generatingChapter === ch.chapter_number ? "bg-primary/20 animate-pulse" : "bg-primary/10"}`}>
-                        {ch.chapter_number}
+                    <div className="flex items-center gap-2 p-4">
+                      <div
+                        className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                        onClick={() =>
+                          setExpandedChapter(expandedChapter === ch.chapter_number ? null : ch.chapter_number)
+                        }
+                      >
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-primary font-bold text-sm shrink-0 ${generatingChapter === ch.chapter_number ? "bg-primary/20 animate-pulse" : "bg-primary/10"}`}>
+                          {ch.chapter_number}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold truncate mb-0.5">{ch.title}</h4>
+                          <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
+                        </div>
+                        {expandedChapter === ch.chapter_number ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold truncate">{ch.title}</h4>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 px-3 text-xs font-semibold relative z-50 shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setEditingNarrative(ch.id);
-                                  setNarrativeEditContent(ch.narrative_summary || "");
-                                }}
-                              >
-                                <Sparkles className="h-3.5 w-3.5 mr-1.5 opacity-70" />
-                                {ch.narrative_summary ? "Gedächtnis" : "Gedächtnis +"}
-                              </Button>
-                            </div>
-                          </div>
-                        <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 relative z-50">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 shadow-sm hover:bg-primary hover:text-primary-foreground transition-all"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            generateChapter(ch.chapter_number);
+                          className="h-8 px-3 text-xs gap-1.5"
+                          onClick={() => {
+                            setExpandedChapter(ch.chapter_number);
+                            setEditingNarrative(ch.id);
+                            setNarrativeEditContent(ch.narrative_summary || "");
                           }}
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          {ch.narrative_summary ? "Gedächtnis" : "Gedächtnis +"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-3 text-xs gap-1.5"
+                          onClick={() => generateChapter(ch.chapter_number)}
                           disabled={generatingChapter !== null}
                         >
                           {generatingChapter === ch.chapter_number ? (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <RefreshCw className="h-3 w-3" />
+                            <RefreshCw className="h-3.5 w-3.5" />
                           )}
                           Neu
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 relative z-50 hover:bg-primary/10"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
+                          className="h-8 w-8"
+                          onClick={() => {
                             if (editingChapter === ch.id) {
                               setEditingChapter(null);
                             } else {
+                              setExpandedChapter(ch.chapter_number);
                               setEditingChapter(ch.id);
                               setEditContent(ch.content || "");
                             }
@@ -1948,20 +1945,11 @@ export default function ProjectPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 relative z-50"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            deleteChapter(ch.id);
-                          }}
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => deleteChapter(ch.id)}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
-                        {expandedChapter === ch.chapter_number ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
                       </div>
                     </div>
                     {expandedChapter === ch.chapter_number && (

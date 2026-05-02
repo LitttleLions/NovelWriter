@@ -200,7 +200,7 @@ export default function LandingPage() {
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight">
                 Deine Geschichte.{" "}
-                <span className="bg-gradient-to-r from-primary to-orange-400 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                   Dein Stil.
                 </span>{" "}
                 Ein Klick.
@@ -211,11 +211,11 @@ export default function LandingPage() {
               </p>
               <div className="flex gap-4 items-center text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="h-2 w-2 rounded-full bg-success" />
                   OpenRouter Multi-Model
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="h-2 w-2 rounded-full bg-success" />
                   Alle Sprachen
                 </span>
               </div>

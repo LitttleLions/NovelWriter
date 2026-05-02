@@ -18,7 +18,7 @@ import {
   BookOpen, ArrowLeft, Sparkles, Layers, PenTool, Download,
   RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
   Upload, FileText, ClipboardPaste, ArrowUp, ArrowDown, Pencil, X,
-  AlertTriangle, Type, Wand2, Plus, Receipt, Zap,
+  AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users,
 } from "lucide-react";
 
 interface Project {
@@ -1272,7 +1272,7 @@ export default function ProjectPage() {
               {projectCharacters.length === 0 && !addingCharacter && (
                 <Card className="text-center py-12">
                   <CardContent>
-                    <div className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3 flex items-center justify-center text-4xl">👥</div>
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
                     <h3 className="text-xl font-semibold mb-2">Noch keine Figuren</h3>
                     <p className="text-muted-foreground mb-4 text-sm">
                       Lass die KI die Figuren aus deinem Charaktertext oder deiner Summary extrahieren,<br/>oder füge sie manuell hinzu.
@@ -1343,7 +1343,7 @@ export default function ProjectPage() {
                   ) : (
                     <div>
                       <div
-                        className="flex items-center gap-4 p-4 cursor-pointer"
+                        className="flex items-center gap-4 p-4 cursor-pointer hover:bg-muted/40 transition-colors"
                         onClick={() => setExpandedCharacter(expandedCharacter === ch.id ? null : ch.id)}
                       >
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm shrink-0 uppercase">
@@ -1645,7 +1645,7 @@ export default function ProjectPage() {
                           </div>
                         ) : (
                           <>
-                          <div className="flex items-center gap-4 p-4">
+                          <div className="flex items-center gap-4 p-4 hover:bg-muted/40 transition-colors">
                             <div className="flex flex-col gap-1 shrink-0">
                               <Button
                                 size="icon"
@@ -1881,7 +1881,7 @@ export default function ProjectPage() {
                         <span className="text-xs text-primary font-medium">KI schreibt dieses Kapitel … {formatElapsed(elapsedSeconds)}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 p-4">
+                    <div className="flex items-center gap-2 p-4 hover:bg-muted/40 transition-colors">
                       <div
                         className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
                         onClick={() =>

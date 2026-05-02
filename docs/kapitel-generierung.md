@@ -189,3 +189,61 @@ Klicke in der Kapitel-Liste auf **"Gedächtnis"** — du kannst es manuell editi
 - `src/lib/openrouter.ts` — `generateText`, `estimateCost`, `describeAiError`
 - `src/lib/db/schema.sql` — Schema für `chapters.narrative_summary` und `character_states`
 - `src/app/project/[id]/page.tsx` — UI-Buttons "Generieren" / "Neu" / "Gedächtnis"
+
+---
+
+## Drehbuch-Modus (Spielfilm / TV-Episode)
+
+Seit Task #5 unterstützt RomanForge AI **Drehbücher** als zweiten Werk-Typ – ohne die bestehende Roman-Logik zu verändern.
+
+### Was ist anders?
+
+| Aspekt | Roman | Drehbuch |
+|---|---|---|
+| `projects.project_type` | `'novel'` (Default) | `'screenplay'` |
+| `projects.screenplay_format` | `NULL` | `'feature'` (Spielfilm, ~22.500 Wörter ≈ 90 Seiten) oder `'tv_episode'` (~14.000 Wörter ≈ 55 Seiten) |
+| `projects.screenplay_style_preset` | `NULL` | `'sorkin'` \| `'tarantino'` \| `'dialogue_heavy'` \| `'action_heavy'` \| `'custom'` |
+| System-Prompt | `buildDynamicSystemPrompt()` (Roman-Ghostwriter) | `PROMPTS.screenplayWriter` / `PROMPTS.screenplayTvWriter` mit Industriestandard-Format-Regeln |
+| Output-Format | Literarische Prosa | Slugline → Action-Lines → DIALOG-BLOCK |
+| Längen-Einheit in UI | "Wörter" | "Seiten" (1 Seite ≈ 250 Wörter ≈ 1 Min. Filmzeit) |
+| Outline `location`-Feld | Freitext "Küche, abends" | Echte Slugline "INNEN. KÜCHE - TAG" / "INT. KITCHEN - DAY" |
+| Stil-Prompt | nur `style_json` + `style_notes` | Stil-Preset (Sorkin etc.) wird PRE-pended als oberste Priorität |
+
+### Sprachgesteuerte Sluglines
+
+Über `getSluglineVocab(language)` in `src/lib/screenplay-presets.ts` wählt das System automatisch das Vokabular:
+
+- **Deutsch** → `INNEN.` / `AUSSEN.` + `TAG` / `NACHT` / `MORGEN` / `ABEND`
+- **Englisch** → `INT.` / `EXT.` + `DAY` / `NIGHT` / `MORNING` / `EVENING`
+
+Sowohl der Outline-Konverter (`convertChunk` in `outline/generate/route.ts`) als auch der Szenen-Schreiber (`buildDynamicSystemPrompt` in `chapters/generate/route.ts`) verwenden diese Vokabel-Tabelle.
+
+### Geteilte Datenbank-Spalten
+
+`chapter_outlines` bleibt **schema-identisch** für beide Werk-Typen – die bestehenden Felder werden semantisch umgewidmet:
+
+| Spalte | Roman-Bedeutung | Drehbuch-Bedeutung |
+|---|---|---|
+| `title` | Kapitel-Titel | Kurzer Szenen-Name (3–8 Wörter, KEINE Slugline) |
+| `purpose` | Kapitel-Zweck | Dramatische Funktion der Szene |
+| `character_arc` | Figurenentwicklung | dito |
+| `location` | freiformuliert | echte Slugline |
+| `tension_level` | 1–10 | dito |
+| `key_events` | Hauptereignisse | Action-Beats, die vorkommen MÜSSEN |
+| `raw_notes` | Autoren-Vorlage | dito (Szenen-Beschreibung) |
+
+### Stil-Presets
+
+Definiert in `src/lib/screenplay-presets.ts`:
+
+- **Aaron Sorkin** — Walk-and-Talks, Ping-Pong-Dialog, Fachjargon
+- **Quentin Tarantino** — Lange Dialog-Tableaus, Pop-Culture-Riffs
+- **Dialog-lastig** — 70%+ Dialog, intim
+- **Action-lastig** — Visuell-kinetisch, knapp
+- **Eigener Stil** — Nur die normale Stil-Engine wird verwendet
+
+Das gewählte Preset wird vor dem regulären Stil-Block (`[A]` KI-Profil + `[B]` manuelle Notizen) als **`[S]` DREHBUCH-STIL-PRESET (oberste Priorität)** in den System-Prompt injiziert.
+
+### Empfohlene Modelle für Drehbücher
+
+Das UI zeigt im Modell-Selector den Hinweis: für Drehbücher liefern **Claude Sonnet 4.6** und **GPT-5** das zuverlässigste Format-Halten (Sluglines, Charakter-Caps, Dialog-Layout).

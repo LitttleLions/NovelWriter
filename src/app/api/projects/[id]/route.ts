@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { VALID_PROJECT_TYPES, VALID_SCREENPLAY_FORMATS, VALID_SCREENPLAY_PRESETS } from "@/lib/screenplay-presets";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -39,11 +40,34 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const body = await req.json();
+
+  // Validate the screenplay-related fields against whitelists.
+  if (body.project_type !== undefined && !VALID_PROJECT_TYPES.includes(body.project_type)) {
+    return NextResponse.json({ error: `Ungültiger Werk-Typ: ${body.project_type}` }, { status: 400 });
+  }
+  if (body.screenplay_format !== undefined && body.screenplay_format !== null
+      && !VALID_SCREENPLAY_FORMATS.includes(body.screenplay_format)) {
+    return NextResponse.json({ error: `Ungültiges Drehbuch-Format: ${body.screenplay_format}` }, { status: 400 });
+  }
+  if (body.screenplay_style_preset !== undefined && body.screenplay_style_preset !== null
+      && !VALID_SCREENPLAY_PRESETS.includes(body.screenplay_style_preset)) {
+    return NextResponse.json({ error: `Ungültiges Drehbuch-Stil-Preset: ${body.screenplay_style_preset}` }, { status: 400 });
+  }
+  // Cross-field consistency: novel projects cannot carry screenplay-only data.
+  if (body.project_type === "novel") {
+    if (body.screenplay_format !== undefined && body.screenplay_format !== null) {
+      return NextResponse.json({ error: "Roman-Projekte dürfen kein screenplay_format setzen." }, { status: 400 });
+    }
+    if (body.screenplay_style_preset !== undefined && body.screenplay_style_preset !== null) {
+      return NextResponse.json({ error: "Roman-Projekte dürfen kein screenplay_style_preset setzen." }, { status: 400 });
+    }
+  }
+
   const fields: string[] = [];
   const values: any[] = [];
   let idx = 1;
 
-  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "ai_provider", "status"]) {
+  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "ai_provider", "status", "project_type", "screenplay_format", "screenplay_style_preset"]) {
     if (body[key] !== undefined) {
       fields.push(`${key} = $${idx}`);
       values.push(key === "style_json" ? JSON.stringify(body[key]) : body[key]);

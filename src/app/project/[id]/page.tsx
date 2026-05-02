@@ -20,6 +20,7 @@ import {
   Upload, FileText, ClipboardPaste, ArrowUp, ArrowDown, Pencil, X,
   AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users,
 } from "lucide-react";
+import { getTerms, formatWordcount } from "@/lib/terms";
 
 interface Project {
   id: number;
@@ -35,6 +36,9 @@ interface Project {
   style_notes: string;
   ai_provider: string;
   status: string;
+  project_type?: string;
+  screenplay_format?: string;
+  screenplay_style_preset?: string;
 }
 
 interface Chapter {
@@ -664,6 +668,8 @@ export default function ProjectPage() {
 
   const totalWords = chapters.reduce((sum, c) => sum + (c.word_count || 0), 0);
   const progress = Math.min(100, (totalWords / project.target_word_count) * 100);
+  const terms = getTerms(project.project_type, project.screenplay_format);
+  const isScreenplay = project.project_type === "screenplay";
 
   return (
     <div className="min-h-screen">
@@ -676,7 +682,7 @@ export default function ProjectPage() {
             <h1 className="text-lg font-bold truncate">{project.title}</h1>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               {project.genre && <Badge variant="secondary" className="text-xs">{project.genre}</Badge>}
-              <span>{totalWords.toLocaleString("de-DE")} / {project.target_word_count.toLocaleString("de-DE")} Wörter</span>
+              <span>{formatWordcount(totalWords, project.project_type)} / {formatWordcount(project.target_word_count, project.project_type)}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -716,7 +722,7 @@ export default function ProjectPage() {
             <TabsTrigger value="style">Stil-Engine</TabsTrigger>
             <TabsTrigger value="characters">Figuren ({projectCharacters.length})</TabsTrigger>
             <TabsTrigger value="outline">Outline ({outlines.length})</TabsTrigger>
-            <TabsTrigger value="chapters">Kapitel ({chapters.length})</TabsTrigger>
+            <TabsTrigger value="chapters">{terms.chapterTab} ({chapters.length})</TabsTrigger>
             <TabsTrigger value="log">
               <Receipt className="h-3.5 w-3.5 mr-1" />
               KI-Log
@@ -784,13 +790,15 @@ export default function ProjectPage() {
                       <div className="text-3xl font-bold text-primary">
                         {chapters.length}
                       </div>
-                      <div className="text-sm text-muted-foreground">Kapitel</div>
+                      <div className="text-sm text-muted-foreground">{terms.chapters}</div>
                     </div>
                     <div>
                       <div className="text-3xl font-bold text-primary">
-                        {totalWords.toLocaleString("de-DE")}
+                        {isScreenplay
+                          ? Math.round(totalWords / 250).toLocaleString("de-DE")
+                          : totalWords.toLocaleString("de-DE")}
                       </div>
-                      <div className="text-sm text-muted-foreground">Wörter</div>
+                      <div className="text-sm text-muted-foreground">{terms.wordcountUnit}</div>
                     </div>
                     <div>
                       <div className="text-3xl font-bold text-primary">
@@ -1411,11 +1419,11 @@ export default function ProjectPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold">Kapitel-Struktur</h3>
+                  <h3 className="text-xl font-semibold">{terms.chapterStructure}</h3>
                   <p className="text-sm text-muted-foreground">
                     {outlines.length > 0
-                      ? `${outlines.length} Kapitel geplant`
-                      : "Generiere eine Kapitel-Struktur basierend auf deiner Summary"}
+                      ? terms.outlineGenerated(outlines.length)
+                      : terms.outlineEmpty}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1443,7 +1451,7 @@ export default function ProjectPage() {
                   {outlineInputMode === "paste" ? (
                     <div className="flex items-center gap-2">
                       <Textarea
-                        placeholder="Kapitel 1: Titel...&#10;Kapitel 2: Titel..."
+                        placeholder={terms.pasteOutlinePlaceholder}
                         className="h-9 min-h-[36px] py-1 text-xs w-64"
                         value={pastedOutline}
                         onChange={(e) => setPastedOutline(e.target.value)}
@@ -1457,7 +1465,7 @@ export default function ProjectPage() {
                     <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2">
                       <AlertTriangle className="h-4 w-4 text-destructive" />
                       <span className="text-sm text-destructive">
-                        {chapters.length} Kapitel werden gelöscht!
+                        {chapters.length} {terms.chapters} werden gelöscht!
                       </span>
                       <Button size="sm" variant="destructive" onClick={generateOutline} disabled={generatingOutline}>
                         Trotzdem neu generieren
@@ -1493,7 +1501,7 @@ export default function ProjectPage() {
                 {showAddOutline && (
                   <Card className="p-4 border-primary/30 bg-primary/5">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold">Szenen / Kapitel hinzufügen</span>
+                      <span className="text-sm font-semibold">{terms.newOutlineHeader}</span>
                       <Button size="sm" variant="ghost" onClick={() => { setShowAddOutline(false); setNewOutlineFreetext(""); }}>
                         <X className="h-4 w-4" />
                       </Button>
@@ -1503,7 +1511,7 @@ export default function ProjectPage() {
                     </p>
                     <div className="grid gap-3">
                       <Textarea
-                        placeholder={"Szene 1: Anna entdeckt das Tagebuch ihrer Mutter im Keller.\nSzene 2: Konfrontation mit dem Vater – er weiß mehr als er zugibt.\n\nOder einfach fließend: Die nächsten Kapitel drehen sich um die Reise nach Paris, wo..."}
+                        placeholder={terms.addOutlinePlaceholder}
                         value={newOutlineFreetext}
                         onChange={(e) => setNewOutlineFreetext(e.target.value)}
                         rows={7}
@@ -1511,7 +1519,7 @@ export default function ProjectPage() {
                       />
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">
-                          {newOutlineFreetext.trim() ? "KI erkennt automatisch, wie viele Kapitel erstellt werden sollen." : ""}
+                          {newOutlineFreetext.trim() ? `KI erkennt automatisch, wie viele ${terms.chapters} erstellt werden sollen.` : ""}
                         </span>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => { setShowAddOutline(false); setNewOutlineFreetext(""); }}>
@@ -1572,7 +1580,7 @@ export default function ProjectPage() {
                         {isEditing ? (
                           <div className="p-4 space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-semibold text-primary">Kapitel {o.chapter_number} bearbeiten</span>
+                              <span className="text-sm font-semibold text-primary">{terms.chapter} {o.chapter_number} bearbeiten</span>
                               <Button size="sm" variant="ghost" onClick={() => setEditingOutline(null)}>
                                 <X className="h-4 w-4" />
                               </Button>
@@ -1681,9 +1689,15 @@ export default function ProjectPage() {
                                   <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                 )}
                                 {o.location && (
-                                  <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
-                                    {o.location.split(",")[0]}
-                                  </Badge>
+                                  isScreenplay ? (
+                                    <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:inline-flex font-mono uppercase tracking-wider px-1.5 py-0">
+                                      {o.location}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
+                                      {o.location.split(",")[0]}
+                                    </Badge>
+                                  )
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground truncate">{o.purpose}</p>
@@ -1731,7 +1745,9 @@ export default function ProjectPage() {
                               {chapter ? (
                                 <Badge variant="success" className="text-xs relative z-10">
                                   <Check className="h-3 w-3 mr-1" />
-                                  {chapter.word_count} W.
+                                  {isScreenplay
+                                    ? `${Math.round(chapter.word_count / 250)} S.`
+                                    : `${chapter.word_count} W.`}
                                 </Badge>
                               ) : (
                                 <Button
@@ -1758,8 +1774,8 @@ export default function ProjectPage() {
                             <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
                               {o.location && (
                                 <div>
-                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ort & Zeit</span>
-                                  <p className="text-sm mt-0.5">{o.location}</p>
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{isScreenplay ? "Slugline" : "Ort & Zeit"}</span>
+                                  <p className={`text-sm mt-0.5 ${isScreenplay ? "font-mono uppercase tracking-wider" : ""}`}>{o.location}</p>
                                 </div>
                               )}
                               {o.key_events && (
@@ -1779,7 +1795,7 @@ export default function ProjectPage() {
                               {projectCharacters.length > 0 && (
                                 <div>
                                   <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Figuren in diesem Kapitel</span>
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Figuren in dieser {terms.chapter}</span>
                                     {!outlineCharacterMap.hasOwnProperty(o.id) && (
                                       <Button 
                                         size="sm" 
@@ -1834,7 +1850,7 @@ export default function ProjectPage() {
 
                   <Card className="p-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Alle Kapitel generieren</span>
+                      <span className="text-sm font-medium">Alle {terms.chapters} generieren</span>
                       <Button
                         onClick={async () => {
                           for (const o of outlines) {
@@ -1862,9 +1878,9 @@ export default function ProjectPage() {
                 <Card className="text-center py-12">
                   <CardContent>
                     <PenTool className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <h3 className="text-xl font-semibold mb-2">Noch keine Kapitel</h3>
+                    <h3 className="text-xl font-semibold mb-2">Noch keine {terms.chapters}</h3>
                     <p className="text-muted-foreground mb-4">
-                      Erstelle zuerst eine Outline und generiere dann die Kapitel.
+                      Erstelle zuerst eine Outline und generiere dann die {terms.chapters}.
                     </p>
                     <Button onClick={() => setActiveTab("outline")}>
                       <Layers className="h-4 w-4" />
@@ -1881,7 +1897,7 @@ export default function ProjectPage() {
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
                           <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                         </span>
-                        <span className="text-xs text-primary font-medium">KI schreibt dieses Kapitel … {formatElapsed(elapsedSeconds)}</span>
+                        <span className="text-xs text-primary font-medium">KI schreibt diese {terms.chapter} … {formatElapsed(elapsedSeconds)}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 p-4 hover:bg-muted/40 transition-colors">
@@ -1896,7 +1912,7 @@ export default function ProjectPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold truncate mb-0.5">{ch.title}</h4>
-                          <span className="text-xs text-muted-foreground">{ch.word_count} Wörter</span>
+                          <span className="text-xs text-muted-foreground">{formatWordcount(ch.word_count, project.project_type)}</span>
                         </div>
                         {expandedChapter === ch.chapter_number ? (
                           <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />

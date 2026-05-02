@@ -11,7 +11,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel,
 } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { BookOpen, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { BookOpen, ArrowLeft, ArrowRight, Sparkles, Film, Tv, Info } from "lucide-react";
+import { SCREENPLAY_STYLE_PRESETS } from "@/lib/screenplay-presets";
+import { DEFAULT_TARGET_WORDS, pagesToWords, wordsToPages } from "@/lib/terms";
 
 interface Model {
   id: string;
@@ -20,11 +22,18 @@ interface Model {
   description: string;
 }
 
+type ProjectType = "novel" | "screenplay";
+type ScreenplayFormat = "feature" | "tv_episode";
+
 export default function NewProjectPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<Model[]>([]);
+
+  const [projectType, setProjectType] = useState<ProjectType>("novel");
+  const [screenplayFormat, setScreenplayFormat] = useState<ScreenplayFormat>("feature");
+  const [screenplayStylePreset, setScreenplayStylePreset] = useState<string>("sorkin");
 
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("");
@@ -44,6 +53,17 @@ export default function NewProjectPage() {
       setModels(d.models || []);
     });
   }, [router]);
+
+  // Auto-Defaults wenn Projekt-Typ wechselt
+  useEffect(() => {
+    if (projectType === "novel") {
+      setTargetWordCount(String(DEFAULT_TARGET_WORDS.novel));
+    } else if (screenplayFormat === "feature") {
+      setTargetWordCount(String(DEFAULT_TARGET_WORDS.feature));
+    } else {
+      setTargetWordCount(String(DEFAULT_TARGET_WORDS.tv_episode));
+    }
+  }, [projectType, screenplayFormat]);
 
   const groupedModels = models.reduce((acc, m) => {
     if (!acc[m.provider]) acc[m.provider] = [];
@@ -66,6 +86,9 @@ export default function NewProjectPage() {
           characters,
           outline: outline || null,
           ai_provider: aiProvider,
+          project_type: projectType,
+          screenplay_format: projectType === "screenplay" ? screenplayFormat : null,
+          screenplay_style_preset: projectType === "screenplay" ? screenplayStylePreset : null,
         }),
       });
       const data = await res.json();
@@ -77,13 +100,35 @@ export default function NewProjectPage() {
     }
   }
 
-  const genres = [
+  const novelGenres = [
     "Fantasy", "Dark Fantasy", "Science Fiction", "Thriller", "Krimi",
     "Romance", "Horror", "Historischer Roman", "Literarische Fiktion",
     "Young Adult", "Dystopie", "Urban Fantasy", "Erotik", "Abenteuer",
   ];
+  const screenplayGenres = [
+    "Drama", "Thriller", "Krimi", "Komödie", "Romantische Komödie",
+    "Action", "Sci-Fi", "Horror", "Mystery", "Biopic",
+    "Coming-of-Age", "Heist", "Historiendrama", "Familiendrama",
+  ];
+  const genres = projectType === "screenplay" ? screenplayGenres : novelGenres;
 
   const languages = ["Deutsch", "English", "Español", "Français", "Italiano", "Português"];
+
+  const isScreenplay = projectType === "screenplay";
+  const wordcountLabel = isScreenplay
+    ? "Ziel-Länge (Drehbuchseiten)"
+    : "Ziel-Wortzahl";
+  const wordcountValue = isScreenplay
+    ? String(wordsToPages(parseInt(targetWordCount) || 0))
+    : targetWordCount;
+  const handleWordcountChange = (v: string) => {
+    if (isScreenplay) {
+      const pages = parseInt(v) || 0;
+      setTargetWordCount(String(pagesToWords(pages)));
+    } else {
+      setTargetWordCount(v);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -109,15 +154,62 @@ export default function NewProjectPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Projekt-Details</CardTitle>
               <CardDescription>
-                Grundlegende Informationen zu deinem Roman
+                Wähle den Werk-Typ und definiere die Eckdaten
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
+                <Label>Werk-Typ</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProjectType("novel")}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      projectType === "novel"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <BookOpen className={`h-6 w-6 ${projectType === "novel" ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${projectType === "novel" ? "text-primary" : ""}`}>Roman</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setProjectType("screenplay"); setScreenplayFormat("feature"); }}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      projectType === "screenplay" && screenplayFormat === "feature"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <Film className={`h-6 w-6 ${projectType === "screenplay" && screenplayFormat === "feature" ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${projectType === "screenplay" && screenplayFormat === "feature" ? "text-primary" : ""}`}>Spielfilm</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setProjectType("screenplay"); setScreenplayFormat("tv_episode"); }}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      projectType === "screenplay" && screenplayFormat === "tv_episode"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <Tv className={`h-6 w-6 ${projectType === "screenplay" && screenplayFormat === "tv_episode" ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${projectType === "screenplay" && screenplayFormat === "tv_episode" ? "text-primary" : ""}`}>TV-Episode</span>
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {projectType === "novel" && "Klassischer Prosa-Roman, ~80.000 Wörter (~320 Seiten)."}
+                  {projectType === "screenplay" && screenplayFormat === "feature" && "Spielfilm-Drehbuch, ~90 Seiten (~22.500 Wörter, 1 Seite ≈ 1 Min. Filmzeit)."}
+                  {projectType === "screenplay" && screenplayFormat === "tv_episode" && "TV-Episode, ~55 Seiten (~14.000 Wörter, ca. 50–60 Min. Sendezeit)."}
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="title">Titel *</Label>
                 <Input
                   id="title"
-                  placeholder="Der Titel deines Romans"
+                  placeholder={isScreenplay ? "Der Titel deines Drehbuchs" : "Der Titel deines Romans"}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -153,17 +245,40 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="wordcount">Ziel-Wortzahl</Label>
+                <Label htmlFor="wordcount">{wordcountLabel}</Label>
                 <Input
                   id="wordcount"
                   type="number"
-                  value={targetWordCount}
-                  onChange={(e) => setTargetWordCount(e.target.value)}
+                  value={wordcountValue}
+                  onChange={(e) => handleWordcountChange(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Standard: 80.000 Wörter (~320 Seiten)
+                  {isScreenplay
+                    ? `≈ ${parseInt(targetWordCount).toLocaleString("de-DE")} Wörter (1 Drehbuchseite ≈ 250 Wörter ≈ 1 Min. Filmzeit)`
+                    : "Standard: 80.000 Wörter (~320 Seiten)"}
                 </p>
               </div>
+
+              {isScreenplay && (
+                <div className="space-y-2">
+                  <Label>Stil-Preset</Label>
+                  <Select value={screenplayStylePreset} onValueChange={setScreenplayStylePreset}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCREENPLAY_STYLE_PRESETS.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {SCREENPLAY_STYLE_PRESETS.find((p) => p.id === screenplayStylePreset)?.description}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>KI-Modell (via OpenRouter)</Label>
@@ -184,9 +299,16 @@ export default function NewProjectPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Wähle den KI-Anbieter und das Modell, das du nutzen möchtest
-                </p>
+                {isScreenplay ? (
+                  <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />
+                    <span>Für Drehbücher empfohlen: <strong>Claude Sonnet 4.6</strong> oder <strong>GPT-5</strong> – beide halten das Format am zuverlässigsten ein.</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Wähle den KI-Anbieter und das Modell, das du nutzen möchtest
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end">
@@ -204,7 +326,7 @@ export default function NewProjectPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Deine Assets</CardTitle>
               <CardDescription>
-                Summary, Charaktere und optionale Outline – dein Startmaterial
+                Summary, {isScreenplay ? "Figuren" : "Charaktere"} und optionale {isScreenplay ? "Szenen-Liste" : "Outline"} – dein Startmaterial
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -212,7 +334,9 @@ export default function NewProjectPage() {
                 <Label htmlFor="summary">Summary *</Label>
                 <Textarea
                   id="summary"
-                  placeholder="Beschreibe die Handlung deines Romans. Je detaillierter, desto besser das Ergebnis..."
+                  placeholder={isScreenplay
+                    ? "Beschreibe die Handlung deines Drehbuchs. Logline, Pitch, Aktstruktur – je detaillierter, desto besser..."
+                    : "Beschreibe die Handlung deines Romans. Je detaillierter, desto besser das Ergebnis..."}
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
                   rows={8}
@@ -223,10 +347,10 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="characters">Charaktere</Label>
+                <Label htmlFor="characters">{isScreenplay ? "Figuren" : "Charaktere"}</Label>
                 <Textarea
                   id="characters"
-                  placeholder={`Beschreibe deine Hauptcharaktere:\n\nName: Max Müller\nAlter: 35\nRolle: Protagonist\nCharakterzüge: stur, loyal, humorvoll\nHintergrund: ...`}
+                  placeholder={`Beschreibe deine ${isScreenplay ? "Hauptfiguren" : "Hauptcharaktere"}:\n\nName: Max Müller\nAlter: 35\nRolle: Protagonist\n${isScreenplay ? "Voice: trocken, ironisch, Hamburger Slang" : "Charakterzüge: stur, loyal, humorvoll"}\nHintergrund: ...`}
                   value={characters}
                   onChange={(e) => setCharacters(e.target.value)}
                   rows={8}
@@ -234,10 +358,12 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="outline">Outline (optional)</Label>
+                <Label htmlFor="outline">{isScreenplay ? "Szenen-Liste (optional)" : "Outline (optional)"}</Label>
                 <Textarea
                   id="outline"
-                  placeholder="Kapitelüberschriften und kurze Beschreibungen – oder lass die KI eine erstellen..."
+                  placeholder={isScreenplay
+                    ? "Szene 1: INNEN. KÜCHE - TAG. Sarah konfrontiert ihren Vater...\nSzene 2: AUSSEN. PARKHAUS - NACHT. Verfolgungsjagd...\n\nOder lass die KI eine Szenen-Struktur erstellen."
+                    : "Kapitelüberschriften und kurze Beschreibungen – oder lass die KI eine erstellen..."}
                   value={outline}
                   onChange={(e) => setOutline(e.target.value)}
                   rows={6}

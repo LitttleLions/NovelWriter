@@ -43,15 +43,28 @@ async function convertChunk(
   model: string,
   chunk: string[],
   startNumber: number,
-  language: string = "Deutsch"
+  language: string = "Deutsch",
+  projectType: string = "novel"
 ): Promise<{ chapters: any[]; tokens: { prompt: number; completion: number; total: number } }> {
   const chunkText = chunk.join("\n\n---SZENE---\n\n");
+
+  const screenplayHint = projectType === "screenplay"
+    ? `
+
+DIES IST EIN DREHBUCH-PROJEKT. WICHTIG für das Feld "location":
+- "location" muss eine korrekte SLUGLINE im Industriestandard sein, in der Zielsprache.
+- Format Deutsch: "<INNEN./AUSSEN.> ORT - <TAG/NACHT/MORGEN/ABEND>" – Beispiele: "INNEN. KÜCHE - TAG", "AUSSEN. PARKHAUS - NACHT".
+- Format Englisch: "<INT./EXT.> LOCATION - <DAY/NIGHT/MORNING/EVENING>" – Beispiele: "INT. KITCHEN - DAY".
+- Wenn die Vorlage nur einen Ort liefert (z.B. "Küche, abends"), forme ihn in eine korrekte Slugline um ("INNEN. KÜCHE - ABEND").
+- "title" ist ein kurzer Szenenname (3–8 Wörter), KEINE Slugline.
+- "key_events" und "raw_notes" enthalten weiterhin die dramaturgische Substanz der Szene.`
+    : "";
 
   const userPrompt = `Wandle die folgenden ${chunk.length} Szenen in JSON um.
 Die Szenen sind durch "---SZENE---" getrennt.
 chapter_number beginnt bei ${startNumber}.
 ZIELSPRACHE: ${language} (Bitte alle Felder außer raw_notes in dieser Sprache ausgeben).
-BEHALTE jeden einzelnen Satz aus "raw_notes" 1:1 – kürze NICHTS.
+BEHALTE jeden einzelnen Satz aus "raw_notes" 1:1 – kürze NICHTS.${screenplayHint}
 
 ${chunkText}`;
 
@@ -127,7 +140,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       let chapterCounter = 1;
       for (const chunk of chunks) {
-        const { chapters, tokens } = await convertChunk(model, chunk, chapterCounter, p.language || "Deutsch");
+        const { chapters, tokens } = await convertChunk(model, chunk, chapterCounter, p.language || "Deutsch", p.project_type || "novel");
         allChapters = [...allChapters, ...chapters];
         chapterCounter += chapters.length;
         totalTokens.prompt += tokens.prompt;
@@ -135,11 +148,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         totalTokens.total += tokens.total;
       }
     } else {
-      const userPrompt = `Titel: ${p.title}
+      const isScreenplay = p.project_type === "screenplay";
+      const formatLabel = isScreenplay
+        ? (p.screenplay_format === "tv_episode" ? "TV-Episode (Drehbuch)" : "Spielfilm (Drehbuch)")
+        : "Roman";
+      const lengthLine = isScreenplay
+        ? `Gesamtlänge: ca. ${Math.round((p.target_word_count || 22500) / 250)} Drehbuchseiten (1 Seite ≈ 250 Wörter ≈ 1 Min. Filmzeit)`
+        : `Gesamtlänge: ${p.target_word_count} Wörter`;
+      const structureLine = isScreenplay
+        ? "Struktur: Klassische 3-Akt-Drehbuchstruktur. Erstelle Szenen (KEINE Romankapitel) – jede Szene mit eigener Slugline im Feld 'location' (Format Deutsch: 'INNEN./AUSSEN. ORT - TAG/NACHT'; Format Englisch: 'INT./EXT. LOCATION - DAY/NIGHT'). 'title' ist ein kurzer Szenenname, keine Slugline. 'key_events' enthält die Action-Beats."
+        : "Akt-Struktur: 3-Akt";
+
+      const userPrompt = `Werk-Typ: ${formatLabel}
+Titel: ${p.title}
 Genre: ${p.genre || "Nicht angegeben"}
-Gesamtlänge: ${p.target_word_count} Wörter
+${lengthLine}
 Sprache: ${p.language}
-Akt-Struktur: 3-Akt
+${structureLine}
 
 Summary:
 ${p.summary}

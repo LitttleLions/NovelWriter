@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS projects (
   style_notes TEXT,
   ai_provider VARCHAR(100) DEFAULT 'anthropic/claude-sonnet-4.6',
   status VARCHAR(50) DEFAULT 'draft',
+  project_type VARCHAR(20) DEFAULT 'novel',
+  screenplay_format VARCHAR(20),
+  screenplay_style_preset VARCHAR(50),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -72,3 +75,12 @@ CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_chapters_project ON chapters(project_id);
 CREATE INDEX IF NOT EXISTS idx_chapter_outlines_project ON chapter_outlines(project_id);
 CREATE INDEX IF NOT EXISTS idx_generation_log_project ON generation_log(project_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Idempotente Migrationen für ältere DBs (additive, sichere Re-Runs)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Drehbuch-Modus (Task #5): project_type, screenplay_format, screenplay_style_preset
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type VARCHAR(20) DEFAULT 'novel';
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS screenplay_format VARCHAR(20);
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS screenplay_style_preset VARCHAR(50);
+UPDATE projects SET project_type = 'novel' WHERE project_type IS NULL;

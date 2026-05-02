@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost, describeAiError, detectDegeneration } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
+import { getScreenplayStylePreset, getSluglineVocab } from "@/lib/screenplay-presets";
 
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
   const parts: string[] = [];
@@ -88,7 +89,46 @@ ${trimmedNotes}
   return parts.join("\n\n");
 }
 
-function buildDynamicSystemPrompt(styleBlock: string, lang: string): string {
+function buildDynamicSystemPrompt(
+  styleBlock: string,
+  lang: string,
+  options: {
+    projectType?: string;
+    screenplayFormat?: string;
+    targetWordsPerChapter?: { min: number; max: number };
+  } = {}
+): string {
+  const { projectType = "novel", screenplayFormat, targetWordsPerChapter } = options;
+
+  if (projectType === "screenplay") {
+    const baseSystem = screenplayFormat === "tv_episode" ? PROMPTS.screenplayTvWriter : PROMPTS.screenplayWriter;
+    const vocab = getSluglineVocab(lang);
+    return `${baseSystem}
+
+════════════════════════════════════════
+SPRACH-GESETZ (nicht verhandelbar):
+Das gesamte Drehbuch-Material MUSS auf ${lang.toUpperCase()} geschrieben sein. Sluglines, Action-Lines, Dialoge, parentheticals, Figurennamen – alles auf ${lang}.
+Slugline-Vokabular für diese Sprache: Innenraum = "${vocab.interior}", Außen = "${vocab.exterior}", Tageszeiten = "${vocab.day}", "${vocab.night}", "${vocab.morning}", "${vocab.evening}". Beispiel-Slugline: "${vocab.example}".
+════════════════════════════════════════
+
+════════════════════════════════════════
+STIL-GESETZ (deine künstlerische Persönlichkeit für dieses Drehbuch):
+${styleBlock}
+
+Diese Stilvorhaben sind dein Grundgesetz – sie überschreiben deinen generischen KI-Schreibreflex.
+════════════════════════════════════════
+
+ARBEITSWEISE:
+1. SPRACHE → ${lang} ohne Ausnahme.
+2. FORMAT → Industrie-Drehbuchformat: SLUGLINE → Action-Lines → DIALOG-BLOCK. Niemals abweichen.
+3. STIL → Stil-Direktiven oben sind bindend.
+4. KONTINUITÄT → Das Narrativ-Gedächtnis im User-Prompt ist verbindliche Vorgeschichte.
+5. INHALT → Alle key_events der Szenen-Anweisung MÜSSEN vorkommen.
+
+Beginne direkt mit der Slugline der Szene. Höre direkt mit dem letzten Beat auf.`;
+  }
+
+  const range = targetWordsPerChapter ?? { min: 3000, max: 5000 };
   return `Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
 
 ════════════════════════════════════════
@@ -111,7 +151,7 @@ ARBEITSWEISE:
 5. QUALITÄT → Show don't tell, starke Verben, keine Klischees, kein generischer KI-Stil.
 
 AUSGABE-REGELN (kompromisslos):
-• Schreibe 3.000–5.000 Wörter reinen Kapitel-Fließtext.
+• Schreibe ${range.min.toLocaleString("de-DE")}–${range.max.toLocaleString("de-DE")} Wörter reinen Kapitel-Fließtext.
 • KEINE Markdown-Überschriften (kein #, ##, ###).
 • KEINE einleitende Zeile wie "Hier ist Kapitel X" oder "Hier kommt Kapitel X".
 • KEINE Meta-Kommentare am Ende: keine "Schlüsselelemente, die umgesetzt wurden", keine "Anmerkungen", keine "Hinweise", keine "Wortzahl", keine "Zusammenfassung der Änderungen", keine Erklärungen über deine eigene Vorgehensweise.
@@ -312,20 +352,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     [id, chapter_number]
   );
 
-  // Build the outline block
+  // Build the outline block. Labels switch to "Szenen-*" for screenplay projects.
+  const isScreenplayProject = p.project_type === "screenplay";
+  const labelTitle = isScreenplayProject ? "Szenen-Titel" : "Kapitel-Titel";
+  const labelPurpose = isScreenplayProject ? "Szenen-Zweck" : "Kapitel-Zweck";
+  const labelLocation = isScreenplayProject ? "Slugline" : "Ort & Zeit";
+  const labelFallbackUnit = isScreenplayProject ? "Szene" : "Kapitel";
   const outlineBlock = chapterOutline ? `
-Kapitel-Titel: ${chapterOutline.title || `Kapitel ${chapter_number}`}
-Kapitel-Zweck: ${chapterOutline.purpose || "Handlung vorantreiben"}
+${labelTitle}: ${chapterOutline.title || `${labelFallbackUnit} ${chapter_number}`}
+${labelPurpose}: ${chapterOutline.purpose || "Handlung vorantreiben"}
 ${chapterOutline.character_arc ? `Charakter-Entwicklung: ${chapterOutline.character_arc}` : ""}
-${chapterOutline.location ? `Ort & Zeit: ${chapterOutline.location}` : ""}
+${chapterOutline.location ? `${labelLocation}: ${chapterOutline.location}` : ""}
 ${chapterOutline.key_events ? `Schlüsselereignisse (MÜSSEN vorkommen): ${chapterOutline.key_events}` : ""}
 ${chapterOutline.tension_level ? `Spannungslevel: ${chapterOutline.tension_level}/10` : ""}
 ${chapterOutline.raw_notes ? `\nAutoren-Vorlage (inhaltlich bindend, wortgetreu umsetzen):\n${chapterOutline.raw_notes}` : ""}`.trim()
-    : `Kapitel-Titel: Kapitel ${chapter_number}\nKapitel-Zweck: Handlung vorantreiben`;
+    : `${labelTitle}: ${labelFallbackUnit} ${chapter_number}\n${labelPurpose}: Handlung vorantreiben`;
 
-  // Build the style block and dynamic system prompt
-  const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
-  const dynamicSystemPrompt = buildDynamicSystemPrompt(styleBlock, lang);
+  // Build the style block. For screenplays, prepend the selected style preset (Sorkin etc.)
+  // as a top-priority directive, BEFORE manual notes & KI style profile.
+  const isScreenplay = p.project_type === "screenplay";
+  const screenplayPreset = isScreenplay ? getScreenplayStylePreset(p.screenplay_style_preset) : null;
+  let styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
+  if (screenplayPreset && screenplayPreset.prompt) {
+    styleBlock = `════════════════════════════════════════
+[S] DREHBUCH-STIL-PRESET (oberste Priorität, vor [A] und [B]):
+════════════════════════════════════════
+${screenplayPreset.prompt}
+════════════════════════════════════════
+
+${styleBlock}`;
+  }
+  const dynamicSystemPrompt = buildDynamicSystemPrompt(styleBlock, lang, {
+    projectType: p.project_type,
+    screenplayFormat: p.screenplay_format,
+  });
 
   // Manual style directives are echoed verbatim at the END of the user prompt
   // to counteract recency-bias and ensure they are top-of-mind during generation.
@@ -348,10 +408,19 @@ ${futureChars.rows.map((c: any) => `  • ${c.name} (erscheint erst ab Kapitel $
 ════════════════════════════════════════`
     : "";
 
-  // Compose the user prompt
-  const userPrompt = `KAPITEL ${chapter_number} SCHREIBEN
+  // Compose the user prompt – screenplays get a different framing label.
+  const unitNoun = isScreenplay ? "SZENE" : "KAPITEL";
+  const sluglineLine = isScreenplay && chapterOutline?.location
+    ? `\nSLUGLINE (verbindlich als ALLERERSTE Zeile deiner Szene): ${chapterOutline.location}`
+    : "";
+  const screenplayFormatReminder = isScreenplay
+    ? `\nFORMAT-ERINNERUNG: Industrie-Drehbuchformat. Slugline → Action-Lines → DIALOG-BLOCK. Keine literarische Prosa, kein innerer Monolog, keine Markdown-Listen.`
+    : "";
 
-=== KAPITEL-ANWEISUNG ===
+  const userPrompt = `${unitNoun} ${chapter_number} SCHREIBEN
+${sluglineLine}
+
+=== ${unitNoun}-ANWEISUNG ===
 ${outlineBlock}
 
 === PROJEKT-KONTEXT ===
@@ -366,7 +435,7 @@ ${futureCharsBlock}
 ${storySoFarBlock}
 
 ---
-ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.${manualNotesEcho}`;
+ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.${screenplayFormatReminder}${manualNotesEcho}`;
 
   try {
     const model = p.ai_provider || "anthropic/claude-sonnet-4.6";

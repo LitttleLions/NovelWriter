@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { validateScreenplayFields } from "@/lib/screenplay-presets";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -26,21 +27,32 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { title, genre, target_word_count, language, summary, characters, outline, ai_provider } = await req.json();
+    const {
+      title, genre, target_word_count, language, summary, characters, outline, ai_provider,
+      project_type, screenplay_format, screenplay_style_preset,
+    } = await req.json();
 
     if (!title) {
       return NextResponse.json({ error: "Titel erforderlich" }, { status: 400 });
     }
 
+    let validated;
+    try {
+      validated = validateScreenplayFields({ project_type, screenplay_format, screenplay_style_preset });
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message || "Ungültige Werk-Typ-Felder" }, { status: 400 });
+    }
+
     const result = await query(
-      `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, ai_provider)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, ai_provider, project_type, screenplay_format, screenplay_style_preset)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         user.id, title, genre || null,
         target_word_count || 80000, language || "Deutsch",
         summary || null, characters || null, outline || null,
         ai_provider || "anthropic/claude-sonnet-4.6",
+        validated.project_type, validated.screenplay_format, validated.screenplay_style_preset,
       ]
     );
 

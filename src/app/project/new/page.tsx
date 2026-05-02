@@ -30,7 +30,7 @@ export default function NewProjectPage() {
   const [genre, setGenre] = useState("");
   const [targetWordCount, setTargetWordCount] = useState("80000");
   const [language, setLanguage] = useState("Deutsch");
-  const [aiProvider, setAiProvider] = useState("anthropic/claude-sonnet-4-5");
+  const [aiProvider, setAiProvider] = useState("anthropic/claude-sonnet-4.6");
 
   const [summary, setSummary] = useState("");
   const [characters, setCharacters] = useState("");

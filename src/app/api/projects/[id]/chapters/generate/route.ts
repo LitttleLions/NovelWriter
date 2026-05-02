@@ -342,7 +342,7 @@ ${storySoFarBlock}
 ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.`;
 
   try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
+    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
     const result = await generateText(model, dynamicSystemPrompt, userPrompt, 16000);
 
     const cleanedContent = stripMetaCommentary(result.content);

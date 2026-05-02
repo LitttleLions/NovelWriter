@@ -29,7 +29,7 @@ Verwende ein klares Format, z.B. mit Überschriften oder Aufzählungszeichen.
 Charaktere:
 ${characters}`;
 
-    const model = p.ai_provider || "anthropic/claude-3-opus";
+    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
     const result = await generateText(model, "Du bist ein erfahrener Roman-Editor.", prompt, 4000);
 
     await query(

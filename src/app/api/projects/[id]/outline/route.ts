@@ -65,7 +65,7 @@ Format:
 ]`;
 
   try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
+    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
     const result = await generateText(model, "Du bist ein präziser Buch-Architekt.", prompt, 4000);
 
     let chapters: any[] = [];

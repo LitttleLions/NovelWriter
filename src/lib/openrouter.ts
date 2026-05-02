@@ -1,83 +1,106 @@
 import OpenAI from "openai";
 
 export const AVAILABLE_MODELS = [
+  // ── Anthropic – Top-Tier für literarisches Schreiben ──
   {
-    id: "anthropic/claude-3-5-sonnet",
-    name: "Claude 3.5 Sonnet",
+    id: "anthropic/claude-opus-4.7",
+    name: "Claude Opus 4.7",
     provider: "Anthropic",
-    description: "Previous-gen balanced model",
+    description: "Premium literarische Qualität, beste Prosa, höchste Kohärenz – für Schlüsselkapitel",
   },
   {
-    id: "anthropic/claude-3-5-haiku",
-    name: "Claude 3.5 Haiku",
+    id: "anthropic/claude-sonnet-4.6",
+    name: "Claude Sonnet 4.6",
     provider: "Anthropic",
-    description: "Fast and affordable",
+    description: "Aktuelle Empfehlung – exzellenter Stil, starke Figurenzeichnung, faire Preise",
   },
   {
-    id: "anthropic/claude-3-opus",
-    name: "Claude 3 Opus",
+    id: "anthropic/claude-haiku-4.5",
+    name: "Claude Haiku 4.5",
     provider: "Anthropic",
-    description: "Expressive, literary language, strong dialogue",
+    description: "Schnell und günstig – gut für Entwürfe, Outlines und Iterationen",
   },
+
+  // ── OpenAI – Modernes Drafting ──
   {
-    id: "openai/gpt-4o",
-    name: "GPT-4o",
+    id: "openai/gpt-5",
+    name: "GPT-5",
     provider: "OpenAI",
-    description: "Multimodal flagship, great for drafting",
+    description: "OpenAI-Flagship, sehr gut im Plot-Aufbau und Dialog – breit einsetzbar",
   },
   {
-    id: "openai/gpt-4o-mini",
-    name: "GPT-4o Mini",
+    id: "openai/gpt-5-mini",
+    name: "GPT-5 Mini",
     provider: "OpenAI",
-    description: "Fast and cost-effective",
+    description: "Günstige GPT-5 Variante – gute Drafting-Qualität bei niedrigen Kosten",
   },
   {
-    id: "google/gemini-2.0-flash-001",
-    name: "Gemini 2.0 Flash",
+    id: "openai/gpt-4.1",
+    name: "GPT-4.1",
+    provider: "OpenAI",
+    description: "Bewährter Allrounder mit großem Kontextfenster",
+  },
+
+  // ── Google Gemini – Lange Kontexte für ganze Romane ──
+  {
+    id: "google/gemini-3-pro",
+    name: "Gemini 3 Pro",
     provider: "Google",
-    description: "Fast and efficient",
+    description: "Riesiger Kontext (1M+ Tokens), ideal um den ganzen Roman im Blick zu behalten",
   },
   {
-    id: "google/gemini-2.0-flash-lite-preview-02-05",
-    name: "Gemini 2.0 Flash Lite",
+    id: "google/gemini-3-flash",
+    name: "Gemini 3 Flash",
     provider: "Google",
-    description: "Extremely fast, low latency",
+    description: "Schnell, günstig, langer Kontext – sehr gutes Preis-Leistungs-Verhältnis",
   },
+
+  // ── DeepSeek – Beste Preis-Leistung ──
   {
-    id: "google/gemini-pro-1.5",
-    name: "Gemini 1.5 Pro",
-    provider: "Google",
-    description: "Strong for complex worlds, long context",
-  },
-  {
-    id: "deepseek/deepseek-v3",
+    id: "deepseek/deepseek-v3.2",
     name: "DeepSeek V3.2",
     provider: "DeepSeek",
-    description: "Latest DeepSeek flagship model",
+    description: "Sehr günstig, überraschend gute Belletristik – ideal für Massengenerierung",
   },
+
+  // ── Moonshot Kimi – Beliebt für Roleplay & Fiction ──
   {
-    id: "minimax/minimax-01",
-    name: "MiniMax M2-Her",
-    provider: "MiniMax",
-    description: "Strong performance across tasks",
-  },
-  {
-    id: "moonshotai/moonshot-v1-8k",
-    name: "Moonshot Kimi K2.5",
+    id: "moonshotai/kimi-k2.6",
+    name: "Kimi K2.6",
     provider: "MoonshotAI",
-    description: "Excellent long-context and logic",
+    description: "Top für narrative Konsistenz und Roleplay, langes Kontextfenster",
   },
+
+  // ── xAI Grok – Kreative Stimme ──
   {
-    id: "qwen/qwen-2.5-72b-instruct",
-    name: "Qwen 2.5 72B",
-    provider: "Qwen",
-    description: "Strong multilingual performance",
+    id: "x-ai/grok-4.1",
+    name: "Grok 4.1",
+    provider: "xAI",
+    description: "Eigenständige kreative Stimme, gut für unkonventionelle Genres",
   },
+
+  // ── MiniMax – Long-form Specialist ──
   {
-    id: "qwen/qwen-2.5-7b-instruct",
-    name: "Qwen 2.5 7B",
+    id: "minimax/minimax-m2.7",
+    name: "MiniMax M2.7",
+    provider: "MiniMax",
+    description: "Sehr langes Kontextfenster, stark in chinesisch & europäisch",
+  },
+
+  // ── Mistral – Europäisches Modell, gut für deutsche Texte ──
+  {
+    id: "mistralai/mistral-large-3",
+    name: "Mistral Large 3",
+    provider: "MistralAI",
+    description: "Europäisches Modell mit starker Performance in Deutsch und Französisch",
+  },
+
+  // ── Qwen – Multilingual ──
+  {
+    id: "qwen/qwen3-72b-instruct",
+    name: "Qwen 3 72B",
     provider: "Qwen",
-    description: "Fast and capable small model",
+    description: "Starke multilinguale Leistung, gut für nicht-englische Romane",
   },
 ];
 
@@ -144,19 +167,35 @@ export async function generateText(
 }
 
 const MODEL_PRICES: Record<string, { prompt: number; completion: number }> = {
+  // Preise pro 1.000 Tokens in USD (Stand Mai 2026, Schätzwerte – exakte Preise via getModelInfo)
+  "anthropic/claude-opus-4.7": { prompt: 0.015, completion: 0.075 },
+  "anthropic/claude-sonnet-4.6": { prompt: 0.003, completion: 0.015 },
+  "anthropic/claude-haiku-4.5": { prompt: 0.0008, completion: 0.004 },
+  "openai/gpt-5": { prompt: 0.005, completion: 0.02 },
+  "openai/gpt-5-mini": { prompt: 0.0005, completion: 0.002 },
+  "openai/gpt-4.1": { prompt: 0.0025, completion: 0.01 },
+  "google/gemini-3-pro": { prompt: 0.00125, completion: 0.005 },
+  "google/gemini-3-flash": { prompt: 0.0001, completion: 0.0004 },
+  "deepseek/deepseek-v3.2": { prompt: 0.00027, completion: 0.0011 },
+  "moonshotai/kimi-k2.6": { prompt: 0.0006, completion: 0.0025 },
+  "x-ai/grok-4.1": { prompt: 0.002, completion: 0.01 },
+  "minimax/minimax-m2.7": { prompt: 0.0003, completion: 0.0011 },
+  "mistralai/mistral-large-3": { prompt: 0.002, completion: 0.006 },
+  "qwen/qwen3-72b-instruct": { prompt: 0.0004, completion: 0.0008 },
+
+  // ── Legacy-IDs: nur für Kostenberechnung bestehender Projekte (nicht mehr in AVAILABLE_MODELS) ──
+  "anthropic/claude-sonnet-4-5": { prompt: 0.003, completion: 0.015 },
   "anthropic/claude-3-5-sonnet": { prompt: 0.003, completion: 0.015 },
   "anthropic/claude-3-5-haiku": { prompt: 0.0008, completion: 0.004 },
   "anthropic/claude-3-opus": { prompt: 0.015, completion: 0.075 },
   "openai/gpt-4o": { prompt: 0.0025, completion: 0.01 },
   "openai/gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
   "google/gemini-2.0-flash-001": { prompt: 0.0001, completion: 0.0004 },
-  "google/gemini-2.0-flash-lite-preview-02-05": { prompt: 0.000075, completion: 0.0003 },
   "google/gemini-pro-1.5": { prompt: 0.00125, completion: 0.005 },
   "deepseek/deepseek-v3": { prompt: 0.00027, completion: 0.0011 },
-  "minimax/minimax-01": { prompt: 0.0003, completion: 0.0011 },
   "moonshotai/moonshot-v1-8k": { prompt: 0.0012, completion: 0.0012 },
+  "minimax/minimax-01": { prompt: 0.0003, completion: 0.0011 },
   "qwen/qwen-2.5-72b-instruct": { prompt: 0.0004, completion: 0.0004 },
-  "qwen/qwen-2.5-7b-instruct": { prompt: 0.0001, completion: 0.0002 },
 };
 
 export function estimateCost(modelId: string, promptTokens: number, completionTokens: number): number {

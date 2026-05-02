@@ -40,7 +40,7 @@ export async function POST(req: Request) {
         user.id, title, genre || null,
         target_word_count || 80000, language || "Deutsch",
         summary || null, characters || null, outline || null,
-        ai_provider || "anthropic/claude-sonnet-4-5",
+        ai_provider || "anthropic/claude-sonnet-4.6",
       ]
     );
 

@@ -109,7 +109,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { custom_outline } = body;
 
   try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
+    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
     let allChapters: any[] = [];
     let totalTokens = { prompt: 0, completion: 0, total: 0 };
 

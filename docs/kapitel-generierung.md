@@ -91,7 +91,7 @@ Was du hier eingibst, schlägt das KI-Profil im Konfliktfall.
 
 ### Schritt 6 — KI-Aufruf
 
-Über OpenRouter mit dem Modell aus `project.ai_provider` (Default: `anthropic/claude-sonnet-4-5`).
+Über OpenRouter mit dem Modell aus `project.ai_provider` (Default: `anthropic/claude-sonnet-4.6`).
 Max. **16.000 Tokens** Output.
 
 ### Schritt 7 — Bereinigung

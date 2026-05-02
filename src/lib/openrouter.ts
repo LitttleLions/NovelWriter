@@ -165,6 +165,82 @@ export function estimateCost(modelId: string, promptTokens: number, completionTo
   return (promptTokens / 1000) * prices.prompt + (completionTokens / 1000) * prices.completion;
 }
 
+export function describeAiError(error: any): { message: string; status: number } {
+  const raw: string =
+    error?.error?.message ||
+    error?.response?.data?.error?.message ||
+    error?.message ||
+    String(error || "Unbekannter Fehler");
+
+  const status: number =
+    error?.status ||
+    error?.response?.status ||
+    error?.error?.code ||
+    500;
+
+  const lower = raw.toLowerCase();
+
+  if (raw.includes("OPENROUTER_API_KEY is not set")) {
+    return {
+      message: "Kein OpenRouter-API-Key hinterlegt. Bitte trage einen gültigen Key in den Secrets ein (OPENROUTER_API_KEY).",
+      status: 503,
+    };
+  }
+  if (status === 401 || lower.includes("user not found") || lower.includes("invalid api key") || lower.includes("no auth credentials")) {
+    return {
+      message: "OpenRouter lehnt den API-Key ab (ungültig, abgelaufen oder Account gelöscht). Erstelle unter openrouter.ai/keys einen neuen Key und ersetze das Secret OPENROUTER_API_KEY.",
+      status: 502,
+    };
+  }
+  if (status === 402 || lower.includes("insufficient") || lower.includes("credit") || lower.includes("balance")) {
+    return {
+      message: "OpenRouter-Guthaben aufgebraucht. Lade auf openrouter.ai/credits Credits auf und versuche es erneut.",
+      status: 502,
+    };
+  }
+  if (status === 429 || lower.includes("rate limit") || lower.includes("too many")) {
+    return {
+      message: "OpenRouter-Rate-Limit erreicht. Bitte warte einen Moment und versuche es erneut.",
+      status: 502,
+    };
+  }
+  if (status === 404 || lower.includes("model not found") || lower.includes("no allowed providers") || lower.includes("model is not available")) {
+    return {
+      message: "Das ausgewählte KI-Modell ist bei OpenRouter nicht (mehr) verfügbar. Wähle ein anderes Modell in den Projekteinstellungen.",
+      status: 502,
+    };
+  }
+  if (status === 408 || lower.includes("timeout") || lower.includes("timed out")) {
+    return {
+      message: "Die KI hat zu lange gebraucht (Timeout). Versuche es erneut oder wähle ein schnelleres Modell.",
+      status: 504,
+    };
+  }
+  if (status >= 500 || lower.includes("upstream") || lower.includes("provider") || lower.includes("internal server")) {
+    return {
+      message: "OpenRouter oder der KI-Anbieter meldet ein Server-Problem. Bitte in ein paar Minuten erneut versuchen.",
+      status: 502,
+    };
+  }
+  if (lower.includes("context length") || lower.includes("maximum context") || lower.includes("too long")) {
+    return {
+      message: "Die Eingabe ist zu lang für das Modell. Kürze Outline/Charaktere oder wähle ein Modell mit größerem Kontextfenster.",
+      status: 413,
+    };
+  }
+  if (lower.includes("content policy") || lower.includes("safety") || lower.includes("blocked")) {
+    return {
+      message: "Der KI-Anbieter hat den Inhalt abgelehnt (Inhaltsrichtlinie). Formuliere die Vorgaben weniger explizit oder wechsle das Modell.",
+      status: 502,
+    };
+  }
+
+  return {
+    message: `KI-Fehler: ${raw}`,
+    status: 500,
+  };
+}
+
 export async function streamText(
   model: string,
   systemPrompt: string,

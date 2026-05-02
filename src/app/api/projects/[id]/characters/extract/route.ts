@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText, estimateCost } from "@/lib/openrouter";
+import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -80,6 +80,7 @@ Wichtig: Lass nichts weg – jede genannte Figur muss einen eigenen Eintrag beko
     return NextResponse.json({ characters: inserted });
   } catch (error: any) {
     console.error("Character extract error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { message, status } = describeAiError(error);
+    return NextResponse.json({ error: `Charakter-Extraktion fehlgeschlagen. ${message}` }, { status });
   }
 }

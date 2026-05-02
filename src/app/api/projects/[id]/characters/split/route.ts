@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText, estimateCost } from "@/lib/openrouter";
+import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -47,6 +47,7 @@ ${characters}`;
     return NextResponse.json({ characters: result.content });
   } catch (error: any) {
     console.error("Split characters error:", error);
-    return NextResponse.json({ error: "Charakter-Splitting fehlgeschlagen: " + error.message }, { status: 500 });
+    const { message, status } = describeAiError(error);
+    return NextResponse.json({ error: `Charakter-Splitting fehlgeschlagen. ${message}` }, { status });
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText, estimateCost } from "@/lib/openrouter";
+import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
@@ -367,6 +367,7 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
     return NextResponse.json({ chapter, tokens: result.total_tokens, cost });
   } catch (error: any) {
     console.error("Chapter generation error:", error);
-    return NextResponse.json({ error: "Kapitel-Generierung fehlgeschlagen: " + error.message }, { status: 500 });
+    const { message, status } = describeAiError(error);
+    return NextResponse.json({ error: `Kapitel-Generierung fehlgeschlagen. ${message}` }, { status });
   }
 }

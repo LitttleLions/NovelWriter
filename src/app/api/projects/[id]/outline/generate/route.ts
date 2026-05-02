@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText, estimateCost } from "@/lib/openrouter";
+import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
 const CHUNK_SIZE = 25;
@@ -196,6 +196,7 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
     return NextResponse.json({ outlines: outlines.rows });
   } catch (error: any) {
     console.error("Outline generation error:", error);
-    return NextResponse.json({ error: "Outline-Generierung fehlgeschlagen: " + error.message }, { status: 500 });
+    const { message, status } = describeAiError(error);
+    return NextResponse.json({ error: `Outline-Generierung fehlgeschlagen. ${message}` }, { status });
   }
 }

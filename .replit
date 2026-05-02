@@ -43,3 +43,7 @@ JWT_SECRET = "7a2191552971439cd8daab7ae5374007afbe658e156aa9c4ada121a71a8f4473a2
 deploymentTarget = "autoscale"
 run = ["npm", "run", "start"]
 build = ["npm", "run", "build"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 120000

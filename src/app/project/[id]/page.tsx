@@ -228,7 +228,7 @@ export default function ProjectPage() {
     fetch("/api/auth/me", { headers: authHeaders }).then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
-    fetch("/api/models", { headers: authHeaders }).then((r) => r.json()).then((d) => setModels(d.models || []));
+    fetch("/api/models", { headers: authHeaders, cache: "no-store" }).then((r) => r.json()).then((d) => setModels(d.models || []));
     loadProject();
   }, [router, loadProject]);
 

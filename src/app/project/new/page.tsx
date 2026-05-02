@@ -40,7 +40,7 @@ export default function NewProjectPage() {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
-    fetch("/api/models").then((r) => r.json()).then((d) => {
+    fetch("/api/models", { cache: "no-store" }).then((r) => r.json()).then((d) => {
       setModels(d.models || []);
     });
   }, [router]);

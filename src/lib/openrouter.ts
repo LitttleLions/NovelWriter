@@ -102,6 +102,80 @@ export const AVAILABLE_MODELS = [
     provider: "Qwen",
     description: "Starke multilinguale Leistung, gut für nicht-englische Romane",
   },
+
+  // ── Legacy-Modelle (ältere Versionen, weiterhin verfügbar) ──
+  {
+    id: "anthropic/claude-sonnet-4-5",
+    name: "Claude Sonnet 4.5 (Legacy)",
+    provider: "Anthropic",
+    description: "Vorgänger von Sonnet 4.6 – weiterhin solide für Belletristik",
+  },
+  {
+    id: "anthropic/claude-3-5-sonnet",
+    name: "Claude 3.5 Sonnet (Legacy)",
+    provider: "Anthropic",
+    description: "Bewährter Klassiker – ausgewogen für Schreiben und Dialog",
+  },
+  {
+    id: "anthropic/claude-3-5-haiku",
+    name: "Claude 3.5 Haiku (Legacy)",
+    provider: "Anthropic",
+    description: "Schnell und günstig",
+  },
+  {
+    id: "anthropic/claude-3-opus",
+    name: "Claude 3 Opus (Legacy)",
+    provider: "Anthropic",
+    description: "Älteres Premium-Modell mit literarischer Sprache",
+  },
+  {
+    id: "openai/gpt-4o",
+    name: "GPT-4o (Legacy)",
+    provider: "OpenAI",
+    description: "Vorgänger-Flagship, multimodal",
+  },
+  {
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini (Legacy)",
+    provider: "OpenAI",
+    description: "Schnell und kostengünstig",
+  },
+  {
+    id: "google/gemini-2.0-flash-001",
+    name: "Gemini 2.0 Flash (Legacy)",
+    provider: "Google",
+    description: "Schnell und effizient",
+  },
+  {
+    id: "google/gemini-pro-1.5",
+    name: "Gemini 1.5 Pro (Legacy)",
+    provider: "Google",
+    description: "Großer Kontext, bewährter Allrounder",
+  },
+  {
+    id: "deepseek/deepseek-v3",
+    name: "DeepSeek V3 (Legacy)",
+    provider: "DeepSeek",
+    description: "Vorgänger von V3.2",
+  },
+  {
+    id: "moonshotai/moonshot-v1-8k",
+    name: "Moonshot Kimi K2.5 (Legacy)",
+    provider: "MoonshotAI",
+    description: "Älteres Kimi-Modell mit langem Kontext",
+  },
+  {
+    id: "minimax/minimax-01",
+    name: "MiniMax-01 (Legacy)",
+    provider: "MiniMax",
+    description: "Älteres MiniMax-Modell",
+  },
+  {
+    id: "qwen/qwen-2.5-72b-instruct",
+    name: "Qwen 2.5 72B (Legacy)",
+    provider: "Qwen",
+    description: "Vorgänger von Qwen 3 72B",
+  },
 ];
 
 export async function getModelInfo(modelId: string) {

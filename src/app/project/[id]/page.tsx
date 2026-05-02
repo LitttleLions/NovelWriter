@@ -330,17 +330,12 @@ export default function ProjectPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setChapters((prev) => {
-          const existing = prev.findIndex((c) => c.chapter_number === chapterNumber);
-          if (existing >= 0) {
-            const updated = [...prev];
-            updated[existing] = data.chapter;
-            return updated;
-          }
-          return [...prev, data.chapter].sort((a, b) => a.chapter_number - b.chapter_number);
-        });
         setActiveTab("chapters");
         setExpandedChapter(chapterNumber);
+        // Full refetch — guarantees that narrative_summary and character_states
+        // are in sync with DB even if the POST response was assembled before
+        // the narrative-handoff write completed.
+        await loadProject();
       } else {
         alert(data.error || "Kapitel-Generierung fehlgeschlagen");
       }

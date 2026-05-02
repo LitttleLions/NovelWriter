@@ -52,9 +52,14 @@ Alle Figuren mit `first_appears_chapter > N` werden explizit als verboten markie
 
 ### Schritt 4 — Stil-Block bauen
 
-Der Stil-Block kombiniert zwei Quellen (in dieser Reihenfolge):
+Der Stil-Block kombiniert zwei Quellen — die **manuellen Direktiven stehen ganz oben** und sind explizit als oberstes Gesetz markiert:
 
-**[A] KI-generiertes Stil-Profil** (`style_json`):
+**[A] Manuelle Stil-Direktiven** (`style_notes`) — HÖCHSTE PRIORITÄT:
+> "DIESE ANWEISUNGEN SIND DAS OBERSTE GESETZ. Sie überschreiben jede einzelne Vorgabe aus dem KI-Stil-Profil [B] sowie deinen eigenen Schreibreflex. Wenn eine manuelle Direktive einer anderen Regel widerspricht, gewinnt IMMER die manuelle Direktive – ohne Ausnahme, ohne Interpretation, ohne stillen Kompromiss."
+
+Werden in einem ════ Block visuell hervorgehoben und **zusätzlich am Ende des User-Prompts wortgleich wiederholt** — direkt vor der Generierung. So bleiben sie auch bei langen Prompts top-of-mind und werden nicht von Recency-Bias überlagert.
+
+**[B] KI-generiertes Stil-Profil** (`style_json`) — nachgeordnet, gilt nur dort, wo [A] schweigt:
 - Autoren-Vorbild (z.B. "Stephen King")
 - Grundton, Zeitform (Vergangenheit/Gegenwart — wird HART durchgesetzt)
 - Erzähltempo
@@ -65,10 +70,7 @@ Der Stil-Block kombiniert zwei Quellen (in dieser Reihenfolge):
 - Pflicht-Stilmittel (mind. 3× pro Kapitel)
 - Stil-Maßstab: konkrete Beispielsätze, die nachgeahmt werden sollen
 
-**[B] Manuelle Stil-Direktiven** (`style_notes`):
-> "MANUELLE STIL-DIREKTIVEN VOM AUTOR (höchste Priorität – überschreibt alles andere)"
-
-Was du hier eingibst, schlägt das KI-Profil im Konfliktfall.
+Wenn keine manuellen Notizen vorhanden sind, wird das KI-Profil als [A] geführt (Default).
 
 ### Schritt 5 — System- und User-Prompt zusammensetzen
 

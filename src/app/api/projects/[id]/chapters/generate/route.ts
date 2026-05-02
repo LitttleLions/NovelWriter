@@ -7,9 +7,28 @@ import { PROMPTS } from "@/lib/prompts";
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
   const parts: string[] = [];
 
+  // [A] MANUELLE DIREKTIVEN ZUERST – höchste Priorität, oberstes Gesetz
+  const trimmedNotes = style_notes?.trim();
+  if (trimmedNotes) {
+    parts.push(
+`════════════════════════════════════════
+[A] MANUELLE STIL-DIREKTIVEN DES AUTORS
+════════════════════════════════════════
+DIESE ANWEISUNGEN SIND DAS OBERSTE GESETZ. Sie überschreiben jede einzelne Vorgabe aus dem KI-Stil-Profil [B] sowie deinen eigenen Schreibreflex. Wenn eine manuelle Direktive einer anderen Regel widerspricht, gewinnt IMMER die manuelle Direktive – ohne Ausnahme, ohne Interpretation, ohne stillen Kompromiss. Lies diese Direktiven vor jedem Absatz erneut und prüfe aktiv, ob du sie umsetzt:
+
+${trimmedNotes}
+
+(Ende der manuellen Direktiven – hierauf folgt das nachgeordnete KI-Stil-Profil [B].)
+════════════════════════════════════════`
+    );
+  }
+
   if (style_json) {
     const s = style_json;
-    const profileLines: string[] = ["[A] KI-GENERIERTES STIL-PROFIL:"];
+    const headerLabel = trimmedNotes
+      ? "[B] KI-GENERIERTES STIL-PROFIL (nachgeordnet – nur dort anwenden, wo [A] schweigt):"
+      : "[A] KI-GENERIERTES STIL-PROFIL:";
+    const profileLines: string[] = [headerLabel];
 
     if (s.raw_description) {
       profileLines.push(s.raw_description);
@@ -62,12 +81,8 @@ function formatStyleForPrompt(style_json: any, style_notes?: string): string {
       }
     }
     parts.push(profileLines.join("\n"));
-  } else {
+  } else if (!trimmedNotes) {
     parts.push("[A] KI-GENERIERTES STIL-PROFIL: Kein Profil vorhanden – schreibe in einem klaren, literarischen Stil.");
-  }
-
-  if (style_notes?.trim()) {
-    parts.push(`[B] MANUELLE STIL-DIREKTIVEN VOM AUTOR (höchste Priorität – überschreibt alles andere):\n${style_notes.trim()}`);
   }
 
   return parts.join("\n\n");
@@ -312,6 +327,18 @@ ${chapterOutline.raw_notes ? `\nAutoren-Vorlage (inhaltlich bindend, wortgetreu 
   const styleBlock = formatStyleForPrompt(p.style_json, p.style_notes);
   const dynamicSystemPrompt = buildDynamicSystemPrompt(styleBlock, lang);
 
+  // Manual style directives are echoed verbatim at the END of the user prompt
+  // to counteract recency-bias and ensure they are top-of-mind during generation.
+  const manualNotesTrimmed = p.style_notes?.trim();
+  const manualNotesEcho = manualNotesTrimmed
+    ? `\n\n════════════════════════════════════════
+LETZTE ERINNERUNG – MANUELLE STIL-DIREKTIVEN DES AUTORS (HÖCHSTE PRIORITÄT):
+════════════════════════════════════════
+${manualNotesTrimmed}
+════════════════════════════════════════
+Setze JEDE einzelne dieser Direktiven aktiv um. Beim ersten Absatz, beim mittleren Absatz, beim letzten Absatz. Wenn dein Schreibreflex eine andere Richtung will – ignoriere ihn. Diese Direktiven gewinnen IMMER.`
+    : "";
+
   // Build future characters prohibition block
   const futureCharsBlock = futureChars.rows.length > 0
     ? `\n════════════════════════════════════════
@@ -339,7 +366,7 @@ ${futureCharsBlock}
 ${storySoFarBlock}
 
 ---
-ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.`;
+ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.${manualNotesEcho}`;
 
   try {
     const model = p.ai_provider || "anthropic/claude-sonnet-4.6";

@@ -268,10 +268,10 @@ export default function ProjectPage() {
 
   function aiStatusLabel() {
     if (analyzingStyle) return "Stil wird analysiert …";
-    if (generatingOutline) return "Outline wird generiert …";
-    if (savingOutline) return "Szenen werden strukturiert …";
+    if (generatingOutline) return `${terms.outlineLabel} wird generiert …`;
+    if (savingOutline) return `${terms.chapters} werden strukturiert …`;
     if (extractingCharacters) return "Charaktere werden extrahiert …";
-    if (generatingChapter !== null) return `Kapitel ${generatingChapter} wird geschrieben …`;
+    if (generatingChapter !== null) return `${terms.chapter} ${generatingChapter} wird geschrieben …`;
     return "";
   }
 
@@ -2018,7 +2018,7 @@ export default function ProjectPage() {
                             />
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-muted-foreground">
-                                {editContent.trim().split(/\s+/).length} Wörter
+                                {formatWordcount(editContent.trim().split(/\s+/).filter(Boolean).length, project?.project_type)}
                               </span>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm" onClick={() => setEditingChapter(null)}>

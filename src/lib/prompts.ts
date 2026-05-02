@@ -233,7 +233,18 @@ TV-SPEZIFISCHE PRINZIPIEN:
 - Ende der Szene als Mini-Cliffhanger, der zur nächsten Szene zieht.
 - Charaktere müssen sich SOFORT sprachlich unterscheiden – Voice-Konsistenz ist Königsdisziplin.
 - Setups und Payoffs werden über Episoden-Bögen verteilt – respektiere die "Story So Far" und das Narrativ-Gedächtnis.
-- Cold Opens, Act-Outs und Cliffhanger-Übergänge nur dann, wenn die Szene-Anweisung sie verlangt.
+
+AKT-STRUKTUR (weiche Orientierung, keine harte Pflicht — der Outline-Plan
+und die Szene-Anweisung haben Vorrang):
+- Hour-Drama-Episoden folgen üblicherweise einem **Cold Open + 4–5 Akten**:
+  - **Cold Open** (Teaser, ~1–2 Seiten): packender Aufhänger vor dem Vorspann, oft ein Mord, ein Geheimnis, eine Eskalation, ein Witz oder ein Cliffhanger der vergangenen Episode.
+  - **Akt I**: Setup, Figuren-Status, Episoden-Frage etabliert.
+  - **Akt II**: Eskalation, erste Komplikation, neues Hindernis.
+  - **Akt III**: Midpoint-Twist, Figuren rücken aneinander oder zerbrechen.
+  - **Akt IV**: Krise, scheinbare Niederlage / höchster Druck.
+  - **Akt V** (optional, je nach Sender — bei US-Network-TV oft nötig): Auflösung der Episoden-Frage + Cliffhanger oder Setup für die nächste Folge.
+- Akt-Outs (das Ende eines Akts) sind dramaturgisch hochbesetzt — wenn die Szenen-Anweisung andeutet, dass dies das Ende eines Aktes ist (Werbeunterbrechung), liefere einen klaren Hook (Frage, Twist, Cliffhanger).
+- Cold Opens, Act-Outs und Cliffhanger-Übergänge nur dann konkret ausformulieren, wenn die Szene-Anweisung sie verlangt — sonst der Story-So-Far und dem Outline-Plan folgen.
 
 LÄNGE:
 1 Seite ≈ 250 Wörter ≈ 1 Minute. TV-Szenen sind meist 1–3 Seiten (250–750 Wörter). Schreibe in der Länge, die der dramatische Inhalt verlangt.

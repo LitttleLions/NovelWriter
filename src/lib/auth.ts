@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { query } from "./db";
 
@@ -37,8 +37,23 @@ export async function verifyToken(token: string) {
 }
 
 export async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  let token: string | undefined;
+
+  try {
+    const cookieStore = await cookies();
+    token = cookieStore.get("auth_token")?.value;
+  } catch {}
+
+  if (!token) {
+    try {
+      const headerStore = await headers();
+      const authHeader = headerStore.get("authorization") || headerStore.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    } catch {}
+  }
+
   if (!token) return null;
 
   const payload = await verifyToken(token);

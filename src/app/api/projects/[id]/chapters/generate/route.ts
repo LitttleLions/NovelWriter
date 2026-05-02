@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
+import { generateText, estimateCost, describeAiError, detectDegeneration } from "@/lib/openrouter";
 import { PROMPTS } from "@/lib/prompts";
 
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
@@ -373,6 +373,16 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
     const result = await generateText(model, dynamicSystemPrompt, userPrompt, 16000);
 
     const cleanedContent = stripMetaCommentary(result.content);
+
+    // Schutz vor Modell-Degeneration: prüfe auf Wiederholungsschleifen, Sprachmix, Müll-Bytes.
+    // Wenn der Output kaputt ist: NICHT speichern, sondern klaren Fehler an die UI zurückgeben.
+    const degeneration = detectDegeneration(cleanedContent);
+    if (!degeneration.ok) {
+      return NextResponse.json({
+        error: `Das Modell "${model}" hat einen kaputten Output erzeugt: ${degeneration.reason} Bitte wechsle in den Projekt-Einstellungen das KI-Modell (z.B. zu Claude Sonnet 4.6, DeepSeek V4 Flash oder Gemini 3 Pro) und versuche es erneut.`,
+      }, { status: 502 });
+    }
+
     const wordCount = cleanedContent.trim().split(/\s+/).length;
     const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
 

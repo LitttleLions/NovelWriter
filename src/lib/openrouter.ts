@@ -250,6 +250,8 @@ export async function generateText(
     ],
     max_tokens: maxTokens,
     temperature: 0.7,
+    frequency_penalty: 0.3,
+    presence_penalty: 0.2,
   });
 
   return {
@@ -258,6 +260,51 @@ export async function generateText(
     completion_tokens: response.usage?.completion_tokens || 0,
     total_tokens: response.usage?.total_tokens || 0,
   };
+}
+
+// Erkennt Degeneration: Token-Wiederholungsschleifen, Sprachmix, Mojibake.
+// Gibt entweder { ok: true } oder { ok: false, reason: string } zurück.
+export function detectDegeneration(text: string): { ok: true } | { ok: false; reason: string } {
+  if (!text || text.trim().length < 50) {
+    return { ok: false, reason: "Text ist leer oder zu kurz (< 50 Zeichen)." };
+  }
+
+  // 1. Token-Loop: dasselbe Wort 10+ mal direkt hintereinander
+  const tokenLoop = text.match(/\b(\w{2,30})(?:\s+\1\b){9,}/i);
+  if (tokenLoop) {
+    const word = tokenLoop[1];
+    return { ok: false, reason: `Wiederholungsschleife erkannt – das Wort "${word}" wurde mindestens 10× direkt hintereinander generiert. Das Modell ist in einer Degeneration-Schleife gefangen.` };
+  }
+
+  // 2. Phrasen-Loop: 2-5 Wörter Phrase mehr als 8x hintereinander
+  const phraseLoop = text.match(/(\b\w[\w\s]{5,40}\b[.,!?;:]?\s+)\1{7,}/i);
+  if (phraseLoop) {
+    return { ok: false, reason: `Phrasen-Wiederholungsschleife erkannt – die gleiche Wortgruppe wurde mehr als 8× hintereinander generiert.` };
+  }
+
+  // 3. Single-token-Spam: ein einzelnes Wort macht > 25% des Texts aus
+  const words = text.toLowerCase().match(/\b\w{3,}\b/g) || [];
+  if (words.length > 100) {
+    const counts = new Map<string, number>();
+    for (const w of words) counts.set(w, (counts.get(w) || 0) + 1);
+    let maxWord = "";
+    let maxCount = 0;
+    for (const [w, c] of counts) {
+      if (c > maxCount) { maxCount = c; maxWord = w; }
+    }
+    const ratio = maxCount / words.length;
+    if (ratio > 0.25 && maxCount > 30) {
+      return { ok: false, reason: `Übermäßige Wiederholung des Wortes "${maxWord}" (${maxCount}× = ${(ratio * 100).toFixed(0)}% aller Wörter). Modell-Output ist degeneriert.` };
+    }
+  }
+
+  // 4. Mojibake / nicht-druckbare Zeichen Cluster (häufig bei kaputten Tokens)
+  const garbageCluster = text.match(/[\uFFFD\u0000-\u0008\u000B-\u001F]{3,}/);
+  if (garbageCluster) {
+    return { ok: false, reason: `Nicht-druckbare Zeichen (Müll-Bytes) im Text – Modell-Output ist beschädigt.` };
+  }
+
+  return { ok: true };
 }
 
 const MODEL_PRICES: Record<string, { prompt: number; completion: number }> = {
@@ -393,6 +440,8 @@ export async function streamText(
     ],
     max_tokens: maxTokens,
     temperature: 0.7,
+    frequency_penalty: 0.3,
+    presence_penalty: 0.2,
     stream: true,
   });
 

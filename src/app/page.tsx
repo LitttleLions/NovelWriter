@@ -128,6 +128,14 @@ export default function LandingPage() {
         setError(data.error || "Ein Fehler ist aufgetreten");
       } else {
         if (data.token) localStorage.setItem("rf_token", data.token);
+        const verifyRes = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${data.token}` },
+        });
+        if (!verifyRes.ok) {
+          setError("Anmeldung fehlgeschlagen");
+          setLoading(false);
+          return;
+        }
         window.location.href = "/dashboard";
       }
     } catch {

@@ -1129,9 +1129,12 @@ export default function ProjectPage() {
                       </div>
                     )
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                      <p>Lade Beispieltext hoch und klicke auf "Stil analysieren"</p>
+                    <div className="text-center py-12">
+                      <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <h3 className="text-xl font-bold mb-2">Noch kein Stil-Profil</h3>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        Lade einen Beispieltext hoch und klicke auf „Stil analysieren“.
+                      </p>
                     </div>
                   )}
 
@@ -2078,9 +2081,12 @@ export default function ProjectPage() {
                   {loadingLogs ? (
                     <div className="text-center py-8 text-muted-foreground text-sm">Lade Logs...</div>
                   ) : generationLogs.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm">
-                      Noch keine KI-Generierungen in diesem Projekt.
-                      <br />Starte mit der Stil-Analyse oder Outline-Generierung.
+                    <div className="text-center py-12">
+                      <Zap className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <h3 className="text-xl font-bold mb-2">Noch keine KI-Generierungen</h3>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        Starte mit der Stil-Analyse oder Outline-Generierung.
+                      </p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">

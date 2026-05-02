@@ -108,20 +108,11 @@ export default function NewProjectPage() {
           project_type: projectType,
           screenplay_format: projectType === "screenplay" ? screenplayFormat : null,
           screenplay_style_preset: projectType === "screenplay" ? screenplayStylePreset : null,
+          style_notes: projectType === "screenplay" && styleNotes.trim() ? styleNotes : null,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        // If we have screenplay style notes from the preset (or the user
-        // edited them), persist them via the PUT endpoint so they're already
-        // in place when the project loads.
-        if (projectType === "screenplay" && styleNotes.trim()) {
-          await fetch(`/api/projects/${data.project.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ style_notes: styleNotes }),
-          }).catch(() => {});
-        }
         router.push(`/project/${data.project.id}`);
       }
     } finally {

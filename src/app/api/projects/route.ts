@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   try {
     const {
       title, genre, target_word_count, language, summary, characters, outline, ai_provider,
-      project_type, screenplay_format, screenplay_style_preset,
+      project_type, screenplay_format, screenplay_style_preset, style_notes,
     } = await req.json();
 
     if (!title) {
@@ -44,8 +44,8 @@ export async function POST(req: Request) {
     }
 
     const result = await query(
-      `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, ai_provider, project_type, screenplay_format, screenplay_style_preset)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, ai_provider, project_type, screenplay_format, screenplay_style_preset, style_notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         user.id, title, genre || null,
@@ -53,6 +53,7 @@ export async function POST(req: Request) {
         summary || null, characters || null, outline || null,
         ai_provider || "anthropic/claude-sonnet-4.6",
         validated.project_type, validated.screenplay_format, validated.screenplay_style_preset,
+        (typeof style_notes === "string" && style_notes.trim()) ? style_notes : null,
       ]
     );
 

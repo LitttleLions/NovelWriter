@@ -41,7 +41,7 @@ const NOVEL_TERMS: ProjectTerms = {
 const SCREENPLAY_TERMS: ProjectTerms = {
   chapter: "Szene",
   chapters: "Szenen",
-  chapterShort: "Sz.",
+  chapterShort: "Szene",
   chapterStructure: "Szenen-Struktur",
   chapterTab: "Szenen",
   outlineLabel: "Szenen-Übersicht",

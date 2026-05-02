@@ -41,7 +41,38 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const body = await req.json();
 
-  // Validate the screenplay-related fields against whitelists.
+  // Load the existing project so we can enforce immutability of the work-type
+  // fields (project_type, screenplay_format) after creation. The user picks
+  // Roman / Spielfilm / TV-Episode at creation; switching later would
+  // invalidate prompt routing, page-vs-word units, and outline conventions.
+  const existing = await query(
+    "SELECT project_type, screenplay_format FROM projects WHERE id = $1 AND user_id = $2",
+    [id, user.id]
+  );
+  if (existing.rows.length === 0) {
+    return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
+  }
+  const current = existing.rows[0];
+
+  // Reject attempts to change project_type or screenplay_format on an
+  // existing project. The screenplay style preset CAN still be changed
+  // (that's a soft writing-style choice and is safe to swap mid-project).
+  if (body.project_type !== undefined && body.project_type !== current.project_type) {
+    return NextResponse.json(
+      { error: "Werk-Typ (Roman/Drehbuch) kann nach der Anlage nicht mehr geändert werden." },
+      { status: 400 }
+    );
+  }
+  if (body.screenplay_format !== undefined && body.screenplay_format !== current.screenplay_format) {
+    return NextResponse.json(
+      { error: "Drehbuch-Format (Spielfilm/TV-Episode) kann nach der Anlage nicht mehr geändert werden." },
+      { status: 400 }
+    );
+  }
+
+  // Validate the screenplay-related fields against whitelists. (project_type
+  // and screenplay_format are already locked above, but we still validate
+  // screenplay_style_preset since it remains mutable.)
   if (body.project_type !== undefined && !VALID_PROJECT_TYPES.includes(body.project_type)) {
     return NextResponse.json({ error: `Ungültiger Werk-Typ: ${body.project_type}` }, { status: 400 });
   }
@@ -54,10 +85,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: `Ungültiges Drehbuch-Stil-Preset: ${body.screenplay_style_preset}` }, { status: 400 });
   }
   // Cross-field consistency: novel projects cannot carry screenplay-only data.
-  if (body.project_type === "novel") {
-    if (body.screenplay_format !== undefined && body.screenplay_format !== null) {
-      return NextResponse.json({ error: "Roman-Projekte dürfen kein screenplay_format setzen." }, { status: 400 });
-    }
+  if (current.project_type === "novel") {
     if (body.screenplay_style_preset !== undefined && body.screenplay_style_preset !== null) {
       return NextResponse.json({ error: "Roman-Projekte dürfen kein screenplay_style_preset setzen." }, { status: 400 });
     }
@@ -67,7 +95,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const values: any[] = [];
   let idx = 1;
 
-  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "ai_provider", "status", "project_type", "screenplay_format", "screenplay_style_preset"]) {
+  // project_type and screenplay_format are intentionally NOT in this list:
+  // they are immutable after creation (enforced above).
+  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "ai_provider", "status", "screenplay_style_preset"]) {
     if (body[key] !== undefined) {
       fields.push(`${key} = $${idx}`);
       values.push(key === "style_json" ? JSON.stringify(body[key]) : body[key]);

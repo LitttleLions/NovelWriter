@@ -52,27 +52,30 @@ Regeln:
 - Ende jedes Kapitels mit Hook zum nächsten
 - Antworte NUR mit dem JSON-Array, kein anderer Text.`,
 
-  customOutlineConverter: `Du bist ein präziser Outline-Übersetzer. Deine Aufgabe: Wandle eine handgeschriebene Outline in ein strukturiertes JSON-Array um.
+  customOutlineConverter: `Du bist ein präziser Outline-Übersetzer und Story-Analyst. Deine Aufgabe: Wandle eine handgeschriebene Outline in ein strukturiertes JSON-Array um – die strukturierten Felder sollen REICHHALTIG und SUBSTANZIELL sein, nicht nur Schlagworte.
 
 KRITISCHE REGELN:
 1. JEDE Szene, jeder Absatz, jeder Ort bekommt einen EIGENEN Eintrag. NIEMALS Szenen zusammenfassen oder zusammenlegen.
-2. Der "raw_notes"-Wert enthält den VOLLSTÄNDIGEN Originaltext der Szene – WORT FÜR WORT, NICHTS weglassen.
+2. Der "raw_notes"-Wert enthält den VOLLSTÄNDIGEN Originaltext der Szene – WORT FÜR WORT, NICHTS weglassen, NICHTS umformulieren.
 3. Erstelle so viele Einträge wie die Vorlage Szenen/Abschnitte hat.
 4. chapter_number ist fortlaufend (1, 2, 3, ...).
-5. SPRACHE: Erzeuge ALLE Texte (title, purpose, character_arc, location, key_events) in der Sprache des Projekts (Standard: Deutsch).
-6. Antworte NUR mit dem JSON-Array – kein erklärender Text, kein Markdown-Block.
+5. SPRACHE: Erzeuge ALLE Texte (title, purpose, character_arc, location, key_events) in der Sprache des Projekts (Standard: Deutsch). NUR raw_notes bleibt in der Originalsprache der Vorlage.
+6. Die strukturierten Felder werden später als KAPITEL-ANWEISUNG an die Schreib-KI übergeben. Sie müssen so ausführlich sein, dass die Schreib-KI auch OHNE raw_notes ein vollständiges Kapitel daraus ableiten könnte.
+7. Antworte NUR mit dem JSON-Array – kein erklärender Text, kein Markdown-Block, keine Code-Fences.
 
 JSON-Schema pro Eintrag:
 {
   "chapter_number": <Nummer>,
-  "title": "<Kurzer, prägnanter Szenenname in Projektsprache>",
-  "purpose": "<1 Satz: Was passiert in dieser Szene dramaturgisch?>",
-  "character_arc": "<Welche Figur entwickelt sich wie?>",
-  "tension_level": <1-10>,
-  "location": "<Ort und Zeit, z.B. 'Hamburg, Hafen, Tag 0'>",
-  "key_events": "<Kommagetrennte Ereignisse dieser Szene>",
-  "raw_notes": "<VOLLSTÄNDIGER ORIGINALTEXT DIESER SZENE>"
-}`,
+  "title": "<Prägnanter Szenenname mit Cliffhanger-Charakter, 3-8 Wörter>",
+  "purpose": "<2-3 Sätze: Was passiert dramaturgisch? Welche Funktion hat diese Szene im Gesamtbogen? Was MUSS die Leserin am Ende fühlen oder verstanden haben?>",
+  "character_arc": "<Pro beteiligter Figur 1 Satz: Welche innere Entwicklung, Erkenntnis oder Veränderung macht sie durch? Format: 'Figur A: <Entwicklung>. Figur B: <Entwicklung>.' Wenn nur eine Figur relevant ist, ein ausführlicher Satz.>",
+  "tension_level": <1-10, ehrliche Einschätzung – nicht alles auf 7-8 setzen>,
+  "location": "<Ort, Tageszeit, Atmosphäre, z.B. 'Hamburg, Hafen, frühe Morgenstunden, Nebel über den Containerstapeln'>",
+  "key_events": "<Nummerierte Liste der konkreten Handlungs-Beats in chronologischer Reihenfolge. Format: '1. <Beat>. 2. <Beat>. 3. <Beat>.' Mindestens 3, maximal 8 Beats. Konkrete Handlungen, keine Abstraktionen ('Sibel öffnet den Container und sieht die Frau' statt 'Entdeckung wird gemacht').>",
+  "raw_notes": "<VOLLSTÄNDIGER ORIGINALTEXT DIESER SZENE – wort für wort aus der Vorlage>"
+}
+
+WICHTIG: Wenn die Originalvorlage zu einer Szene wenig Information enthält, leite die Felder dennoch SO AUSFÜHRLICH WIE MÖGLICH aus dem Kontext ab – fülle nicht mit Floskeln auf, aber sei beschreibend. Die Schreib-KI soll später eine echte Arbeitsanweisung haben, keine bloße Stichwortliste.`,
 
   chapterWriter: `Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
 

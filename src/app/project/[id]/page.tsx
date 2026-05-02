@@ -721,7 +721,7 @@ export default function ProjectPage() {
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="style">Stil-Engine</TabsTrigger>
             <TabsTrigger value="characters">Figuren ({projectCharacters.length})</TabsTrigger>
-            <TabsTrigger value="outline">Outline ({outlines.length})</TabsTrigger>
+            <TabsTrigger value="outline">{terms.outlineLabel} ({outlines.length})</TabsTrigger>
             <TabsTrigger value="chapters">{terms.chapterTab} ({chapters.length})</TabsTrigger>
             <TabsTrigger value="log">
               <Receipt className="h-3.5 w-3.5 mr-1" />
@@ -1681,7 +1681,10 @@ export default function ProjectPage() {
                               </Button>
                             </div>
                             <div className="flex-1 min-w-0 cursor-pointer group" onClick={() => setExpandedOutline(expandedOutline === o.id ? null : o.id)}>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-primary/80 shrink-0">
+                                  {terms.chapter} {o.chapter_number}
+                                </span>
                                 <h4 className="font-semibold truncate">{o.title}</h4>
                                 {expandedOutline === o.id ? (
                                   <ChevronUp className="h-4 w-4 text-muted-foreground" />

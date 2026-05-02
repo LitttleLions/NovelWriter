@@ -34,6 +34,8 @@ export default function NewProjectPage() {
   const [projectType, setProjectType] = useState<ProjectType>("novel");
   const [screenplayFormat, setScreenplayFormat] = useState<ScreenplayFormat>("feature");
   const [screenplayStylePreset, setScreenplayStylePreset] = useState<string>("sorkin");
+  const [styleNotes, setStyleNotes] = useState<string>("");
+  const [styleNotesTouched, setStyleNotesTouched] = useState(false);
 
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("");
@@ -44,6 +46,23 @@ export default function NewProjectPage() {
   const [summary, setSummary] = useState("");
   const [characters, setCharacters] = useState("");
   const [outline, setOutline] = useState("");
+
+  // Auto-prefill style_notes when a screenplay preset is chosen — only as long
+  // as the user hasn't manually edited the textarea. After manual edits we
+  // never overwrite their text again.
+  useEffect(() => {
+    if (projectType !== "screenplay") return;
+    if (styleNotesTouched) return;
+    const preset = SCREENPLAY_STYLE_PRESETS.find((p) => p.id === screenplayStylePreset);
+    setStyleNotes(preset?.styleNotesText ?? "");
+  }, [projectType, screenplayStylePreset, styleNotesTouched]);
+
+  // When switching back to novel, clear any preset-prefilled notes (unless touched).
+  useEffect(() => {
+    if (projectType === "novel" && !styleNotesTouched) {
+      setStyleNotes("");
+    }
+  }, [projectType, styleNotesTouched]);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
@@ -93,6 +112,16 @@ export default function NewProjectPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        // If we have screenplay style notes from the preset (or the user
+        // edited them), persist them via the PUT endpoint so they're already
+        // in place when the project loads.
+        if (projectType === "screenplay" && styleNotes.trim()) {
+          await fetch(`/api/projects/${data.project.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ style_notes: styleNotes }),
+          }).catch(() => {});
+        }
         router.push(`/project/${data.project.id}`);
       }
     } finally {
@@ -260,24 +289,51 @@ export default function NewProjectPage() {
               </div>
 
               {isScreenplay && (
-                <div className="space-y-2">
-                  <Label>Stil-Preset</Label>
-                  <Select value={screenplayStylePreset} onValueChange={setScreenplayStylePreset}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SCREENPLAY_STYLE_PRESETS.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {SCREENPLAY_STYLE_PRESETS.find((p) => p.id === screenplayStylePreset)?.description}
-                  </p>
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label>Stil-Preset</Label>
+                    <Select
+                      value={screenplayStylePreset}
+                      onValueChange={(v) => {
+                        // Re-enable auto-prefill when the user picks a fresh preset.
+                        setStyleNotesTouched(false);
+                        setScreenplayStylePreset(v);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SCREENPLAY_STYLE_PRESETS.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {SCREENPLAY_STYLE_PRESETS.find((p) => p.id === screenplayStylePreset)?.description}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="style_notes">Stil-Direktiven (editierbar)</Label>
+                    <Textarea
+                      id="style_notes"
+                      value={styleNotes}
+                      onChange={(e) => {
+                        setStyleNotes(e.target.value);
+                        setStyleNotesTouched(true);
+                      }}
+                      rows={10}
+                      placeholder="Vom Preset vorgefüllt — du kannst frei editieren, ergänzen oder löschen."
+                      className="font-sans text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Diese Notizen werden bei jeder Szenen-Generierung als oberste Stil-Priorität in den Prompt eingehängt. Vorgefüllt vom gewählten Preset, jederzeit anpassbar.
+                    </p>
+                  </div>
+                </>
               )}
 
               <div className="space-y-2">

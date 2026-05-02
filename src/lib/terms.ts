@@ -7,6 +7,7 @@ export interface ProjectTerms {
   chapterShort: string;
   chapterStructure: string;
   chapterTab: string;
+  outlineLabel: string;
   workNoun: string;
   workType: string;
   wordcountUnit: string;
@@ -24,6 +25,7 @@ const NOVEL_TERMS: ProjectTerms = {
   chapterShort: "Kap.",
   chapterStructure: "Kapitel-Struktur",
   chapterTab: "Kapitel",
+  outlineLabel: "Outline",
   workNoun: "Roman",
   workType: "Roman",
   wordcountUnit: "Wörter",
@@ -42,6 +44,7 @@ const SCREENPLAY_TERMS: ProjectTerms = {
   chapterShort: "Sz.",
   chapterStructure: "Szenen-Struktur",
   chapterTab: "Szenen",
+  outlineLabel: "Szenen-Übersicht",
   workNoun: "Drehbuch",
   workType: "Drehbuch",
   wordcountUnit: "Seiten",

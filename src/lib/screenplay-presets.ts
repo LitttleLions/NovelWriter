@@ -3,6 +3,14 @@ export interface ScreenplayStylePreset {
   name: string;
   description: string;
   prompt: string;
+  /**
+   * Vorgefüllter, vom User editierbarer Stil-Direktiven-Block für `style_notes`.
+   * Beim Anlegen eines Drehbuch-Projekts wird dieser Text automatisch in das
+   * Stil-Notizen-Feld eingesetzt, damit der User vor dem Erstellen noch
+   * anpassen kann. Die finale Version landet in `projects.style_notes`.
+   * Für `custom` ist der Wert ein leerer String — der User schreibt frei.
+   */
+  styleNotesText: string;
 }
 
 export const SCREENPLAY_STYLE_PRESETS: ScreenplayStylePreset[] = [
@@ -10,6 +18,16 @@ export const SCREENPLAY_STYLE_PRESETS: ScreenplayStylePreset[] = [
     id: "sorkin",
     name: "Aaron Sorkin (Walk-and-Talk)",
     description: "Hochgeschwindigkeits-Dialog, Fachjargon, Walk-and-Talks, Ping-Pong-Schlagabtausch",
+    styleNotesText: `Stil-Vorlage: Aaron Sorkin (West Wing / The Social Network / Newsroom).
+
+- Walk-and-Talks: Figuren bewegen sich physisch, während sie reden – durch Korridore, Treppen, Büros. Bewegung kurz in Action-Lines erwähnen.
+- Ping-Pong-Dialog: Schneller Schlagabtausch in 1- bis 3-Zeilen-Repliken (A-B-A-B-A-B), gelegentlich ein längerer Monolog für emotionale Gravitation.
+- Sätze überlappen, Figuren schneiden einander das Wort ab — durch "—" am Zeilenende oder unfertige Sätze zeigen.
+- Hochintelligente, schlagfertige Charaktere. Jede Replik ist Konter, Witz, Klarstellung oder moralische Position. Keine leere Konversation.
+- Authentischer Fachjargon (Politik, Recht, Tech, Sport, Medien). Figuren sind Insider und reden wie Insider.
+- Untertext: Was nicht gesagt wird, ist genauso wichtig. Belangloses Gerede, während die echte Frage im Raum hängt.
+- Action-Lines: knapp, funktional, präsens. Nur was die Kamera sieht.
+- Verboten: lange ruhige Szenen ohne Wortgefecht; Figuren, die "stumm denken"; Raum-Beschreibungen länger als 1–2 Zeilen.`,
     prompt: `STIL-DIREKTIVE: AARON SORKIN (THE WEST WING / THE SOCIAL NETWORK / NEWSROOM)
 
 Dialog ist die Hauptarchitektur jeder Szene. Action-Lines stehen im Dienst des Dialogs, niemals umgekehrt.
@@ -36,6 +54,15 @@ VERBOTEN:
     id: "tarantino",
     name: "Quentin Tarantino",
     description: "Lange Dialog-Tableaus, Pop-Culture-Riffs, Spannung durch Geduld",
+    styleNotesText: `Stil-Vorlage: Quentin Tarantino (Pulp Fiction / Reservoir Dogs / Inglourious Basterds).
+
+- Lange, breit angelegte Dialog-Tableaus. Figuren reden zuerst über scheinbar Belangloses (Burger, Pop-Kultur, Wortdefinitionen, Trinkgeld), bevor der eigentliche Punkt kommt.
+- Das WIE ist wichtiger als das WAS. Spannung entsteht durch die Geduld der Szene.
+- Eigenwillige, präzise Slang-Wortwahl pro Charakter — jede Figur klingt unverwechselbar.
+- Pausen, Blicke, Mikro-Beobachtungen sind dramaturgische Werkzeuge.
+- Action-Lines: oft persönlich, fast literarisch erzählt — mit Meinung. Gewalt-Ausbrüche aus ruhigen Dialogen heraus, dann plötzlich knapp und chirurgisch.
+- Stille als Waffe — nicht mit Worten füllen.
+- Verboten: Eilig zum Punkt kommen; generische Action-Sequenzen ohne Charaktermomente.`,
     prompt: `STIL-DIREKTIVE: QUENTIN TARANTINO (PULP FICTION / RESERVOIR DOGS / INGLOURIOUS BASTERDS)
 
 DIALOG-DNA:
@@ -60,6 +87,15 @@ VERBOTEN:
     id: "dialogue_heavy",
     name: "Dialog-lastig (Charakter-Drama)",
     description: "70%+ Dialog, minimale Action-Lines, intim und charakterzentriert",
+    styleNotesText: `Stil-Vorlage: Dialog-lastiges Charakter-Drama (Kammerspiel).
+
+- Mindestens 70 % der Szene besteht aus Dialog.
+- Action-Lines beschränken sich auf Mikro-Bewegungen: ein Blick, ein Schlucken, das Heben einer Tasse.
+- Konflikt entsteht verbal, nicht physisch.
+- Jede Figur hat erkennbare Sprachidentität (Wortwahl, Satzbau, Rhythmus).
+- Untertext und Konflikt-Subtext im Zentrum — Figuren sagen selten direkt, was sie meinen.
+- Schauplätze sind eng und intim: Küche, Auto, Bürotisch, Wartezimmer, Hotelbar.
+- Pausen und Stille bewusst eingesetzt (parenthetical "(Pause)" oder Action-Line "Stille.").`,
     prompt: `STIL-DIREKTIVE: DIALOG-LASTIGES CHARAKTER-DRAMA
 
 - Mindestens 70 % der Szene besteht aus Dialog.
@@ -74,6 +110,15 @@ VERBOTEN:
     id: "action_heavy",
     name: "Action-lastig (visuell-kinetisch)",
     description: "Visuell getrieben, knappe Sätze, kinetische Action-Lines",
+    styleNotesText: `Stil-Vorlage: Action-lastig, visuell-kinetisch.
+
+- Action-Lines dominieren, Dialog ist knapp und funktional.
+- Kurze, kinetische Sätze. Verben treiben jede Zeile. Wenige Adjektive.
+- Jeder Action-Block ist ein kontinuierlicher Beat — bei Beat-Wechsel (neuer Schauplatz, neue Figur, neue Aktion) neuer Absatz.
+- Visuelle Klarheit: Was sieht die Kamera? Konkret, präzise, filmbar. Niemals abstrakt.
+- Spannung durch Tempo, Schnitt, Bewegung — nicht durch Worte.
+- Dialog: kurz, hart, manchmal nur ein Wort, manchmal gar nicht.
+- Geräusche und visuelle Details als Beat-Marker ("Ein SCHUSS." / "Glas splittert.").`,
     prompt: `STIL-DIREKTIVE: ACTION-LASTIG (VISUELL-KINETISCH)
 
 - Action-Lines dominieren, Dialog ist knapp und funktional.
@@ -88,6 +133,7 @@ VERBOTEN:
     id: "custom",
     name: "Eigener Stil",
     description: "Kein Preset – nutze stattdessen die Stil-Engine im Projekt",
+    styleNotesText: "",
     prompt: "",
   },
 ];

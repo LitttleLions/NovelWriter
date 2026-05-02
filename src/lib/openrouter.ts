@@ -57,6 +57,12 @@ export const AVAILABLE_MODELS = [
 
   // ── DeepSeek – Beste Preis-Leistung ──
   {
+    id: "deepseek/deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    provider: "DeepSeek",
+    description: "Neue V4-Generation, MoE mit 1M Kontext – extrem günstig und schnell",
+  },
+  {
     id: "deepseek/deepseek-v3.2",
     name: "DeepSeek V3.2",
     provider: "DeepSeek",
@@ -97,10 +103,24 @@ export const AVAILABLE_MODELS = [
 
   // ── Qwen – Multilingual ──
   {
+    id: "qwen/qwen3.6-flash",
+    name: "Qwen 3.6 Flash",
+    provider: "Qwen",
+    description: "Neue Qwen-Generation, 1M Kontext, multimodal – schnell und günstig",
+  },
+  {
     id: "qwen/qwen3-72b-instruct",
     name: "Qwen 3 72B",
     provider: "Qwen",
     description: "Starke multilinguale Leistung, gut für nicht-englische Romane",
+  },
+
+  // ── OpenRouter eigene Modelle ──
+  {
+    id: "openrouter/owl-alpha",
+    name: "Owl Alpha (Free)",
+    provider: "OpenRouter",
+    description: "Aktuell kostenlos – langes Kontextfenster, gut für Tool-Use & Agenten",
   },
 
   // ── Legacy-Modelle (ältere Versionen, weiterhin verfügbar) ──
@@ -250,12 +270,15 @@ const MODEL_PRICES: Record<string, { prompt: number; completion: number }> = {
   "openai/gpt-4.1": { prompt: 0.0025, completion: 0.01 },
   "google/gemini-3-pro": { prompt: 0.00125, completion: 0.005 },
   "google/gemini-3-flash": { prompt: 0.0001, completion: 0.0004 },
+  "deepseek/deepseek-v4-flash": { prompt: 0.00014, completion: 0.00028 },
   "deepseek/deepseek-v3.2": { prompt: 0.00027, completion: 0.0011 },
   "moonshotai/kimi-k2.6": { prompt: 0.0006, completion: 0.0025 },
   "x-ai/grok-4.1": { prompt: 0.002, completion: 0.01 },
   "minimax/minimax-m2.7": { prompt: 0.0003, completion: 0.0011 },
   "mistralai/mistral-large-3": { prompt: 0.002, completion: 0.006 },
+  "qwen/qwen3.6-flash": { prompt: 0.00025, completion: 0.0015 },
   "qwen/qwen3-72b-instruct": { prompt: 0.0004, completion: 0.0008 },
+  "openrouter/owl-alpha": { prompt: 0, completion: 0 },
 
   // ── Legacy-IDs: nur für Kostenberechnung bestehender Projekte (nicht mehr in AVAILABLE_MODELS) ──
   "anthropic/claude-sonnet-4-5": { prompt: 0.003, completion: 0.015 },

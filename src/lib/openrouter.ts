@@ -264,26 +264,29 @@ export async function generateText(
 
 // Erkennt Degeneration: Token-Wiederholungsschleifen, Sprachmix, Mojibake.
 // Gibt entweder { ok: true } oder { ok: false, reason: string } zurück.
+// Unicode-aware: nutzt \p{L} statt \w, damit deutsche Umlaute (ä,ö,ü,ß) korrekt
+// als Wortbestandteile erkannt werden.
 export function detectDegeneration(text: string): { ok: true } | { ok: false; reason: string } {
   if (!text || text.trim().length < 50) {
     return { ok: false, reason: "Text ist leer oder zu kurz (< 50 Zeichen)." };
   }
 
-  // 1. Token-Loop: dasselbe Wort 10+ mal direkt hintereinander
-  const tokenLoop = text.match(/\b(\w{2,30})(?:\s+\1\b){9,}/i);
+  // 1. Token-Loop: dasselbe Wort 10+ mal hintereinander (mit beliebigen Trennzeichen)
+  const tokenLoop = text.match(/(\p{L}{2,30})(?:[\s,.;:!?\-–—]+\1){9,}/iu);
   if (tokenLoop) {
     const word = tokenLoop[1];
-    return { ok: false, reason: `Wiederholungsschleife erkannt – das Wort "${word}" wurde mindestens 10× direkt hintereinander generiert. Das Modell ist in einer Degeneration-Schleife gefangen.` };
+    return { ok: false, reason: `Wiederholungsschleife erkannt – das Wort "${word}" wurde mindestens 10× hintereinander generiert. Das Modell ist in einer Degeneration-Schleife gefangen.` };
   }
 
-  // 2. Phrasen-Loop: 2-5 Wörter Phrase mehr als 8x hintereinander
-  const phraseLoop = text.match(/(\b\w[\w\s]{5,40}\b[.,!?;:]?\s+)\1{7,}/i);
+  // 2. Phrasen-Loop: gleiche Wortgruppe (2-5 Wörter) mehr als 7× hintereinander.
+  // Erkennt auch leichte Punktuations-Drift zwischen den Wiederholungen.
+  const phraseLoop = text.match(/(\p{L}+(?:[\s,.;:!?\-–—]+\p{L}+){1,4})(?:[\s,.;:!?\-–—]+\1){6,}/iu);
   if (phraseLoop) {
-    return { ok: false, reason: `Phrasen-Wiederholungsschleife erkannt – die gleiche Wortgruppe wurde mehr als 8× hintereinander generiert.` };
+    return { ok: false, reason: `Phrasen-Wiederholungsschleife erkannt – die gleiche Wortgruppe wurde mehr als 7× hintereinander generiert.` };
   }
 
   // 3. Single-token-Spam: ein einzelnes Wort macht > 25% des Texts aus
-  const words = text.toLowerCase().match(/\b\w{3,}\b/g) || [];
+  const words = text.toLowerCase().match(/\p{L}{3,}/gu) || [];
   if (words.length > 100) {
     const counts = new Map<string, number>();
     for (const w of words) counts.set(w, (counts.get(w) || 0) + 1);

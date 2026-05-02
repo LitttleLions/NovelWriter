@@ -1,0 +1,370 @@
+
+# Vollständige Design-System-Spezifikation
+
+> **Zweck**: Dieser Prompt beschreibt das gesamte visuelle Erscheinungsbild der Web-App. Nutze ihn, um jede Oberfläche – egal in welchem Framework – optisch identisch zu gestalten.
+
+---
+
+## 1. Schriften (Typography)
+
+| Eigenschaft | Wert |
+|---|---|
+| **Primärschrift** | `Plus Jakarta Sans` (Google Fonts) |
+| **Fallback** | `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` |
+| **Gewichte** | 300 (Light), 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold), 800 (ExtraBold) |
+| **Textrendering** | Antialiased (`-webkit-font-smoothing: antialiased`) |
+
+### Schriftgrößen-Skala
+
+| Stufe | Größe | Gewicht | Verwendung |
+|---|---|---|---|
+| **Display / Hero** | 36–48 px | 800 (ExtraBold) | Landing-Hero-Überschriften |
+| **H1** | 30–36 px | 700 (Bold) | Seitenüberschriften |
+| **H2** | 24 px | 700 (Bold) | Sektions-Überschriften |
+| **H3** | 20 px | 600 (SemiBold) | Card-Titel, Dialog-Titel |
+| **Body / Base** | 14–16 px (Desktop 14, Mobile 16) | 400 (Regular) | Fließtext |
+| **Small / Caption** | 12–13 px | 500 (Medium) | Labels, Badges, Meta-Info |
+| **Tiny** | 11 px | 400 | Timestamps, Footnotes |
+
+---
+
+## 2. Farbsystem
+
+Alle Farben sind in **HSL** definiert. Das System unterstützt **Light Mode** und **Dark Mode**.
+
+### 2.1 Light Mode
+
+| Token | HSL | Hex (ca.) | Verwendung |
+|---|---|---|---|
+| `--background` | `230 25% 97%` | #F4F5F7 | Seitenhintergrund |
+| `--foreground` | `230 25% 15%` | #1D2033 | Haupttextfarbe |
+| `--card` | `0 0% 100%` | #FFFFFF | Kartenflächen |
+| `--card-foreground` | `230 25% 15%` | #1D2033 | Text auf Karten |
+| `--primary` | `28 95% 55%` | #F59E0B | Primäre Akzentfarbe (warmes Orange) |
+| `--primary-foreground` | `0 0% 100%` | #FFFFFF | Text auf Primary |
+| `--secondary` | `28 30% 95%` | #FAF3EB | Sekundäre Flächen |
+| `--secondary-foreground` | `28 50% 35%` | #866332 | Text auf Secondary |
+| `--muted` | `230 20% 93%` | #ECEDF1 | Gedämpfte Hintergründe |
+| `--muted-foreground` | `230 15% 50%` | #727893 | Platzhalter, deaktivierter Text |
+| `--accent` | `28 95% 55%` | #F59E0B | Akzente (= Primary) |
+| `--destructive` | `0 84% 60%` | #EF4444 | Fehlermeldungen, Löschen |
+| `--border` | `230 20% 90%` | #E2E4EA | Standard-Rahmen |
+| `--input` | `230 20% 90%` | #E2E4EA | Input-Rahmen |
+| `--ring` | `28 95% 55%` | #F59E0B | Focus-Ring |
+
+### 2.2 Dark Mode
+
+| Token | HSL | Hex (ca.) | Verwendung |
+|---|---|---|---|
+| `--background` | `230 25% 8%` | #0F1119 | Seitenhintergrund |
+| `--foreground` | `230 20% 95%` | #F0F1F4 | Haupttextfarbe |
+| `--card` | `230 25% 12%` | #171B28 | Kartenflächen |
+| `--card-foreground` | `230 20% 95%` | #F0F1F4 | Text auf Karten |
+| `--primary` | `28 95% 58%` | #F6A723 | Primäre Akzentfarbe |
+| `--primary-foreground` | `230 25% 8%` | #0F1119 | Text auf Primary |
+| `--secondary` | `230 25% 18%` | #242838 | Sekundäre Flächen |
+| `--secondary-foreground` | `230 20% 85%` | #D0D3DC | Text auf Secondary |
+| `--muted` | `230 25% 18%` | #242838 | Gedämpfte Hintergründe |
+| `--muted-foreground` | `230 15% 60%` | #8B91A8 | Platzhalter |
+| `--destructive` | `0 63% 45%` | #BA2D2D | Fehler (dunkler Modus) |
+| `--border` | `230 25% 20%` | #2A2F40 | Rahmen |
+| `--input` | `230 25% 20%` | #2A2F40 | Input-Rahmen |
+| `--ring` | `28 95% 58%` | #F6A723 | Focus-Ring |
+
+### 2.3 Gradienten
+
+| Name | Definition | Verwendung |
+|---|---|---|
+| **gradient-primary** | `linear-gradient(135deg, hsl(28 95% 55%), hsl(35 90% 60%))` | Buttons, Badges, Akzente |
+| **gradient-hero** | `linear-gradient(135deg, hsl(28 90% 55%), hsl(18 85% 50%))` | Hero-Bereiche, CTA-Flächen |
+| **gradient-card** | `linear-gradient(145deg, hsl(0 0% 100%), hsl(230 25% 98%))` | Subtile Karten-Hintergründe (Light) |
+| **gradient-card (dark)** | `linear-gradient(145deg, hsl(230 25% 14%), hsl(230 25% 10%))` | Subtile Karten-Hintergründe (Dark) |
+
+### 2.4 Schatten
+
+| Name | Definition | Verwendung |
+|---|---|---|
+| **shadow-card** | `0 2px 12px -2px hsl(230 25% 15% / 0.06)` | Standard-Kartenschatten (Light) |
+| **shadow-card (dark)** | `0 2px 12px -2px hsl(0 0% 0% / 0.3)` | Standard-Kartenschatten (Dark) |
+| **shadow-card-hover** | `0 8px 24px -4px hsl(28 95% 55% / 0.2)` | Hover-Zustand von Karten |
+| **shadow-glow** | `0 0 40px hsl(28 95% 55% / 0.25)` | Leuchteffekt für Hero, CTAs |
+
+---
+
+## 3. Abstände & Spacing
+
+| Einheit | Wert | Verwendung |
+|---|---|---|
+| **Basis-Grid** | **4 px** | Alle Abstände sind Vielfache von 4 px |
+| **xs** | 4 px | Innerhalb von Badges, Icon-Abstände |
+| **sm** | 8 px | Zwischen eng verwandten Elementen |
+| **md** | 12–16 px | Standard-Padding in Buttons, Inputs |
+| **lg** | 20–24 px | Card-Padding, Sektions-Abstände |
+| **xl** | 32 px | Zwischen Sektionen |
+| **2xl** | 48–64 px | Hero-Padding, Seitenrand (Desktop) |
+| **Card-Padding** | 20–24 px (p-5 bis p-6) | Innerer Abstand aller Karten |
+| **Container max-width** | 1400 px | Zentrierter Inhaltscontainer |
+| **Container-Padding** | 32 px (2rem) | Seitenrand des Containers |
+
+---
+
+## 4. Rundungen (Border Radius)
+
+| Element | Radius | Tailwind-Äquivalent |
+|---|---|---|
+| **Basis-Variable** | `16 px` (--radius: 1rem) | — |
+| **Karten** | 16 px | `rounded-2xl` |
+| **Buttons** | 12 px | `rounded-xl` |
+| **Inputs** | 8 px | `rounded-md` |
+| **Badges / Tags** | 9999 px (voll rund) | `rounded-full` |
+| **Dialoge / Modals** | 16 px | `rounded-2xl` |
+| **Sidebar-Items** | 12 px | `rounded-xl` |
+| **Kleine Elemente** | 8 px | `rounded-lg` |
+
+---
+
+## 5. Komponenten-Spezifikationen
+
+### 5.1 Buttons
+
+| Variante | Hintergrund | Text | Hover | Höhe |
+|---|---|---|---|---|
+| **Primary** | `--primary` | `--primary-foreground` | 90% Opacity | 40 px (h-10) |
+| **Secondary** | `--secondary` | `--secondary-foreground` | 80% Opacity | 40 px |
+| **Outline** | transparent, 1px `--border` | `--foreground` | `--accent` bg | 40 px |
+| **Ghost** | transparent | `--foreground` | `--accent` bg | 40 px |
+| **Destructive** | `--destructive` | weiß | 90% Opacity | 40 px |
+| **Small** | wie Variante | wie Variante | wie Variante | 36 px (h-9) |
+| **Large** | wie Variante | wie Variante | wie Variante | 44 px (h-11) |
+| **Icon** | wie Variante | — | wie Variante | 40×40 px |
+
+**Button-Styling**: `font-weight: 500`, `font-size: 14px`, `gap: 8px` (Icon + Text), `transition: colors 150ms`.
+
+### 5.2 Karten (Cards)
+
+```
+┌─────────────────────────────────────┐
+│  bg: --card                         │
+│  border: 1px solid --border (60%)   │
+│  border-radius: 16px                │
+│  shadow: shadow-card                │
+│  padding: 24px (p-6)                │
+│                                     │
+│  Hover:                             │
+│    shadow → shadow-card-hover       │
+│    border-color → --primary (30%)   │
+│    transition: all 300ms            │
+└─────────────────────────────────────┘
+```
+
+- **Card Header**: `padding: 24px`, `flex-direction: column`, `gap: 6px`
+- **Card Title**: `font-size: 24px`, `font-weight: 600`, `line-height: 1`
+- **Card Content**: `padding: 24px`, `padding-top: 0`
+
+### 5.3 Skill-Karten (im Grid)
+
+```
+┌─────────────────────────────────┐
+│ ┌─────────────────────────────┐ │
+│ │     Preview-Image           │ │  ← aspect-ratio: 16/10, rounded-t-xl
+│ │     (oder Gradient-BG)      │ │      object-fit: cover
+│ └─────────────────────────────┘ │
+│                                 │
+│  [Badge] [Badge]                │  ← rounded-full, --secondary bg
+│                                 │
+│  Skill-Name (h3, semibold)      │  ← truncate, 1 Zeile
+│  Beschreibung (muted, 2 Zeilen) │  ← line-clamp-2
+│                                 │
+│  ── Separator ──                │
+│                                 │
+│  Stats: Runs · Version · Copies │  ← text-xs, muted-foreground
+│  [Aktions-Buttons]              │  ← Icon-Buttons, rechts
+└─────────────────────────────────┘
+```
+
+- **Grid**: 1 Spalte (Mobile), 2 Spalten (md), 3 Spalten (lg). Compact-Modus: bis zu 6 Spalten.
+- **Gap**: 16–24 px
+
+### 5.4 Inputs
+
+| Eigenschaft | Wert |
+|---|---|
+| Höhe | 40 px |
+| Padding | 12 px horizontal |
+| Border | 1px `--input` |
+| Border-Radius | 8 px |
+| Font-Size | 14 px (Desktop), 16 px (Mobile, verhindert iOS-Zoom) |
+| Focus | 2px Ring `--ring`, 2px Offset |
+| Placeholder-Farbe | `--muted-foreground` |
+
+### 5.5 Badges
+
+| Eigenschaft | Wert |
+|---|---|
+| Padding | 10 px horizontal, 2 px vertikal |
+| Border-Radius | 9999 px (pill) |
+| Font-Size | 12 px |
+| Font-Weight | 600 |
+| **Default** | bg: `--primary`, text: `--primary-foreground` |
+| **Secondary** | bg: `--secondary`, text: `--secondary-foreground` |
+| **Outline** | bg: transparent, border: 1px `--border` |
+
+### 5.6 Sidebar / Navigation
+
+| Eigenschaft | Wert |
+|---|---|
+| Breite | 280 px (Desktop), Sheet/Drawer (Mobile) |
+| Hintergrund | `--sidebar-background` (weiß / dunkel) |
+| Border-Right | 1px `--sidebar-border` |
+| **Nav-Item** | `padding: 10px 16px`, `border-radius: 12px`, `gap: 12px` |
+| **Nav-Item aktiv** | `bg: --primary (10% Opacity)`, `text: --primary` |
+| **Nav-Item inaktiv** | `text: --muted-foreground`, Hover: `bg: --secondary` |
+| Transition | `all 200ms` |
+
+### 5.7 Dialoge / Modals
+
+- Overlay: Schwarz mit 80% Opacity
+- Container: `bg: --card`, `border-radius: 16px`, `padding: 24px`
+- Max-Width: 425–512 px (Standard), 640 px (Editor)
+- Animation: Fade-In + Scale (von 95% auf 100%)
+
+### 5.8 Tabs
+
+- **Tab-Liste**: `bg: --muted`, `border-radius: 8px`, `padding: 4px`
+- **Tab aktiv**: `bg: --card` (weiß/dunkel), `shadow: sm`
+- **Tab inaktiv**: transparent, `text: --muted-foreground`
+
+### 5.9 Listen & Tabellen (Lists & Data Tables)
+
+| Element | Eigenschaft | Wert |
+|---|---|---|
+| **Listen-Zeile (Row)** | Padding | 16 px horizontal, 12 px vertikal (Relaxed) / 8 px vertikal (Compact) |
+| | Border Bottom | 1px solid `--border` (letztes Element ohne Border) |
+| | Hover-Zustand | `bg: --muted` (oder `--secondary` mit 50% Opacity), `transition: bg 150ms` |
+| **Tabellen-Kopf (Header)**| Padding | 16 px horizontal, 12 px vertikal |
+| | Typografie | 13 px, `font-weight: 500`, Textfarbe: `--muted-foreground` |
+| | Border Bottom | 1px solid `--border` |
+| **Listen-Inhalte** | Primär-Text | 14 px, `font-weight: 500`, Textfarbe: `--foreground` |
+| | Sekundär-Text / Meta | 13 px, `font-weight: 400`, Textfarbe: `--muted-foreground` |
+| **Aktionen (Actions)** | Sichtbarkeit | Rechtsbündig platziert. Icon-Buttons (`variant="ghost"`). Werden bei Row-Hover farblich hervorgehoben. |
+| **Empty State** | Layout | Zentriert in der Fläche, `padding: 48px`, Icon (24px, `--muted-foreground`) + Text (14px, `--muted-foreground`). |
+
+---
+
+## 6. Animationen & Übergänge
+
+| Name | Definition | Dauer | Verwendung |
+|---|---|---|---|
+| **fade-in** | `opacity: 0→1`, `translateY: 10px→0` | 300 ms ease-out | Seitenelemente einblenden |
+| **scale-in** | `opacity: 0→1`, `scale: 0.95→1` | 200 ms ease-out | Dialoge, Popovers |
+| **slide-in** | `opacity: 0→1`, `translateX: -10px→0` | 300 ms ease-out | Sidebar-Items |
+| **shimmer** | `translateX: 0→100%` | 2 s infinite | Lade-Skelette |
+| **Hover-Transitions** | — | 200–300 ms | Karten, Buttons, Nav, Listen |
+
+---
+
+## 7. Icons
+
+- **Bibliothek**: Lucide Icons (https://lucide.dev)
+- **Strichstärke**: 2 px (Standard)
+- **Größen**: 16 px (in Buttons/Badges), 20 px (in Nav-Items), 24 px (standalone)
+- **Farbe**: Erbt Textfarbe (`currentColor`)
+
+---
+
+## 8. Layout-Patterns
+
+### 8.1 Auth-Screen (Login / Registrierung)
+
+```
+┌──────────────────────────────────────────┐
+│  Zentriertes Layout, volle Höhe          │
+│  ┌────────────────────────────────────┐  │
+│  │  Glass-Card, max-width: 448px      │  │
+│  │  padding: 24px                     │  │
+│  │                                    │  │
+│  │  Logo + App-Name (oben, zentriert) │  │
+│  │  Tabs: [Anmelden] [Registrieren]   │  │
+│  │  ─────────────────────────────     │  │
+│  │  Email-Input                       │  │
+│  │  Passwort-Input                    │  │
+│  │  [Primary-Button, volle Breite]    │  │
+│  │                                    │  │
+│  │  ── oder ──                        │  │
+│  │  [Google Sign-In Button, outline]  │  │
+│  └────────────────────────────────────┘  │
+│                                          │
+│  Hintergrund: --background               │
+└──────────────────────────────────────────┘
+```
+
+### 8.2 Dashboard-Layout
+
+```
+┌─────┬────────────────────────────────────┐
+│ Side│  Header: Logo, Search, Actions     │
+│ bar │────────────────────────────────────│
+│ 280 │  Content-Area                      │
+│ px  │  ┌──────┐ ┌──────┐ ┌──────┐        │
+│     │  │ Card │ │ Card │ │ Card │        │
+│     │  └──────┘ └──────┘ └──────┘        │
+│     │  ┌──────┐ ┌──────┐ ┌──────┐        │
+│     │  │ Card │ │ Card │ │ Card │        │
+│     │  └──────┘ └──────┘ └──────┘        │
+└─────┴────────────────────────────────────┘
+```
+
+- **Mobile**: Sidebar wird zum Sheet/Drawer (Hamburger-Menü)
+- **Breakpoints**: xs: 480, sm: 640, md: 768, lg: 1024, xl: 1280, 2xl: 1536
+
+### 8.3 Listen-Layout (Table View)
+
+```
+┌──────────────────────────────────────────┐
+│  Header (Muted Text, 13px)               │
+│  Spalte 1      Spalte 2       Spalte 3   │
+│ ──────────────────────────────────────── │
+│  [Bild] Titel  Meta-Info      [Aktionen] │ ← Hover-State: bg-muted
+│ ──────────────────────────────────────── │
+│  [Bild] Titel  Meta-Info      [Aktionen] │
+│ ──────────────────────────────────────── │
+│  [Bild] Titel  Meta-Info      [Aktionen] │
+└──────────────────────────────────────────┘
+```
+
+---
+
+## 9. Glasmorphismus-Effekt (Glass Card)
+
+```css
+background: var(--card);
+border: 1px solid var(--border) / 60% Opacity;
+box-shadow: var(--shadow-card);
+
+/* Hover-Zustand */
+hover:
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--primary) / 30% Opacity;
+  transition: all 300ms;
+```
+
+---
+
+## 10. Zusammenfassung der Design-Identität
+
+| Aspekt | Beschreibung |
+|---|---|
+| **Stimmung** | Warm, einladend, professionell – wie eine moderne Plattform |
+| **Primärfarbe** | Warmes Orange (Hue 28) – energetisch, aber nicht aggressiv |
+| **Kontrast** | Helle, luftige Flächen (Light) / Tiefe, dunkle Flächen (Dark) |
+| **Rundungen** | Großzügig gerundet (16 px Karten, runde Badges) – freundlich |
+| **Typografie** | Plus Jakarta Sans – modern, geometrisch, gut lesbar |
+| **Schatten** | Subtil im Ruhezustand, Primary-getönt bei Hover |
+| **Interaktionen** | Sanfte 200–300 ms Übergänge, Scale+Fade für Dialoge |
+| **Icon-Stil** | Lucide – 2 px Strich, klar, konsistent |
+| **Spacing** | 4 px Grid – alles atmet, großzügiger Whitespace |
+
+
+**Anweisung an die KI**: Verwende diese Spezifikation als verbindliche Referenz. Jede Oberfläche muss diese Farben, Schriften, Rundungen, Abstände und Schatten verwenden. Weiche nicht davon ab, es sei denn, die Plattform unterstützt ein bestimmtes Feature nicht – dokumentiere in dem Fall die Abweichung.
+
+Möchtest du, dass ich noch spezifische Vorgaben für Formulare (wie Checkboxen, Radio-Buttons oder Select-Dropdowns) ergänze, oder ist das Manual so für dein Entwickler-Team bzw. die generierende KI startklar?

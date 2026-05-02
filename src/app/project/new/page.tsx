@@ -103,17 +103,17 @@ export default function NewProjectPage() {
         </div>
       </header>
 
-      <main className="container max-w-2xl py-8">
+      <main className="container max-w-2xl py-12">
         {step === 1 && (
           <Card className="animate-fade-in">
             <CardHeader>
-              <CardTitle>Projekt-Details</CardTitle>
+              <CardTitle className="text-2xl">Projekt-Details</CardTitle>
               <CardDescription>
                 Grundlegende Informationen zu deinem Roman
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="title">Titel *</Label>
                 <Input
                   id="title"
@@ -124,7 +124,7 @@ export default function NewProjectPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-2">
                   <Label>Genre</Label>
                   <Select value={genre} onValueChange={setGenre}>
                     <SelectTrigger>
@@ -137,7 +137,7 @@ export default function NewProjectPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label>Sprache</Label>
                   <Select value={language} onValueChange={setLanguage}>
                     <SelectTrigger>
@@ -152,7 +152,7 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="wordcount">Ziel-Wortzahl</Label>
                 <Input
                   id="wordcount"
@@ -160,12 +160,12 @@ export default function NewProjectPage() {
                   value={targetWordCount}
                   onChange={(e) => setTargetWordCount(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground">
                   Standard: 80.000 Wörter (~320 Seiten)
                 </p>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label>KI-Modell (via OpenRouter)</Label>
                 <Select value={aiProvider} onValueChange={setAiProvider}>
                   <SelectTrigger>
@@ -184,7 +184,7 @@ export default function NewProjectPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground">
                   Wähle den KI-Anbieter und das Modell, das du nutzen möchtest
                 </p>
               </div>
@@ -202,13 +202,13 @@ export default function NewProjectPage() {
         {step === 2 && (
           <Card className="animate-fade-in">
             <CardHeader>
-              <CardTitle>Deine Assets</CardTitle>
+              <CardTitle className="text-2xl">Deine Assets</CardTitle>
               <CardDescription>
                 Summary, Charaktere und optionale Outline – dein Startmaterial
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="summary">Summary *</Label>
                 <Textarea
                   id="summary"
@@ -217,12 +217,12 @@ export default function NewProjectPage() {
                   onChange={(e) => setSummary(e.target.value)}
                   rows={8}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground">
                   Mindestens 200 Wörter empfohlen für beste Ergebnisse
                 </p>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="characters">Charaktere</Label>
                 <Textarea
                   id="characters"
@@ -233,7 +233,7 @@ export default function NewProjectPage() {
                 />
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="outline">Outline (optional)</Label>
                 <Textarea
                   id="outline"

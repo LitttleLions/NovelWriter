@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
-  BookOpen, Plus, Trash2, LogOut, Pencil, FileText, Film, Tv,
+  BookOpen, Plus, Trash2, LogOut, Pencil, FileText, Film, Tv, Copy,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
 
@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("rf_token");
@@ -58,6 +59,29 @@ export default function DashboardPage() {
     if (!confirm("Projekt wirklich löschen?")) return;
     await fetch(`/api/projects/${id}`, { method: "DELETE" });
     setProjects((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  async function handleDuplicate(id: number) {
+    setDuplicatingId(id);
+    try {
+      const token = localStorage.getItem("rf_token");
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`/api/projects/${id}/duplicate`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Liste neu laden, damit chapter_count/total_words aus der gleichen
+        // SELECT-mit-COUNT-Subquery wie initial gefüllt sind.
+        const refreshed = await fetch("/api/projects", { headers: authHeaders }).then((r) => r.json());
+        setProjects(refreshed.projects || []);
+      } else {
+        alert(data.error || "Duplizieren fehlgeschlagen");
+      }
+    } finally {
+      setDuplicatingId(null);
+    }
   }
 
   if (loading) {
@@ -149,17 +173,31 @@ export default function DashboardPage() {
                         <Badge variant="outline">{project.language}</Badge>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(project.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Projekt duplizieren"
+                        disabled={duplicatingId === project.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicate(project.id);
+                        }}
+                      >
+                        <Copy className={`h-4 w-4 ${duplicatingId === project.id ? "animate-pulse text-primary" : "text-muted-foreground"}`} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Projekt löschen"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(project.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

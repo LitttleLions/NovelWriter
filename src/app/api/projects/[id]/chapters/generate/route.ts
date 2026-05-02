@@ -95,7 +95,43 @@ ARBEITSWEISE:
 4. INHALT → Alle Vorgaben aus der Kapitel-Anweisung präzise umsetzen.
 5. QUALITÄT → Show don't tell, starke Verben, keine Klischees, kein generischer KI-Stil.
 
-Schreibe 3.000–5.000 Wörter. Nur den reinen Kapiteltext – keine Überschriften, keine Metadaten, kein "Hier ist Kapitel X".`;
+AUSGABE-REGELN (kompromisslos):
+• Schreibe 3.000–5.000 Wörter reinen Kapitel-Fließtext.
+• KEINE Markdown-Überschriften (kein #, ##, ###).
+• KEINE einleitende Zeile wie "Hier ist Kapitel X" oder "Hier kommt Kapitel X".
+• KEINE Meta-Kommentare am Ende: keine "Schlüsselelemente, die umgesetzt wurden", keine "Anmerkungen", keine "Hinweise", keine "Wortzahl", keine "Zusammenfassung der Änderungen", keine Erklärungen über deine eigene Vorgehensweise.
+• KEINE Markdown-Listen (•, -, 1.) als Strukturierungsmittel – nur literarische Prosa.
+• Beginne direkt mit dem ersten Satz der Erzählung. Höre direkt mit dem letzten Satz der Szene auf.
+• Wenn du einen Meta-Block schreibst, hast du die Aufgabe verfehlt.`;
+}
+
+function stripMetaCommentary(raw: string): string {
+  let text = (raw || "").trim();
+
+  // Strip markdown code fences if AI wrapped the chapter
+  text = text.replace(/^```[a-z]*\n/i, "").replace(/\n```\s*$/i, "").trim();
+
+  // Cut everything from the first meta-section header onwards.
+  // Matches German + English headers the AI tends to emit AFTER the actual chapter.
+  const cutMarkers = [
+    /\n\s*#{1,6}\s*(Schlüsselelemente|Schlüssel-Elemente|Kernelemente|Anmerkung(?:en)?|Hinweis(?:e)?|Zusammenfassung der Änderungen|Erklärung|Notizen?(?: zum Kapitel)?|Stilanalyse|Stil-?Analyse|Was wurde umgesetzt|Umgesetzte Elemente|Umsetzung der Vorgaben|Wortzahl|Wortanzahl|Word ?count|Notes?|Author'?s? notes?|Summary of changes|Key elements?|Implementation notes?|Translation notes?)[^\n]*/i,
+    /\n\s*\*\*\s*(Schlüsselelemente|Anmerkung(?:en)?|Hinweis(?:e)?|Wortzahl|Notes?|Word ?count|Key elements?)[^*]*\*\*/i,
+    /\n\s*---+\s*\n\s*(?:\*\*)?(Schlüsselelemente|Anmerkung(?:en)?|Hinweis(?:e)?|Wortzahl|Notes?|Word ?count)/i,
+  ];
+  for (const re of cutMarkers) {
+    const m = text.match(re);
+    if (m && m.index !== undefined) {
+      text = text.substring(0, m.index).trim();
+    }
+  }
+
+  // Remove trailing meta-paragraphs starting with "(Anmerkung", "Hinweis:", "Wortzahl:" etc.
+  text = text.replace(/\n\s*\(?(Anmerkung|Hinweis|Wortzahl|Wortanzahl|Word ?count|Note)[:\s][^\n]*\)?\s*$/gi, "").trim();
+
+  // Remove a "Hier ist Kapitel X" / "Here is chapter X" prefix line if present
+  text = text.replace(/^\s*(Hier (?:ist|kommt|folgt) (?:das )?Kapitel[^\n]*\n+|Here is (?:the )?chapter[^\n]*\n+)/i, "").trim();
+
+  return text;
 }
 
 function formatCharactersForPrompt(chars: any[], tierMode = false): string {
@@ -309,7 +345,8 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
     const model = p.ai_provider || "anthropic/claude-sonnet-4-5";
     const result = await generateText(model, dynamicSystemPrompt, userPrompt, 16000);
 
-    const wordCount = result.content.trim().split(/\s+/).length;
+    const cleanedContent = stripMetaCommentary(result.content);
+    const wordCount = cleanedContent.trim().split(/\s+/).length;
     const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
 
     const existing = await query(
@@ -322,14 +359,14 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
       const updated = await query(
         `UPDATE chapters SET content = $1, title = $2, word_count = $3, status = 'generated', updated_at = NOW()
          WHERE id = $4 RETURNING *`,
-        [result.content, chapterOutline?.title || `Kapitel ${chapter_number}`, wordCount, existing.rows[0].id]
+        [cleanedContent, chapterOutline?.title || `Kapitel ${chapter_number}`, wordCount, existing.rows[0].id]
       );
       chapter = updated.rows[0];
     } else {
       const inserted = await query(
         `INSERT INTO chapters (project_id, chapter_number, title, content, word_count, status)
          VALUES ($1, $2, $3, $4, $5, 'generated') RETURNING *`,
-        [id, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`, result.content, wordCount]
+        [id, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`, cleanedContent, wordCount]
       );
       chapter = inserted.rows[0];
     }
@@ -346,17 +383,18 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
     const characterNames = characterRows.map((c: any) => c.name);
     const handoff = await generateNarrativeSummary(
       model,
-      result.content,
+      cleanedContent,
       chapter_number,
       chapterOutline?.title || `Kapitel ${chapter_number}`,
       characterNames
     );
 
     if (handoff) {
-      await query(
-        `UPDATE chapters SET narrative_summary = $1, character_states = $2 WHERE id = $3`,
+      const updated = await query(
+        `UPDATE chapters SET narrative_summary = $1, character_states = $2 WHERE id = $3 RETURNING *`,
         [handoff.summary, JSON.stringify(handoff.character_states), chapter.id]
       );
+      chapter = updated.rows[0];
       await query(
         `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -364,7 +402,7 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
       );
     }
 
-    return NextResponse.json({ chapter, tokens: result.total_tokens, cost });
+    return NextResponse.json({ chapter, tokens: result.total_tokens, cost, narrativeSummaryGenerated: !!handoff });
   } catch (error: any) {
     console.error("Chapter generation error:", error);
     const { message, status } = describeAiError(error);

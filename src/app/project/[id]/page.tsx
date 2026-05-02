@@ -1272,8 +1272,8 @@ export default function ProjectPage() {
               {projectCharacters.length === 0 && !addingCharacter && (
                 <Card className="text-center py-12">
                   <CardContent>
-                    <div className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3 text-4xl">👥</div>
-                    <h3 className="text-lg font-semibold mb-2">Noch keine Figuren</h3>
+                    <div className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3 flex items-center justify-center text-4xl">👥</div>
+                    <h3 className="text-xl font-semibold mb-2">Noch keine Figuren</h3>
                     <p className="text-muted-foreground mb-4 text-sm">
                       Lass die KI die Figuren aus deinem Charaktertext oder deiner Summary extrahieren,<br/>oder füge sie manuell hinzu.
                     </p>
@@ -1408,7 +1408,7 @@ export default function ProjectPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold">Kapitel-Struktur</h3>
+                  <h3 className="text-xl font-semibold">Kapitel-Struktur</h3>
                   <p className="text-sm text-muted-foreground">
                     {outlines.length > 0
                       ? `${outlines.length} Kapitel geplant`
@@ -1859,7 +1859,7 @@ export default function ProjectPage() {
                 <Card className="text-center py-12">
                   <CardContent>
                     <PenTool className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <h3 className="text-lg font-semibold mb-2">Noch keine Kapitel</h3>
+                    <h3 className="text-xl font-semibold mb-2">Noch keine Kapitel</h3>
                     <p className="text-muted-foreground mb-4">
                       Erstelle zuerst eine Outline und generiere dann die Kapitel.
                     </p>
@@ -1962,7 +1962,7 @@ export default function ProjectPage() {
                             <div className="flex items-center justify-between">
                               <Label className="text-xs font-bold uppercase text-primary">Narratives Gedächtnis (KI-Handoff)</Label>
                               <div className="flex gap-2 items-center">
-                                {narrativeSaveStatus === "saved" && <span className="text-xs text-green-600 font-medium">Gespeichert ✓</span>}
+                                {narrativeSaveStatus === "saved" && <span className="text-xs text-success font-medium">Gespeichert ✓</span>}
                                 {narrativeSaveStatus === "error" && <span className="text-xs text-destructive font-medium">Fehler beim Speichern</span>}
                                 <Button size="sm" variant="ghost" onClick={() => setEditingNarrative(null)}>Abbrechen</Button>
                                 <Button size="sm" disabled={narrativeSaveStatus === "saving"} onClick={() => updateNarrativeSummary(ch.id, narrativeEditContent)}>

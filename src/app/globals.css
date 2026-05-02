@@ -28,6 +28,10 @@
     --radius: 1rem;
     --shadow-card: 0 2px 12px -2px hsla(230, 25%, 15%, 0.06);
     --font-serif: 'Instrument Serif', serif;
+    --success: 142 71% 35%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -51,6 +55,10 @@
     --input: 230 25% 20%;
     --ring: 28 95% 58%;
     --shadow-card: 0 2px 12px -2px hsla(0, 0%, 0%, 0.3);
+    --success: 142 60% 55%;
+    --success-foreground: 230 25% 8%;
+    --warning: 38 95% 60%;
+    --warning-foreground: 230 25% 8%;
   }
 }
 
@@ -65,8 +73,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
-  h1, h2, h3, .font-serif {
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  .font-serif {
     font-family: var(--font-serif);
   }
 }

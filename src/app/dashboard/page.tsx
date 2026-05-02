@@ -100,9 +100,9 @@ export default function DashboardPage() {
         </div>
 
         {projects.length === 0 ? (
-          <Card className="text-center py-16">
+          <Card className="text-center py-12">
             <CardContent>
-              <FileText className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-xl font-semibold mb-2">Noch keine Projekte</h3>
               <p className="text-muted-foreground mb-6">
                 Erstelle dein erstes Roman-Projekt und starte die Generierung.

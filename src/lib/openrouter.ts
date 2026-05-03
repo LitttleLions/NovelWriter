@@ -115,10 +115,24 @@ export const AVAILABLE_MODELS = [
     description: "Neue Qwen-Generation, 1M Kontext, multimodal – schnell und günstig",
   },
   {
+    id: "qwen/qwen3-235b-a22b",
+    name: "Qwen3 235B A22B",
+    provider: "Qwen",
+    description: "Großes MoE-Modell – stark für kreatives Schreiben, Rollenspiele und Multi-Turn-Dialoge",
+  },
+  {
     id: "qwen/qwen3-72b-instruct",
     name: "Qwen 3 72B",
     provider: "Qwen",
     description: "Starke multilinguale Leistung, gut für nicht-englische Romane",
+  },
+
+  // ── Moonshot – Kimi (Long-Context) ──
+  {
+    id: "moonshotai/kimi-k2",
+    name: "Kimi K2",
+    provider: "MoonshotAI",
+    description: "Aktuelles Kimi-Modell – sehr langes Kontextfenster, gut für Long-form",
   },
 
   // ── OpenRouter eigene Modelle ──

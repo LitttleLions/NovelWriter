@@ -155,6 +155,8 @@ AUSGABE-REGELN (kompromisslos):
 • KEINE Markdown-Überschriften (kein #, ##, ###).
 • KEINE einleitende Zeile wie "Hier ist Kapitel X" oder "Hier kommt Kapitel X".
 • KEINE Meta-Kommentare am Ende: keine "Schlüsselelemente, die umgesetzt wurden", keine "Anmerkungen", keine "Hinweise", keine "Wortzahl", keine "Zusammenfassung der Änderungen", keine Erklärungen über deine eigene Vorgehensweise.
+• KEIN abschließender Reflexions-Absatz wie "Dieses Kapitel wurde ...", "Dieser Text wurde ...", "In diesem Kapitel habe ich ...", "Der Text folgt dem Prinzip ..." – verboten in JEDER Form, mit oder ohne ---, mit oder ohne Überschrift.
+• KEINE horizontale Trennlinie (---, ***, ___) am Ende des Kapitels. Der Kapiteltext endet mit dem letzten Erzähl-Satz, Punkt.
 • KEINE Markdown-Listen (•, -, 1.) als Strukturierungsmittel – nur literarische Prosa.
 • Beginne direkt mit dem ersten Satz der Erzählung. Höre direkt mit dem letzten Satz der Szene auf.
 • Wenn du einen Meta-Block schreibst, hast du die Aufgabe verfehlt.`;
@@ -180,7 +182,46 @@ function stripMetaCommentary(raw: string): string {
     }
   }
 
-  // Remove trailing meta-paragraphs starting with "(Anmerkung", "Hinweis:", "Wortzahl:" etc.
+  // Cut at a trailing horizontal rule (---, ***, ___) if what follows is meta-prose.
+  // The AI loves to drop "---\n\nDieses Kapitel wurde unter strikter Anwendung ..."
+  const metaProseSignals = [
+    "dieses kapitel wurde", "dieser text wurde", "diese szene wurde", "dieses werk wurde",
+    "der text wurde", "der vorliegende text", "die vorliegende szene",
+    "in diesem kapitel habe ich", "in dieser szene habe ich",
+    "ich habe versucht", "ich habe darauf geachtet", "ich habe mich bemüht",
+    "strikter anwendung", "unter berücksichtigung", "unter einhaltung",
+    "von ihnen vorgegeben", "ihrer vorgaben", "der vorgegebenen regeln",
+    "szene & sequel", "show, don't tell", "show don't tell",
+    "die szenenstruktur folgt", "die dialoge sind darauf ausgelegt",
+    "this chapter was", "this scene was", "this text was",
+    "i have tried", "i made sure", "following the principles",
+  ];
+  const hrSplit = text.match(/^([\s\S]*?)\n\s*(?:-{3,}|\*{3,}|_{3,})\s*\n([\s\S]*)$/);
+  if (hrSplit) {
+    const tail = hrSplit[2].toLowerCase();
+    if (metaProseSignals.some((s) => tail.includes(s))) {
+      text = hrSplit[1].trim();
+    }
+  }
+
+  // Trailing meta-paragraph without horizontal rule: drop the LAST paragraph if it
+  // starts with a self-reflective opener AND contains meta vocabulary.
+  const paragraphs = text.split(/\n{2,}/);
+  if (paragraphs.length > 1) {
+    const last = paragraphs[paragraphs.length - 1].trim().toLowerCase();
+    const startsMeta = /^(\(?\*?\*?)?(dieses kapitel|dieser text|diese szene|dieses werk|der vorliegende text|die vorliegende szene|in diesem kapitel habe ich|in dieser szene habe ich|ich habe (?:versucht|darauf|mich)|hinweis|anmerkung|wortzahl|wortanzahl|note:|notes:|word ?count)/i.test(last);
+    const hasMetaVocab = metaProseSignals.some((s) => last.includes(s)) ||
+      /\b(stil|prinzip|vorgabe|regel|umgesetzt|umsetzung|anwendung|charakterentwicklung|spannung|atmosphäre|leser|verbindung)\b/i.test(last);
+    if (startsMeta && hasMetaVocab) {
+      paragraphs.pop();
+      text = paragraphs.join("\n\n").trim();
+    }
+  }
+
+  // Drop trailing horizontal rule if the chapter ends with one
+  text = text.replace(/\n\s*(?:-{3,}|\*{3,}|_{3,})\s*$/g, "").trim();
+
+  // Remove trailing single-line meta lines like "(Anmerkung: ...)", "Hinweis: ...", "Wortzahl: 4123"
   text = text.replace(/\n\s*\(?(Anmerkung|Hinweis|Wortzahl|Wortanzahl|Word ?count|Note)[:\s][^\n]*\)?\s*$/gi, "").trim();
 
   // Remove a "Hier ist Kapitel X" / "Here is chapter X" prefix line if present

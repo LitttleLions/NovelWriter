@@ -17,7 +17,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const body = await req.json();
-  const { title, purpose, character_arc, tension_level, location, key_events, raw_notes } = body;
+  const { title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role } = body;
 
   const result = await query(
     `UPDATE chapter_outlines 
@@ -27,10 +27,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
          tension_level = COALESCE($4, tension_level),
          location = COALESCE($5, location),
          key_events = COALESCE($6, key_events),
-         raw_notes = COALESCE($7, raw_notes)
-     WHERE id = $8 AND project_id = $9
+         raw_notes = COALESCE($7, raw_notes),
+         structural_role = COALESCE($8, structural_role)
+     WHERE id = $9 AND project_id = $10
      RETURNING *`,
-    [title, purpose, character_arc, tension_level, location, key_events, raw_notes, outlineId, id]
+    [title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role, outlineId, id]
   );
 
   if (result.rows.length === 0) {

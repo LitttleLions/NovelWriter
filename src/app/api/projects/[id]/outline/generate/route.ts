@@ -6,6 +6,33 @@ import { PROMPTS } from "@/lib/prompts";
 
 const CHUNK_SIZE = 25;
 
+const ALLOWED_STRUCTURAL_ROLES = new Set([
+  "Setup",
+  "Inciting Incident",
+  "Rising Action",
+  "Midpoint",
+  "Crisis",
+  "Climax",
+  "Resolution",
+  "Cold Open",
+  "Act Break",
+  "Tag",
+]);
+
+function normalizeStructuralRole(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  // Wenn das Modell mehrere Werte mit "/" oder "," kombiniert, nimm den ersten gültigen.
+  for (const candidate of trimmed.split(/[\/,|]/).map(s => s.trim())) {
+    const titleCased = candidate
+      .toLowerCase()
+      .replace(/\b\w/g, c => c.toUpperCase());
+    if (ALLOWED_STRUCTURAL_ROLES.has(titleCased)) return titleCased;
+  }
+  return null;
+}
+
 function splitOutlineIntoScenes(text: string): string[] {
   // Verbesserter Splitter: Teilt bei Orten, Tagen oder expliziten Szenen-Markern
   const lines = text.split("\n");
@@ -149,22 +176,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     } else {
       const isScreenplay = p.project_type === "screenplay";
-      const formatLabel = isScreenplay
-        ? (p.screenplay_format === "tv_episode" ? "TV-Episode (Drehbuch)" : "Spielfilm (Drehbuch)")
-        : "Roman";
-      const lengthLine = isScreenplay
-        ? `Gesamtlänge: ca. ${Math.round((p.target_word_count || 22500) / 250)} Drehbuchseiten (1 Seite ≈ 250 Wörter ≈ 1 Min. Filmzeit)`
-        : `Gesamtlänge: ${p.target_word_count} Wörter`;
-      const structureLine = isScreenplay
-        ? "Struktur: Klassische 3-Akt-Drehbuchstruktur. Erstelle Szenen (KEINE Romankapitel) – jede Szene mit eigener Slugline im Feld 'location' (Format Deutsch: 'INNEN./AUSSEN. ORT - TAG/NACHT'; Format Englisch: 'INT./EXT. LOCATION - DAY/NIGHT'). 'title' ist ein kurzer Szenenname, keine Slugline. 'key_events' enthält die Action-Beats."
-        : "Akt-Struktur: 3-Akt";
+      const isTvEpisode = isScreenplay && p.screenplay_format === "tv_episode";
 
-      const userPrompt = `Werk-Typ: ${formatLabel}
+      if (isScreenplay) {
+        const targetSceneCount = isTvEpisode ? 25 : 40;
+        const formatLabel = isTvEpisode ? "TV-Episode (Drehbuch)" : "Spielfilm (Drehbuch)";
+        const pageCount = Math.round((p.target_word_count || (isTvEpisode ? 12500 : 27500)) / 250);
+
+        const userPrompt = `Werk-Typ: ${formatLabel}
+Format-Schlüssel: ${isTvEpisode ? "tv_episode" : "feature"}
 Titel: ${p.title}
 Genre: ${p.genre || "Nicht angegeben"}
-${lengthLine}
-Sprache: ${p.language}
-${structureLine}
+Sprache (für title/purpose/key_events/raw_notes/Slugline): ${p.language}
+Gesamtlänge: ca. ${pageCount} Drehbuchseiten (1 Seite ≈ 250 Wörter ≈ 1 Min. Filmzeit)
+ZIEL-SZENENZAHL: ca. ${targetSceneCount} Szenen (zwischen ${Math.round(targetSceneCount * 0.9)} und ${Math.round(targetSceneCount * 1.1)} – nicht weniger, nicht mehr).
+
+${isTvEpisode
+  ? "Verwende die TV-Episoden-Struktur (Cold Open + 4 Akte + Tag) wie im System-Prompt definiert. structural_role MUSS GENAU EINER dieser Werte sein (keine Schrägstriche, keine Kombinationen): 'Cold Open' | 'Setup' | 'Rising Action' | 'Midpoint' | 'Crisis' | 'Climax' | 'Act Break' | 'Tag' | 'Resolution'. Verwende 'Act Break' für die letzte Szene jedes Akts (vor der Werbeunterbrechung)."
+  : "Verwende die kinotypische Drei-Akt-Struktur wie im System-Prompt definiert. Setze Inciting Incident bei ca. Szene 5, Plot Point 1 bei ca. Szene 10, Midpoint bei ca. Szene 20, Plot Point 2 bei ca. Szene 30, Climax-Phase Szenen 34–38, Resolution Szenen 39–40. structural_role MUSS GENAU EINER dieser Werte sein: 'Setup' | 'Inciting Incident' | 'Rising Action' | 'Midpoint' | 'Crisis' | 'Climax' | 'Resolution'."}
 
 Summary:
 ${p.summary}
@@ -176,10 +205,33 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
-      const result = await generateText(model, PROMPTS.chapterArchitect, userPrompt, 32000);
-      const jsonMatch = result.content.match(/\[[\s\S]*\]/);
-      allChapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
-      totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
+        const result = await generateText(model, PROMPTS.screenplayOutlineArchitect, userPrompt, 32000);
+        const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+        allChapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
+        totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
+      } else {
+        const userPrompt = `Werk-Typ: Roman
+Titel: ${p.title}
+Genre: ${p.genre || "Nicht angegeben"}
+Gesamtlänge: ${p.target_word_count} Wörter
+Sprache: ${p.language}
+Akt-Struktur: 3-Akt
+
+Summary:
+${p.summary}
+
+Charaktere:
+${p.characters || "Werden aus der Summary abgeleitet"}
+
+${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden – erstelle eine komplett neue."}
+
+${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
+
+        const result = await generateText(model, PROMPTS.chapterArchitect, userPrompt, 32000);
+        const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+        allChapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
+        totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
+      }
     }
 
     await query("DELETE FROM chapters WHERE project_id = $1", [id]);
@@ -188,8 +240,8 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
     for (const ch of allChapters) {
       await query(
         `INSERT INTO chapter_outlines
-           (project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           (project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           id,
           ch.chapter_number,
@@ -200,6 +252,7 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
           ch.location || "",
           ch.key_events || "",
           ch.raw_notes || "",
+          normalizeStructuralRole(ch.structural_role),
         ]
       );
     }

@@ -70,10 +70,10 @@ export async function POST(
     await client.query(
       `INSERT INTO chapter_outlines (
          project_id, chapter_number, title, purpose, character_arc,
-         tension_level, location, key_events, raw_notes
+         tension_level, location, key_events, raw_notes, structural_role
        )
        SELECT $1, chapter_number, title, purpose, character_arc,
-              tension_level, location, key_events, raw_notes
+              tension_level, location, key_events, raw_notes, structural_role
        FROM chapter_outlines
        WHERE project_id = $2
        ORDER BY chapter_number`,

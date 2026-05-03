@@ -63,7 +63,21 @@ interface ChapterOutline {
   location?: string;
   key_events?: string;
   raw_notes?: string;
+  structural_role?: string | null;
 }
+
+const STRUCTURAL_ROLE_STYLES: Record<string, string> = {
+  "Cold Open": "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30",
+  "Setup": "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+  "Inciting Incident": "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  "Rising Action": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  "Midpoint": "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  "Crisis": "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  "Climax": "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+  "Resolution": "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+  "Act Break": "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30",
+  "Tag": "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+};
 
 interface ProjectCharacter {
   id: number;
@@ -1773,6 +1787,14 @@ export default function ProjectPage() {
                                 <span className="text-xs font-semibold text-primary/80 shrink-0">
                                   {terms.chapter} {o.chapter_number}
                                 </span>
+                                {isScreenplay && o.structural_role && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] shrink-0 uppercase tracking-wide font-semibold px-1.5 py-0 ${STRUCTURAL_ROLE_STYLES[o.structural_role] || ""}`}
+                                  >
+                                    {o.structural_role}
+                                  </Badge>
+                                )}
                                 <h4 className="font-semibold truncate">{o.title}</h4>
                                 {expandedOutline === o.id ? (
                                   <ChevronUp className="h-4 w-4 text-muted-foreground" />

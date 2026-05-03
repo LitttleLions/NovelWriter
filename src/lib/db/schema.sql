@@ -84,3 +84,8 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type VARCHAR(20) DEFAULT '
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS screenplay_format VARCHAR(20);
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS screenplay_style_preset VARCHAR(50);
 UPDATE projects SET project_type = 'novel' WHERE project_type IS NULL;
+
+-- Drei-Akt-Struktur (Task #8): strukturelle Rolle der Szene
+-- (Setup / Inciting Incident / Rising Action / Midpoint / Crisis / Climax / Resolution
+--  bzw. Cold Open / Act Break / Tag bei TV-Episoden)
+ALTER TABLE chapter_outlines ADD COLUMN IF NOT EXISTS structural_role VARCHAR(50);

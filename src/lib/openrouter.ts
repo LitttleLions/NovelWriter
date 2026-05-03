@@ -92,6 +92,12 @@ export const AVAILABLE_MODELS = [
     provider: "MiniMax",
     description: "Sehr langes Kontextfenster, stark in chinesisch & europäisch",
   },
+  {
+    id: "minimax/minimax-m2",
+    name: "MiniMax M2",
+    provider: "MiniMax",
+    description: "Vorgänger von M2.7 – langes Kontextfenster, gut für Long-form",
+  },
 
   // ── Mistral – Europäisches Modell, gut für deutsche Texte ──
   {

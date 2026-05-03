@@ -6,6 +6,48 @@ import { PROMPTS } from "@/lib/prompts";
 
 const CHUNK_SIZE = 25;
 
+function parseChaptersJson(content: string): any[] {
+  if (!content || !content.trim()) {
+    throw new Error("Die KI hat eine leere Antwort zurückgegeben (vermutlich Timeout oder Rate-Limit). Bitte erneut versuchen oder ein anderes Modell wählen.");
+  }
+  // 1) Try strict array match
+  const arrayMatch = content.match(/\[[\s\S]*\]/);
+  if (arrayMatch) {
+    try { return JSON.parse(arrayMatch[0]); } catch {}
+  }
+  // 2) Try direct parse
+  try { return JSON.parse(content); } catch {}
+  // 3) Repair-Versuch: lies so viele vollständige Top-Level-Objekte wie möglich
+  const start = content.indexOf("[");
+  if (start === -1) {
+    throw new Error(`KI-Antwort enthält kein JSON-Array. Erste 200 Zeichen: ${content.slice(0, 200)}`);
+  }
+  const objects: any[] = [];
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let objStart = -1;
+  for (let i = start + 1; i < content.length; i++) {
+    const c = content[i];
+    if (escape) { escape = false; continue; }
+    if (c === "\\") { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === "{") { if (depth === 0) objStart = i; depth++; }
+    else if (c === "}") {
+      depth--;
+      if (depth === 0 && objStart !== -1) {
+        try { objects.push(JSON.parse(content.slice(objStart, i + 1))); } catch {}
+        objStart = -1;
+      }
+    }
+  }
+  if (objects.length === 0) {
+    throw new Error(`KI-Antwort konnte nicht als JSON-Array gelesen werden (${content.length} Zeichen). Modell hat vermutlich abgebrochen.`);
+  }
+  return objects;
+}
+
 const ALLOWED_STRUCTURAL_ROLES = new Set([
   "Setup",
   "Inciting Incident",
@@ -206,8 +248,7 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
         const result = await generateText(model, PROMPTS.screenplayOutlineArchitect, userPrompt, 32000);
-        const jsonMatch = result.content.match(/\[[\s\S]*\]/);
-        allChapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
+        allChapters = parseChaptersJson(result.content);
         totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
       } else {
         const userPrompt = `Werk-Typ: Roman
@@ -228,8 +269,7 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
         const result = await generateText(model, PROMPTS.chapterArchitect, userPrompt, 32000);
-        const jsonMatch = result.content.match(/\[[\s\S]*\]/);
-        allChapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
+        allChapters = parseChaptersJson(result.content);
         totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
       }
     }

@@ -21,6 +21,7 @@ import {
   AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
+import { SCREENPLAY_STYLE_PRESETS } from "@/lib/screenplay-presets";
 
 interface Project {
   id: number;
@@ -570,6 +571,51 @@ export default function ProjectPage() {
         setProject((prev) => prev ? { ...prev, style_notes: styleNotes } : null);
       } else {
         alert(data.error || "Speichern fehlgeschlagen");
+      }
+    } finally {
+      setSavingStyleNotes(false);
+    }
+  }
+
+  async function changeScreenplayPreset(newPresetId: string) {
+    if (!project) return;
+    if (newPresetId === project.screenplay_style_preset) return;
+    const preset = SCREENPLAY_STYLE_PRESETS.find((p) => p.id === newPresetId);
+    if (!preset) return;
+
+    // Wenn der User schon eigene Stil-Notizen hat, vor Überschreiben fragen.
+    const hasNotes = (styleNotes || "").trim().length > 0;
+    let replaceNotes = true;
+    if (hasNotes) {
+      replaceNotes = confirm(
+        `Stil-Preset auf „${preset.name}" wechseln?\n\n` +
+        `OK = die vorgefüllten Stil-Direktiven dieses Presets ersetzen deine aktuellen Notizen.\n` +
+        `Abbrechen = nur das Preset wechseln, deine Notizen bleiben unverändert.`
+      );
+    }
+
+    const nextNotes = replaceNotes ? (preset.styleNotesText || "") : styleNotes;
+
+    setSavingStyleNotes(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          screenplay_style_preset: newPresetId,
+          style_notes: nextNotes,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStyleNotes(nextNotes);
+        setProject((prev) => prev ? {
+          ...prev,
+          screenplay_style_preset: newPresetId,
+          style_notes: nextNotes,
+        } : null);
+      } else {
+        alert(data.error || "Preset-Wechsel fehlgeschlagen");
       }
     } finally {
       setSavingStyleNotes(false);
@@ -1146,23 +1192,56 @@ export default function ProjectPage() {
                     </div>
                   )}
 
+                  {isScreenplay && (
+                    <div className="border-t pt-4 mt-4 space-y-2">
+                      <Label className="text-sm font-semibold flex items-center gap-1">
+                        <span className="text-primary font-bold">[S]</span> Drehbuch-Stil-Preset
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Bestimmt den Schreibstil deines Drehbuchs (Sorkin, Tarantino …). Beim Wechsel kannst du wählen, ob die Stil-Direktiven unten ersetzt werden sollen.
+                      </p>
+                      <Select
+                        value={project.screenplay_style_preset || "sorkin"}
+                        onValueChange={changeScreenplayPreset}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SCREENPLAY_STYLE_PRESETS.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {SCREENPLAY_STYLE_PRESETS.find((p) => p.id === (project.screenplay_style_preset || "sorkin"))?.description}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="border-t pt-4 mt-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-semibold flex items-center gap-1">
-                          <span className="text-primary font-bold">[B]</span> Manuelle Ergänzungen & Korrekturen
+                          <span className="text-primary font-bold">[B]</span> {isScreenplay ? "Stil-Direktiven (editierbar)" : "Manuelle Ergänzungen & Korrekturen"}
                         </Label>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Direkt vom Autor – werden dem KI-Profil <strong>übergeordnet</strong> und bei jeder Generierung mitgeschickt.
-                          Hier kannst du das KI-Profil gezielt korrigieren oder erweitern.
+                          {isScreenplay
+                            ? " Bei Drehbüchern wird dieses Feld vom gewählten Stil-Preset vorgefüllt und ist frei editierbar."
+                            : " Hier kannst du das KI-Profil gezielt korrigieren oder erweitern."}
                         </p>
                       </div>
                     </div>
                     <Textarea
                       value={styleNotes}
                       onChange={(e) => setStyleNotes(e.target.value)}
-                      placeholder={"Zum Beispiel:\n• Zeitform immer Präteritum, keine Ausnahme\n• Kein innerer Monolog in Kursivschrift\n• Dialoge knapp halten, maximal 3 Zeilen\n• Protagonist spricht immer formell"}
-                      rows={5}
+                      placeholder={isScreenplay
+                        ? "Wird beim Wechsel des Stil-Presets oben automatisch vorgefüllt — du kannst hier frei editieren."
+                        : "Zum Beispiel:\n• Zeitform immer Präteritum, keine Ausnahme\n• Kein innerer Monolog in Kursivschrift\n• Dialoge knapp halten, maximal 3 Zeilen\n• Protagonist spricht immer formell"}
+                      rows={isScreenplay ? 10 : 5}
                       className="text-sm"
                     />
                     <div className="flex justify-end">

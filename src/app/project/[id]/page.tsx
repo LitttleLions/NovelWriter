@@ -463,13 +463,24 @@ export default function ProjectPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(outlineEditData),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        alert(`Server-Antwort konnte nicht gelesen werden (HTTP ${res.status}).`);
+        return;
+      }
+      if (res.ok && data.outline) {
         setOutlines((prev) =>
           prev.map((o) => (o.id === outlineId ? data.outline : o))
         );
         setEditingOutline(null);
+      } else {
+        alert(data.error || `Fehler ${res.status} beim Speichern.`);
       }
+    } catch (e: any) {
+      alert(`Netzwerkfehler: ${e?.message || "Unbekannt"}`);
     } finally {
       setSavingOutline(false);
     }

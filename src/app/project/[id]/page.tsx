@@ -505,9 +505,11 @@ export default function ProjectPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        const added = Array.isArray(data.outlines) ? data.outlines.length : 0;
         setOutlines((prev) => [...prev, ...data.outlines]);
         setShowAddOutline(false);
         setNewOutlineFreetext("");
+        alert(`${added} ${isScreenplay ? (added === 1 ? "Szene" : "Szenen") : (added === 1 ? "Kapitel" : "Kapitel")} hinzugefügt.`);
       } else {
         alert(data.error || `Fehler ${res.status} beim Hinzufügen.`);
       }

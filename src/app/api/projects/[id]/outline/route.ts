@@ -34,7 +34,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ? existingOutlines.rows.map((o: any) => `  Kapitel ${o.chapter_number}: ${o.title} – ${o.purpose}`).join("\n")
     : "  (noch keine Kapitel vorhanden)";
 
-  const prompt = `Du bist ein Buch-Architekt. Analysiere den folgenden Freitext und extrahiere daraus eine oder mehrere strukturierte Kapitel-Einträge für das Projekt "${p.title}" (Genre: ${p.genre}, Sprache: ${p.language || "Deutsch"}).
+  const isScreenplay = p.project_type === "screenplay";
+  const unitLabel = isScreenplay ? "Szenen" : "Kapitel";
+  const unitLabelSingular = isScreenplay ? "Szene" : "Kapitel";
+  const titleGuidance = isScreenplay
+    ? `prägnanter, beschreibender Titel der Szene auf Deutsch (3-7 Wörter, KEINE Slugline) – z.B. "Bud findet die Spur", "Wilfrieds Zweifel"`
+    : `prägnanter Kapitel-Titel`;
+  const locationGuidance = isScreenplay
+    ? `Slugline im Drehbuch-Format (INNEN./AUSSEN. ORT - TAG/NACHT) – z.B. "INNEN. BUDS BÜRO - TAG"`
+    : `Ort und Zeit`;
+
+  const prompt = `Du bist ein ${isScreenplay ? "Drehbuch" : "Buch"}-Architekt. Analysiere den folgenden Freitext und extrahiere daraus eine oder mehrere strukturierte ${unitLabel}-Einträge für das Projekt "${p.title}" (Genre: ${p.genre}, Sprache: ${p.language || "Deutsch"}).
 
 Bestehende Outline (für Konsistenz):
 ${existingContext}
@@ -45,22 +55,23 @@ ${freetext}
 ---
 
 Regeln:
-- Erstelle so viele Kapitel-Einträge wie im Text erkennbar sind (mindestens 1, maximal 20)
+- Erstelle so viele ${unitLabel}-Einträge wie im Text erkennbar sind (mindestens 1, maximal 20)
 - Erhalte den Geist und den Inhalt des Originals – fasse NICHTS weg
-- raw_notes enthält den Originaltext der jeweiligen Szene, wortgetreu
+- "title" MUSS gesetzt sein, niemals leer
+- raw_notes enthält den Originaltext der jeweiligen ${unitLabelSingular}, wortgetreu
 - Passe Stil und Terminologie an die bestehende Outline an
-- Antworte NUR mit einem validen JSON-Array
+- Antworte NUR mit einem validen JSON-Array, ohne Markdown-Code-Fences
 
 Format:
 [
   {
-    "title": "Kapitel-Titel",
-    "purpose": "Zweck des Kapitels in einem Satz",
-    "character_arc": "Charakterentwicklung in diesem Kapitel",
-    "location": "Ort und Zeit",
+    "title": "${titleGuidance}",
+    "purpose": "Zweck der ${unitLabelSingular} in einem Satz",
+    "character_arc": "Charakterentwicklung in dieser ${unitLabelSingular}",
+    "location": "${locationGuidance}",
     "key_events": "Wichtigste Ereignisse, kommagetrennt",
     "tension_level": 5,
-    "raw_notes": "Originaltext dieser Szene aus dem Freitext"
+    "raw_notes": "Originaltext dieser ${unitLabelSingular} aus dem Freitext"
   }
 ]`;
 
@@ -94,7 +105,7 @@ Format:
         [
           id,
           chapterNum,
-          ch.title || "Unbekanntes Kapitel",
+          (ch.title && String(ch.title).trim()) || `${isScreenplay ? "Szene" : "Kapitel"} ${chapterNum}`,
           ch.purpose || "",
           ch.character_arc || "",
           ch.tension_level || 5,

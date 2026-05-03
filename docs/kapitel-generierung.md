@@ -202,7 +202,7 @@ Seit Task #5 unterstützt RomanForge AI **Drehbücher** als zweiten Werk-Typ –
 |---|---|---|
 | `projects.project_type` | `'novel'` (Default) | `'screenplay'` |
 | `projects.screenplay_format` | `NULL` | `'feature'` (Spielfilm, ~22.500 Wörter ≈ 90 Seiten) oder `'tv_episode'` (~14.000 Wörter ≈ 55 Seiten) |
-| `projects.screenplay_style_preset` | `NULL` | `'sorkin'` \| `'tarantino'` \| `'dialogue_heavy'` \| `'action_heavy'` \| `'custom'` |
+| `projects.screenplay_style_preset` | `NULL` | `'sorkin'` \| `'tarantino'` \| `'dialogue_heavy'` \| `'action_heavy'` \| `'coen'` \| `'wes_anderson'` \| `'nolan'` \| `'gerwig'` \| `'waller_bridge'` \| `'kaufman'` \| `'custom'` |
 | System-Prompt | `buildDynamicSystemPrompt()` (Roman-Ghostwriter) | `PROMPTS.screenplayWriter` / `PROMPTS.screenplayTvWriter` mit Industriestandard-Format-Regeln |
 | Output-Format | Literarische Prosa | Slugline → Action-Lines → DIALOG-BLOCK |
 | Längen-Einheit in UI | "Wörter" | "Seiten" (1 Seite ≈ 250 Wörter ≈ 1 Min. Filmzeit) |
@@ -240,6 +240,12 @@ Definiert in `src/lib/screenplay-presets.ts`:
 - **Quentin Tarantino** — Lange Dialog-Tableaus, Pop-Culture-Riffs
 - **Dialog-lastig** — 70%+ Dialog, intim
 - **Action-lastig** — Visuell-kinetisch, knapp
+- **Coen Brothers** — Regionale Dialekte, lakonische Pausen, schwarzer Humor, plötzliche Gewalt
+- **Wes Anderson** — Symmetrische Kompositionen, gestelzte Höflichkeit, kindlich-formelle Sprache
+- **Christopher Nolan** — Verschachtelte Zeitebenen, Konzept-Exposition unter Druck, kühler Ton
+- **Greta Gerwig** — Überlappender Familien-Dialog, Coming-of-Age-Wärme, schnelle Tonwechsel
+- **Phoebe Waller-Bridge** — Direkte Kamera-Adresse, scharfe Pointen, sexueller Subtext
+- **Charlie Kaufman** — Realitätsbrüche, neurotische Innensicht, surreale Konzepte als Alltag
 - **Eigener Stil** — Nur die normale Stil-Engine wird verwendet
 
 Das gewählte Preset wird vor dem regulären Stil-Block (`[A]` KI-Profil + `[B]` manuelle Notizen) als **`[S]` DREHBUCH-STIL-PRESET (oberste Priorität)** in den System-Prompt injiziert.

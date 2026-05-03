@@ -71,8 +71,47 @@ ${trimmedNotes}
           "Wenig Dialog – Erzählerstimme steht im Vordergrund.";
         profileLines.push(`• Dialog-Anteil: ca. ${ratio}% – ${guidance}`);
       }
+      if (s.style_essence) {
+        profileLines.push(`\n• STIL-ESSENZ (literarisches Gesamtbild):\n  ${s.style_essence}`);
+      }
+      if (s.narrative_perspective) {
+        profileLines.push(`• Erzählperspektive: ${s.narrative_perspective}`);
+      }
+      if (s.sentence_length_variance) {
+        profileLines.push(`• Satzlängen-Varianz: ${s.sentence_length_variance}`);
+      }
+      if (s.vocabulary_signature) {
+        profileLines.push(`• Vokabular-Signatur: ${s.vocabulary_signature}`);
+      }
+      if (s.sensory_palette) {
+        profileLines.push(`• Sinnes-Palette: ${s.sensory_palette}`);
+      }
+      if (s.paragraph_rhythm) {
+        profileLines.push(`• Absatz-Rhythmus: ${s.paragraph_rhythm}`);
+      }
+      if (s.dialogue_style) {
+        profileLines.push(`• Dialog-Charakter: ${s.dialogue_style}`);
+      }
+      if (s.metaphor_style) {
+        profileLines.push(`• Metaphern-Einsatz: ${s.metaphor_style}`);
+      }
+      if (s.scene_opening_style) {
+        profileLines.push(`• Szenen-/Kapitel-Anfänge: ${s.scene_opening_style}`);
+      }
+      if (s.scene_ending_style) {
+        profileLines.push(`• Szenen-/Kapitel-Enden: ${s.scene_ending_style}`);
+      }
+      if (s.rhythm_devices) {
+        profileLines.push(`• Rhythmus-Mittel: ${s.rhythm_devices}`);
+      }
       if (s.favorite_literary_devices?.length) {
         profileLines.push(`• PFLICHT-Stilmittel (mindestens 3× pro Kapitel): ${s.favorite_literary_devices.join(", ")}`);
+      }
+      if (s.signature_techniques?.length) {
+        profileLines.push(`• Signatur-Techniken (mindestens 2 davon pro Kapitel sichtbar): ${s.signature_techniques.join(" | ")}`);
+      }
+      if (s.forbidden_moves?.length) {
+        profileLines.push(`• ABSOLUT VERBOTEN (Anti-Stilmittel dieses Autors): ${s.forbidden_moves.join(" | ")}`);
       }
       if (s.example_sentence_patterns?.length) {
         profileLines.push(`\nSTIL-MASSSTAB (exakt diesen Rhythmus und diese Satzstruktur nachahmen):`);

@@ -47,8 +47,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const result = await generateText(
       model,
       PROMPTS.styleAnalyzer,
-      `Analysiere den folgenden Text:\n\n${sampleText}`,
-      4000
+      `Analysiere den folgenden Text gründlich nach dem oben definierten Schema. Belege jede Beobachtung intern am Text – auch wenn du nicht zitierst. Liefere maximale Tiefe in jedem einzelnen Feld.\n\n────────────────────────────────────────\nTEXT:\n────────────────────────────────────────\n${sampleText}\n────────────────────────────────────────\n\nGib jetzt das vollständige JSON zurück.`,
+      8000
     );
 
     let styleJson;

@@ -1132,6 +1132,12 @@ export default function ProjectPage() {
                             {project.style_json.author_style && (
                               <Badge variant="default">{project.style_json.author_style}</Badge>
                             )}
+                            {project.style_json.style_essence && (
+                              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">Stil-Essenz</p>
+                                <p className="text-sm leading-relaxed italic">{project.style_json.style_essence}</p>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-3 text-sm">
                               {project.style_json.vocabulary_complexity !== undefined && (
                                 <div>
@@ -1188,6 +1194,55 @@ export default function ProjectPage() {
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {project.style_json.favorite_literary_devices.map((d: string, i: number) => (
                                     <Badge key={i} variant="outline" className="text-xs">{d}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {(() => {
+                              const sj = project.style_json;
+                              const detailFields: Array<[string, string | undefined]> = [
+                                ["Erzählperspektive", sj.narrative_perspective],
+                                ["Vokabular-Signatur", sj.vocabulary_signature],
+                                ["Sinnes-Palette", sj.sensory_palette],
+                                ["Absatz-Rhythmus", sj.paragraph_rhythm],
+                                ["Dialog-Charakter", sj.dialogue_style],
+                                ["Metaphern-Einsatz", sj.metaphor_style],
+                                ["Szenen-/Kapitel-Anfänge", sj.scene_opening_style],
+                                ["Szenen-/Kapitel-Enden", sj.scene_ending_style],
+                                ["Rhythmus-Mittel", sj.rhythm_devices],
+                                ["Satzlängen-Varianz", sj.sentence_length_variance],
+                              ].filter(([, v]) => v && v.trim().length > 0) as Array<[string, string]>;
+                              if (detailFields.length === 0) return null;
+                              return (
+                                <div>
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stil-Mikrostruktur</span>
+                                  <div className="mt-2 space-y-2">
+                                    {detailFields.map(([label, value]) => (
+                                      <div key={label} className="text-sm">
+                                        <span className="text-muted-foreground">{label}: </span>
+                                        <span>{value}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {project.style_json.signature_techniques?.length > 0 && (
+                              <div>
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Signatur-Techniken</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {project.style_json.signature_techniques.map((d: string, i: number) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">{d}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {project.style_json.forbidden_moves?.length > 0 && (
+                              <div>
+                                <span className="text-xs font-semibold uppercase tracking-wide text-destructive/80">Verbotene Stilreflexe</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {project.style_json.forbidden_moves.map((d: string, i: number) => (
+                                    <Badge key={i} variant="outline" className="text-xs border-destructive/40 text-destructive/90">✕ {d}</Badge>
                                   ))}
                                 </div>
                               </div>

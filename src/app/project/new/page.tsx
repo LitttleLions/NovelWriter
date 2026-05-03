@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,14 @@ type ProjectType = "novel" | "screenplay";
 type ScreenplayFormat = "feature" | "tv_episode";
 
 export default function NewProjectPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground animate-pulse">Laden...</div>}>
+      <NewProjectInner />
+    </Suspense>
+  );
+}
+
+function NewProjectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialType: ProjectType = searchParams?.get("type") === "screenplay" ? "screenplay" : "novel";

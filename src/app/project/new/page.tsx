@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,11 +27,13 @@ type ScreenplayFormat = "feature" | "tv_episode";
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialType: ProjectType = searchParams?.get("type") === "screenplay" ? "screenplay" : "novel";
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<Model[]>([]);
 
-  const [projectType, setProjectType] = useState<ProjectType>("novel");
+  const [projectType, setProjectType] = useState<ProjectType>(initialType);
   const [screenplayFormat, setScreenplayFormat] = useState<ScreenplayFormat>("feature");
   const [screenplayStylePreset, setScreenplayStylePreset] = useState<string>("sorkin");
   const [styleNotes, setStyleNotes] = useState<string>("");

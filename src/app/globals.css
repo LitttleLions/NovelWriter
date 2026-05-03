@@ -83,3 +83,22 @@
     font-family: var(--font-serif);
   }
 }
+
+@layer utilities {
+  .bg-hero-radial {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 20% 0%, hsl(var(--primary) / 0.12), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 10%, hsl(var(--primary) / 0.08), transparent 60%);
+  }
+  .bg-grid-subtle {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent 80%);
+  }
+  .bg-cta-gradient {
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(28 95% 65%) 50%, hsl(20 90% 55%) 100%);
+  }
+}

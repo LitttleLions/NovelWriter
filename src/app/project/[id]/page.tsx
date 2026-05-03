@@ -1801,12 +1801,6 @@ export default function ProjectPage() {
                                     {o.structural_role}
                                   </Badge>
                                 )}
-                                <h4 className="font-semibold truncate">{o.title}</h4>
-                                {expandedOutline === o.id ? (
-                                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                )}
                                 {o.location && (
                                   isScreenplay ? (
                                     <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:inline-flex font-mono uppercase tracking-wider px-1.5 py-0">
@@ -1817,6 +1811,14 @@ export default function ProjectPage() {
                                       {o.location.split(",")[0]}
                                     </Badge>
                                   )
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 min-w-0">
+                                <h4 className="font-semibold truncate flex-1 min-w-0">{o.title}</h4>
+                                {expandedOutline === o.id ? (
+                                  <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground truncate">{o.purpose}</p>

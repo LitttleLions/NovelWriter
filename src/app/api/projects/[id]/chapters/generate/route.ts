@@ -89,6 +89,28 @@ ${trimmedNotes}
   return parts.join("\n\n");
 }
 
+function buildManualNotesPreamble(manualNotes?: string | null): string {
+  const trimmed = manualNotes?.trim();
+  if (!trimmed) return "";
+  return `╔══════════════════════════════════════════════════════════╗
+║  OBERSTES GESETZ – MANUELLE STIL-DIREKTIVEN DES AUTORS  ║
+╚══════════════════════════════════════════════════════════╝
+Dies sind die einzigen verbindlichen Stil-Vorgaben für dieses Werk. Es gibt KEIN konkurrierendes KI-Stilprofil. Du musst JEDE einzelne Direktive umsetzen – nicht "im Geiste", nicht "ungefähr", sondern konkret und nachweisbar im fertigen Kapitel.
+
+${trimmed}
+
+PFLICHT-SELBSTPRÜFUNG vor dem ersten Wort:
+1. Lies die Direktiven oben Punkt für Punkt durch.
+2. Prüfe für jeden Punkt: "Wie genau setze ich das in DIESEM Kapitel um?"
+3. Wenn ein Punkt unklar ist, wähle die literarisch ambitionierteste Lesart – niemals die generische.
+4. Beim Schreiben jedes Absatzes: blicke zurück, ob mindestens eine Direktive aktiv eingelöst wurde.
+
+Wenn dein KI-Schreibreflex eine andere Richtung will – ignoriere ihn. Diese Direktiven gewinnen IMMER, ohne Ausnahme, ohne Interpretation, ohne stillen Kompromiss.
+══════════════════════════════════════════════════════════
+
+`;
+}
+
 function buildDynamicSystemPrompt(
   styleBlock: string,
   lang: string,
@@ -96,14 +118,16 @@ function buildDynamicSystemPrompt(
     projectType?: string;
     screenplayFormat?: string;
     targetWordsPerChapter?: { min: number; max: number };
+    manualNotes?: string | null;
   } = {}
 ): string {
-  const { projectType = "novel", screenplayFormat, targetWordsPerChapter } = options;
+  const { projectType = "novel", screenplayFormat, targetWordsPerChapter, manualNotes } = options;
+  const preamble = buildManualNotesPreamble(manualNotes);
 
   if (projectType === "screenplay") {
     const baseSystem = screenplayFormat === "tv_episode" ? PROMPTS.screenplayTvWriter : PROMPTS.screenplayWriter;
     const vocab = getSluglineVocab(lang);
-    return `${baseSystem}
+    return `${preamble}${baseSystem}
 
 ════════════════════════════════════════
 SPRACH-GESETZ (nicht verhandelbar):
@@ -129,7 +153,7 @@ Beginne direkt mit der Slugline der Szene. Höre direkt mit dem letzten Beat auf
   }
 
   const range = targetWordsPerChapter ?? { min: 3000, max: 5000 };
-  return `Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
+  return `${preamble}Du bist ein Weltklasse-Ghostwriter für New York Times Bestseller-Romane.
 
 ════════════════════════════════════════
 SPRACH-GESETZ (nicht verhandelbar):
@@ -426,6 +450,7 @@ ${styleBlock}`;
   const dynamicSystemPrompt = buildDynamicSystemPrompt(styleBlock, lang, {
     projectType: p.project_type,
     screenplayFormat: p.screenplay_format,
+    manualNotes: p.style_notes,
   });
 
   // Manual style directives are echoed verbatim at the END of the user prompt
@@ -458,9 +483,19 @@ ${futureChars.rows.map((c: any) => `  • ${c.name} (erscheint erst ab Kapitel $
     ? `\nFORMAT-ERINNERUNG: Industrie-Drehbuchformat. Slugline → Action-Lines → DIALOG-BLOCK. Keine literarische Prosa, kein innerer Monolog, keine Markdown-Listen.`
     : "";
 
+  const manualNotesTopEcho = manualNotesTrimmed
+    ? `\n════════════════════════════════════════
+ERSTE ERINNERUNG – MANUELLE STIL-DIREKTIVEN DES AUTORS (OBERSTES GESETZ):
+════════════════════════════════════════
+${manualNotesTrimmed}
+════════════════════════════════════════
+Diese Direktiven sind das EINZIGE Stil-Gesetz für dieses Werk. Setze JEDE einzelne aktiv um.
+\n`
+    : "";
+
   const userPrompt = `${unitNoun} ${chapter_number} SCHREIBEN
 ${sluglineLine}
-
+${manualNotesTopEcho}
 === ${unitNoun}-ANWEISUNG ===
 ${outlineBlock}
 

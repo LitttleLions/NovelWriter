@@ -425,7 +425,12 @@ export default function ProjectPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const ext = format === "docx" ? "docx" : format === "markdown" ? "md" : "txt";
+      const ext =
+        format === "docx" ? "docx"
+        : format === "markdown" ? "md"
+        : format === "pdf" ? "pdf"
+        : format === "fdx" ? "fdx"
+        : "txt";
       a.download = `${project?.title || "roman"}.${ext}`;
       document.body.appendChild(a);
       a.click();
@@ -750,7 +755,11 @@ export default function ProjectPage() {
               </SelectContent>
             </Select>
             <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={() => handleExport("docx")}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport(project.project_type === "screenplay" ? "pdf" : "docx")}
+            >
               <Download className="h-4 w-4" />
               Export
             </Button>
@@ -2128,8 +2137,19 @@ export default function ProjectPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Export</span>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => handleExport("docx")}>
-                        <Download className="h-3 w-3" />
+                      {project.project_type === "screenplay" && (
+                        <>
+                          <Button size="sm" onClick={() => handleExport("pdf")}>
+                            <Download className="h-3 w-3" />
+                            PDF (Drehbuch)
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleExport("fdx")}>
+                            Final Draft (FDX)
+                          </Button>
+                        </>
+                      )}
+                      <Button size="sm" variant={project.project_type === "screenplay" ? "outline" : "default"} onClick={() => handleExport("docx")}>
+                        {project.project_type !== "screenplay" && <Download className="h-3 w-3" />}
                         Word (DOCX)
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleExport("markdown")}>

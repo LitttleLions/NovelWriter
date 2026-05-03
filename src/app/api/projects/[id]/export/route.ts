@@ -5,6 +5,8 @@ import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   AlignmentType, PageBreak,
 } from "docx";
+import { buildScreenplayPdf } from "@/lib/screenplay-pdf";
+import { buildScreenplayFdx } from "@/lib/screenplay-fdx";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -134,6 +136,49 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Content-Disposition": `attachment; filename="${safeTitle}.txt"`,
+      },
+    });
+  }
+
+  if (format === "pdf" || format === "fdx") {
+    if (p.project_type !== "screenplay") {
+      return NextResponse.json(
+        { error: "PDF/FDX-Export ist nur für Drehbuch-Projekte verfügbar" },
+        { status: 400 }
+      );
+    }
+    type ChapterRow = { title: string | null; content: string | null };
+    const scenes = (chapters.rows as ChapterRow[]).map((ch) => ({
+      heading: ch.title || undefined,
+      content: ch.content || "",
+    }));
+
+    if (format === "pdf") {
+      const bytes = await buildScreenplayPdf({
+        title: p.title,
+        author: user.name || user.email || null,
+        scenes,
+        language: p.language,
+      });
+      const pdfBuf = new Uint8Array(bytes);
+      return new NextResponse(pdfBuf, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${safeTitle}.pdf"`,
+        },
+      });
+    }
+
+    const xml = buildScreenplayFdx({
+      title: p.title,
+      author: user.name || user.email || null,
+      scenes,
+      language: p.language,
+    });
+    return new NextResponse(xml, {
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${safeTitle}.fdx"`,
       },
     });
   }

@@ -11,7 +11,7 @@ RomanForge AI is a web application for generating complete, style-consistent nov
 - **Database**: Replit PostgreSQL (via `pg` package)
 - **Auth**: JWT-based (bcryptjs + jose) + optional Google Sign-In
 - **AI**: OpenRouter API (OpenAI-compatible SDK) - supports multiple providers/models
-- **Export**: DOCX (via `docx` package), Markdown, TXT
+- **Export**: DOCX (via `docx`), Markdown, TXT, plus PDF (Courier 12 screenplay layout via `pdf-lib`) and Final Draft `.fdx` for screenplay projects
 
 ## Project Structure
 ```

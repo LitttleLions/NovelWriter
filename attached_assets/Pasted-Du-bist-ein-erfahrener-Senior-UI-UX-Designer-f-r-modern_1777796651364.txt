@@ -1,0 +1,391 @@
+Du bist ein erfahrener Senior-UI/UX-Designer für moderne Browser-Games, Strategie-Simulationen und hochwertige Produkt-Landingpages.
+
+Ich möchte eine neue Landingpage für mein Spiel **„WorldGame – Weltpolitik“** gestalten. Die bisherige Seite mit sehr vielen Ländern ist zu überfrachtet. Bitte gestalte die Landingpage deshalb neu – mit einer deutlich klareren, interessanteren und hochwertigeren Struktur.
+
+Ziel:
+Die Seite soll moderner, spielerischer und leicht futuristisch wirken, aber weiterhin hell, seriös und gut lesbar bleiben. Sie soll nicht wie eine überladene Länderliste aussehen, sondern wie der Einstieg in ein intelligentes, ambitioniertes Weltstrategie-Spiel.
+
+Wichtig:
+- Light Mode als Standard
+- modern
+- hochwertig
+- leicht futuristisch
+- nicht dunkel
+- nicht überladen
+- keine billige Gaming-Optik
+- keine Comic-Optik
+- keine Neon-Sci-Fi-Ästhetik
+- eher: modernes Strategiespiel + geopolitische Simulation + hochwertiges Produktdesign
+
+--------------------------------------------------
+1. ZENTRALE ÄNDERUNG GEGENÜBER DER ALTEN LANDINGPAGE
+--------------------------------------------------
+
+Die Seite soll **nicht mehr dutzende Länderkarten** zeigen.
+
+Stattdessen:
+- nur **3 prominent ausgewählte Länder** zeigen
+- diese 3 Länder als „Top-Auswahl“ / „beliebte Länder“ / „empfohlene Länder“
+- z. B.:
+  - Deutschland
+  - Vereinigte Staaten
+  - China
+
+Der Fokus soll sich dadurch verschieben:
+- weniger reine Länderliste
+- mehr Einblick in das Spiel selbst
+- mehr Verständnis dafür, was man im Spiel macht
+- mehr Lust, direkt zu starten
+
+Die Landingpage soll also stärker zeigen:
+- wie das Spiel aussieht
+- wie Entscheidungen getroffen werden
+- welche Systeme das Spiel hat
+- warum das Spiel interessant ist
+
+--------------------------------------------------
+2. GESAMTSTRUKTUR DER LANDINGPAGE
+--------------------------------------------------
+
+Bitte gestalte die Seite in dieser Struktur:
+
+1. Top Navigation
+2. Hero-Bereich mit großem Titel links und Spiel-Vorschau rechts
+3. Kleine Statistik-/Feature-Kacheln
+4. Bereich „Beliebte Länder“ mit nur 3 Ländern
+5. Bereich „So funktioniert das Spiel“
+6. Bereich „Die Kernsysteme im Überblick“
+7. Großer Abschluss-CTA
+8. Footer
+
+Die Seite soll klar, großzügig und interessant aufgebaut sein.
+
+--------------------------------------------------
+3. TOP NAVIGATION
+--------------------------------------------------
+
+Inhalt:
+- Logo / Globus-Icon
+- Brand: „WorldGame – Weltpolitik“
+- Navigation:
+  - Über das Spiel
+  - Features
+  - So funktioniert’s
+  - Preise
+  - Community
+- Sprachumschalter DE / EN
+
+Design:
+- hell
+- hochwertig
+- schlank
+- viel Luft
+- leicht futuristisch
+- horizontale Topbar
+- dünne untere Border
+- klare, moderne Typografie
+
+--------------------------------------------------
+4. HERO-BEREICH
+--------------------------------------------------
+
+Der Hero soll der wichtigste Bereich sein.
+
+Layout:
+- links: starke Headline und CTAs
+- rechts: große visuelle Vorschau auf das Spiel
+
+Links anzeigen:
+- kleines Badge, z. B.:
+  „Browser-Strategiespiel“
+- große Headline:
+  „Weltpolitik beginnt hier.“
+- Subheadline:
+  „Übernimm die Kontrolle über ein echtes Land und treffe jährlich die entscheidenden Entscheidungen in Wirtschaft, Gesellschaft und Umwelt.“
+- drei Buttons:
+  1. Primär: „Spiel starten“
+  2. Sekundär: „Land auswählen“
+  3. Tertiär: „Tutorial ansehen“
+
+Unterhalb davon 4 kleine Kennzahlen-/Feature-Karten:
+- 50+ Länder
+- 15+ KPIs
+- 8 Politikbereiche
+- Echte Daten / IWF & OECD
+
+Rechts im Hero:
+Bitte zeige eine **große Vorschau auf das Spielinterface**.
+
+Diese Vorschau soll keine generische Illustration sein, sondern wie ein echter App-/Game-Screenshot wirken, z. B.:
+- Kopfbereich mit „Runde 2028“
+- Auswahl des Landes
+- KPI-Karten (BIP, Inflation, Arbeitslosigkeit, Staatsverschuldung)
+- kleine Weltkarte
+- Budgetpanel
+- Politikbereiche mit Slidern oder Einstellungswerten
+- Nachrichten-/Ereignisbereich
+- CTA „Runde ausführen“
+
+Wichtig:
+Die rechte Hero-Vorschau soll vermitteln:
+„So sieht das Spiel aus. So arbeitet man damit.“
+
+--------------------------------------------------
+5. BEREICH „BELIEBTE LÄNDER“
+--------------------------------------------------
+
+Anstelle einer riesigen Länderliste bitte nur 3 Länder prominent darstellen.
+
+Titel:
+„Beliebte Länder“
+Untertitel:
+„Starte deine Reise mit einem dieser Länder“
+
+Drei Karten:
+1. Deutschland
+2. Vereinigte Staaten
+3. China
+
+Jede Karte zeigt:
+- Flagge
+- Landname
+- Region / Hauptstadt
+- Schwierigkeitsgrad-Badge (z. B. Einfach, Normal, Schwer)
+- großes, emotionales Bild / Hero-Bild des Landes
+- KPI-Zeile:
+  - BIP
+  - Bevölkerung
+  - BIP pro Kopf
+- Trend / kleine Sparkline
+- CTA-Button „Spielen“
+
+Diese Karten sollen deutlich größer und attraktiver sein als kleine Listen-Items.
+Sie sollen eher wie „Featured Entry Points“ wirken.
+
+--------------------------------------------------
+6. BEREICH „SO FUNKTIONIERT DAS SPIEL“
+--------------------------------------------------
+
+Bitte einen Abschnitt mit 4 klaren Schritten zeigen.
+
+Titel:
+„So funktioniert das Spiel“
+
+Vier Schritte als horizontale Karten oder Step-Module:
+
+1. Land wählen
+Text:
+„Wähle eines von über 50 Ländern und übernimm die Kontrolle.“
+
+2. Lage analysieren
+Text:
+„Analysiere Kennzahlen, Trends und globale Ereignisse.“
+
+3. Politik planen
+Text:
+„Setze Prioritäten in Politikbereichen und plane dein Budget.“
+
+4. Runde ausführen
+Text:
+„Starte die Runde und sieh die Auswirkungen deiner Entscheidungen.“
+
+Jeder Schritt:
+- Nummer
+- kleines Icon
+- kurzer Erklärungstext
+- klare, moderne Kachel
+
+--------------------------------------------------
+7. BEREICH „DIE KERNSYSTEME IM ÜBERBLICK“
+--------------------------------------------------
+
+Dieser Abschnitt soll zeigen, was im Spiel mechanisch und inhaltlich passiert.
+
+Titel:
+„Die Kernsysteme im Überblick“
+Untertitel:
+„Tiefgehende Simulation. Reale Daten. Strategische Entscheidungen.“
+
+Zeige 3 größere System-Karten:
+
+1. Budget & Defizit
+Inhalt:
+- kleine Visualisierung / Chart / Kreisdiagramm
+- Einnahmen
+- Ausgaben
+- Defizit
+- Text:
+  „Plane Einnahmen und Ausgaben, steuere das Defizit und sichere die finanzielle Stabilität.“
+
+2. Weltkarte & Trends
+Inhalt:
+- Mini-Weltkarte
+- geopolitische / wirtschaftliche Trend-Indikatoren
+- Text:
+  „Behalte globale Entwicklungen, Handelspartner und geopolitische Risiken im Blick.“
+
+3. Investitionen & Steuern
+Inhalt:
+- kleine Slider / Balken / Diagramme
+- Politikbereiche / Steuerhebel
+- Text:
+  „Investiere in die Zukunft und gestalte Steuern, um Wachstum und Wohlstand zu fördern.“
+
+Diese Sektion soll mehr Einblick in das Gameplay geben als die frühere große Länderliste.
+
+--------------------------------------------------
+8. ABSCHLUSS-CTA
+--------------------------------------------------
+
+Unten soll ein großer, motivierender CTA-Bereich stehen.
+
+Titel:
+„Bereit, die Zukunft zu gestalten?“
+
+Untertitel:
+„Übernimm die Kontrolle. Triff bessere Entscheidungen. Führe dein Land zum Erfolg.“
+
+Primärbutton:
+„Jetzt spielen“
+
+Zusätzliche Mikro-USPs darunter:
+- Kostenlos starten
+- Kein Download
+- Im Browser spielen
+
+Design:
+- großer, breiter Gradient-Block
+- blau bis violett
+- leicht futuristische Hintergrundelemente
+- links evtl. Globe / Weltkugel
+- rechts evtl. politisches / institutionelles Symbol oder futuristische Architektur
+- hochwertig, motivierend, modern
+
+--------------------------------------------------
+9. FOOTER
+--------------------------------------------------
+
+Im Footer bitte:
+- Logo + „WorldGame – Weltpolitik“
+- © 2025 WorldGame
+- Links:
+  - Über das Spiel
+  - Features
+  - So funktioniert’s
+  - Preise
+  - Community
+  - Impressum
+  - Datenschutz
+  - Kontakt
+- kleine Social Icons optional
+
+Footer soll schlank und hochwertig wirken.
+
+--------------------------------------------------
+10. VISUELLER STIL
+--------------------------------------------------
+
+Bitte verwende folgenden Stil:
+
+- heller Hintergrund
+- Weißflächen
+- klare Karten
+- subtile Gradients
+- moderne Linien
+- sanfte Schatten
+- leicht futuristischer Touch
+- seriös, aber spielerisch
+- hochwertiger Produktdesign-Look
+
+Die Seite soll wirken wie:
+- ein intelligentes Strategiespiel
+- eine geopolitische Simulationsplattform
+- ein modernes Browser-Game mit Substanz
+
+--------------------------------------------------
+11. FARBPALETTE
+--------------------------------------------------
+
+Nutze eine helle Farbwelt mit Blau als Primärfarbe.
+
+Empfehlung:
+- Hintergrund: #F5F8FC oder #F7FAFF
+- Karten: #FFFFFF
+- Border: #D8E3F2
+- Primärblau: #245BFF
+- Cyan-Akzent: #17C9D4
+- Grün: #00A86B
+- Orange: #FFB020
+- Rot: #FF4D4F
+- Violett-Akzent: #7C3AED
+
+Gradients:
+- CTA-Buttons: #245BFF → #6D5DFB
+- Abschluss-CTA: kräftiger Blau-Violett-Gradient
+
+--------------------------------------------------
+12. TYPOGRAFIE
+--------------------------------------------------
+
+Verwende:
+- Inter als Hauptschrift
+- alternativ IBM Plex Sans
+
+Typo:
+- Headline groß und präzise
+- moderne, klare UI-Typografie
+- sehr gute Lesbarkeit
+- genug Luft für deutsche Texte
+
+--------------------------------------------------
+13. KARTEN / BOXEN / UI-STIL
+--------------------------------------------------
+
+Karten:
+- weiße Flächen
+- Radius 16 px
+- dünner Border
+- dezenter Schatten
+- hochwertig
+- kein zu starkes Glassmorphism
+
+Buttons:
+- Primärbutton in Blau/Gradient
+- Sekundärbutton weiß mit Border
+- klarer Hover-State
+
+Badges:
+- Schwierigkeits-Badges in sanften Farben:
+  - Einfach = grün
+  - Normal = orange
+  - Schwer = rot
+
+--------------------------------------------------
+14. WICHTIGE ANFORDERUNG
+--------------------------------------------------
+
+Die Landingpage soll **weniger wie ein Katalog** und **mehr wie ein spannender Einstieg in das Spiel** wirken.
+
+Wichtigste Änderung:
+- nur 3 Länder zeigen
+- dafür mehr sichtbares Gameplay
+- mehr Erklärwert
+- mehr Atmosphäre
+- mehr Motivation zum Starten
+
+--------------------------------------------------
+15. ERWARTETES ERGEBNIS
+--------------------------------------------------
+
+Bitte erstelle einen hochwertigen visuellen Mockup-Entwurf der Landingpage mit:
+
+- Top Navigation
+- Hero mit Spielvorschau
+- kleine Feature-Karten
+- Bereich „Beliebte Länder“ mit genau 3 großen Karten
+- Bereich „So funktioniert das Spiel“
+- Bereich „Die Kernsysteme im Überblick“
+- großer Abschluss-CTA
+- Footer
+
+Die Seite soll modern, leicht futuristisch, hochwertig und klar strukturiert sein.

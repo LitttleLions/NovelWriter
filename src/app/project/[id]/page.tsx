@@ -508,7 +508,11 @@ export default function ProjectPage() {
         setOutlines((prev) => [...prev, ...data.outlines]);
         setShowAddOutline(false);
         setNewOutlineFreetext("");
+      } else {
+        alert(data.error || `Fehler ${res.status} beim Hinzufügen.`);
       }
+    } catch (e: any) {
+      alert(`Netzwerkfehler: ${e?.message || "Unbekannt"}`);
     } finally {
       setSavingOutline(false);
     }

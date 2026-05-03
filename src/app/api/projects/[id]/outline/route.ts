@@ -116,6 +116,13 @@ Format:
     return NextResponse.json({ outlines: insertedOutlines });
   } catch (error: any) {
     console.error("Outline add error:", error);
-    return NextResponse.json({ error: "Fehler beim Hinzufügen des Punkts" }, { status: 500 });
+    const status = error?.status || 500;
+    let message = "Fehler beim Hinzufügen des Punkts";
+    if (status === 429) {
+      message = "Das KI-Modell ist gerade überlastet (Rate-Limit). Bitte in 1–2 Minuten erneut versuchen oder im Projekt ein anderes Modell wählen.";
+    } else if (error?.error?.message || error?.message) {
+      message = `KI-Fehler: ${error?.error?.message || error.message}`;
+    }
+    return NextResponse.json({ error: message }, { status });
   }
 }

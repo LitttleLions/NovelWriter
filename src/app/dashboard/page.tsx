@@ -15,7 +15,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   BookOpen, Plus, Trash2, LogOut, FileText, Film, Tv, Copy, Search,
-  ChevronDown, Library, Sparkles, TrendingUp,
+  ChevronDown, Library, Sparkles, TrendingUp, ArrowUpDown,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
 
@@ -34,6 +34,7 @@ interface Project {
 }
 
 type FilterValue = "all" | "novel" | "screenplay" | "in_progress" | "completed";
+type SortValue = "updated" | "title" | "progress";
 
 const FILTERS: { value: FilterValue; label: string }[] = [
   { value: "all", label: "Alle" },
@@ -43,6 +44,33 @@ const FILTERS: { value: FilterValue; label: string }[] = [
   { value: "completed", label: "Fertig" },
 ];
 
+const SORTS: { value: SortValue; label: string }[] = [
+  { value: "updated", label: "Zuletzt bearbeitet" },
+  { value: "title", label: "Titel A-Z" },
+  { value: "progress", label: "Fortschritt" },
+];
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  if (isNaN(diffMs) || diffMs < 0) return "gerade eben";
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 60) return "gerade eben";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min === 1 ? "vor 1 Minute" : `vor ${min} Minuten`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr === 1 ? "vor 1 Stunde" : `vor ${hr} Stunden`;
+  const days = Math.floor(hr / 24);
+  if (days < 7) return days === 1 ? "vor 1 Tag" : `vor ${days} Tagen`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return weeks === 1 ? "vor 1 Woche" : `vor ${weeks} Wochen`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? "vor 1 Monat" : `vor ${months} Monaten`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? "vor 1 Jahr" : `vor ${years} Jahren`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -51,6 +79,7 @@ export default function DashboardPage() {
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("all");
+  const [sort, setSort] = useState<SortValue>("updated");
 
   useEffect(() => {
     const token = localStorage.getItem("rf_token");
@@ -112,7 +141,7 @@ export default function DashboardPage() {
 
   const filteredProjects = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return projects.filter((p) => {
+    const filtered = projects.filter((p) => {
       if (filter === "novel" && p.project_type === "screenplay") return false;
       if (filter === "screenplay" && p.project_type !== "screenplay") return false;
       if (filter === "in_progress" && !(p.status === "draft" || p.status === "generating")) return false;
@@ -123,7 +152,21 @@ export default function DashboardPage() {
       }
       return true;
     });
-  }, [projects, search, filter]);
+    const sorted = [...filtered];
+    if (sort === "title") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title, "de", { sensitivity: "base" }));
+    } else if (sort === "progress") {
+      const pctOf = (p: Project) => {
+        const total = Number(p.total_words) || 0;
+        const target = Math.max(1, Number(p.target_word_count) || 1);
+        return Math.min(100, (total / target) * 100);
+      };
+      sorted.sort((a, b) => pctOf(b) - pctOf(a));
+    } else {
+      sorted.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    }
+    return sorted;
+  }, [projects, search, filter, sort]);
 
   if (loading) {
     return (
@@ -213,7 +256,7 @@ export default function DashboardPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0 min-w-0">
               {FILTERS.map((f) => (
                 <button
                   key={f.value}
@@ -230,6 +273,31 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-11 sm:h-9 shrink-0 justify-between sm:justify-start gap-2 sm:ml-auto"
+                >
+                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    {SORTS.find((s) => s.value === sort)?.label}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {SORTS.map((s) => (
+                  <DropdownMenuItem
+                    key={s.value}
+                    onClick={() => setSort(s.value)}
+                    className={sort === s.value ? "bg-accent" : ""}
+                  >
+                    {s.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
 
@@ -331,12 +399,17 @@ export default function DashboardPage() {
                       <span>{formatWordcount(total, project.project_type)}</span>
                       <span>Ziel: {formatWordcount(Number(project.target_word_count), project.project_type)}</span>
                     </div>
-                    <div className="mt-auto pt-1">
+                    <div className="mt-auto pt-1 flex items-center justify-between gap-2">
                       <Badge
                         variant={project.status === "completed" ? "success" : project.status === "generating" ? "warning" : "outline"}
                       >
                         {project.status === "draft" ? "Entwurf" : project.status === "generating" ? "Generiert..." : project.status === "completed" ? "Fertig" : project.status}
                       </Badge>
+                      {project.updated_at && (
+                        <span className="text-xs text-muted-foreground truncate" title={new Date(project.updated_at).toLocaleString("de-DE")}>
+                          Zuletzt bearbeitet {formatRelativeTime(project.updated_at)}
+                        </span>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

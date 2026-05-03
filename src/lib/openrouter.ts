@@ -286,7 +286,10 @@ export async function generateText(
 // Gibt entweder { ok: true } oder { ok: false, reason: string } zurück.
 // Unicode-aware: nutzt \p{L} statt \w, damit deutsche Umlaute (ä,ö,ü,ß) korrekt
 // als Wortbestandteile erkannt werden.
-export function detectDegeneration(text: string): { ok: true } | { ok: false; reason: string } {
+export function detectDegeneration(
+  text: string,
+  expectedLanguage?: string
+): { ok: true } | { ok: false; reason: string } {
   if (!text || text.trim().length < 50) {
     return { ok: false, reason: "Text ist leer oder zu kurz (< 50 Zeichen)." };
   }
@@ -325,6 +328,68 @@ export function detectDegeneration(text: string): { ok: true } | { ok: false; re
   const garbageCluster = text.match(/[\uFFFD\u0000-\u0008\u000B-\u001F]{3,}/);
   if (garbageCluster) {
     return { ok: false, reason: `Nicht-druckbare Zeichen (Müll-Bytes) im Text – Modell-Output ist beschädigt.` };
+  }
+
+  // 5. Endlos-Sätze: > 300 Wörter ohne Satzendzeichen (. ! ? : ; – —) deutet auf
+  // zusammenhanglosen Word-Salad hin, den Modelle bei Degeneration produzieren.
+  // 300 ist bewusst großzügig, um literarische Bandwurmsätze nicht zu blocken.
+  const segments = text.split(/[.!?:;–—\n]+/);
+  for (const seg of segments) {
+    const segWords = seg.trim().split(/\s+/).filter(Boolean);
+    if (segWords.length > 300) {
+      return {
+        ok: false,
+        reason: `Endlos-Satz erkannt – ${segWords.length} Wörter ohne Satzendzeichen. Das Modell ist in einen Word-Salad-Modus gefallen.`,
+      };
+    }
+  }
+
+  // 6. Sprach-Mismatch: erwartete Sprache stimmt nicht mit Output überein.
+  // Heuristik über sprachspezifische Funktionswörter (kurze, häufige Wörter,
+  // die in jedem normalen Prosa-Text dutzendfach vorkommen).
+  if (expectedLanguage && words.length > 80) {
+    const lang = expectedLanguage.trim().toLowerCase();
+    const STOP: Record<string, string[]> = {
+      deutsch: ["der", "die", "das", "und", "ist", "nicht", "ein", "eine", "den", "dem", "des", "mit", "von", "auf", "für", "auch", "als", "war", "sich", "aber", "noch", "schon", "wenn", "wie", "nur", "doch", "ich", "sie", "er", "wir", "ihr"],
+      english: ["the", "and", "is", "of", "to", "in", "that", "with", "for", "was", "are", "but", "not", "his", "her", "they", "this", "from", "have", "had", "she", "would", "could", "been", "were", "their", "which", "about"],
+      français: ["le", "la", "les", "une", "des", "que", "pas", "pour", "sur", "avec", "dans", "elle", "qui", "mais", "comme", "tout", "plus", "était", "sont"],
+      español: ["que", "los", "las", "una", "por", "con", "para", "como", "más", "pero", "todo", "está", "son", "este", "esta", "cuando"],
+      italiano: ["che", "non", "per", "con", "una", "sono", "questo", "questa", "molto", "anche", "quando", "come", "tutto"],
+    };
+    const aliases: Record<string, keyof typeof STOP> = {
+      deutsch: "deutsch", german: "deutsch",
+      english: "english", englisch: "english",
+      französisch: "français", französisch_alt: "français", french: "français", francais: "français",
+      spanisch: "español", spanish: "español", español: "español", espanol: "español",
+      italienisch: "italiano", italian: "italiano", italiano: "italiano",
+    };
+    const key = aliases[lang];
+    if (key && STOP[key]) {
+      const expected = new Set(STOP[key]);
+      // Vergleich mit Englisch (häufigste KI-Drift-Sprache), außer Output soll selbst englisch sein
+      const englishSet = new Set(STOP.english);
+      let expectedHits = 0;
+      let englishHits = 0;
+      for (const w of words) {
+        if (expected.has(w)) expectedHits++;
+        if (englishSet.has(w)) englishHits++;
+      }
+      // Falls erwartete Sprache nicht englisch ist und englische Funktionswörter
+      // klar dominieren bei gleichzeitig geringer Trefferquote der Zielsprache:
+      if (key !== "english" && englishHits > expectedHits * 3 && englishHits > 20) {
+        return {
+          ok: false,
+          reason: `Sprach-Mismatch erkannt – erwartet wurde ${expectedLanguage}, aber der Output enthält überwiegend englische Funktionswörter (${englishHits}× vs. ${expectedHits}× ${expectedLanguage}). Das Modell ist in eine andere Sprache gedriftet.`,
+        };
+      }
+      // Falls Trefferquote der Zielsprache extrem niedrig (< 1% aller Wörter):
+      if (expectedHits / words.length < 0.01 && words.length > 200) {
+        return {
+          ok: false,
+          reason: `Sprach-Mismatch erkannt – nur ${expectedHits} ${expectedLanguage}-Funktionswörter in ${words.length} Wörtern Text. Der Output ist vermutlich in einer anderen Sprache.`,
+        };
+      }
+    }
   }
 
   return { ok: true };

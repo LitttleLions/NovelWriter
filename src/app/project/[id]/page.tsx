@@ -2253,7 +2253,14 @@ export default function ProjectPage() {
                           {generationLogs.map((log) => (
                             <tr key={log.id} className="hover:bg-muted/30 transition-colors">
                               <td className="py-2.5 pr-4 text-xs text-muted-foreground whitespace-nowrap">
-                                {new Date(log.created_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                                {(() => {
+                                  if (!log.created_at) return "–";
+                                  const raw = String(log.created_at).replace(" ", "T");
+                                  const d = new Date(raw);
+                                  return isNaN(d.getTime())
+                                    ? String(log.created_at)
+                                    : d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+                                })()}
                               </td>
                               <td className="py-2.5 pr-4 font-medium">{log.action}</td>
                               <td className="py-2.5 pr-4 text-muted-foreground text-xs max-w-[180px] truncate">{log.details || "–"}</td>

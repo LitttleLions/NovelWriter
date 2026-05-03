@@ -218,8 +218,9 @@ export default function DashboardPage() {
                 <button
                   key={f.value}
                   type="button"
+                  aria-pressed={filter === f.value}
                   onClick={() => setFilter(f.value)}
-                  className={`px-3 h-9 rounded-lg text-sm font-medium whitespace-nowrap transition-colors border ${
+                  className={`px-3.5 h-11 sm:h-9 rounded-lg text-sm font-medium whitespace-nowrap transition-colors border ${
                     filter === f.value
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border"
@@ -297,7 +298,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
+                      <div className="flex items-center gap-0.5 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"

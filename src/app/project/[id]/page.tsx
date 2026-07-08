@@ -189,6 +189,7 @@ export default function ProjectPage() {
   const [generationLogs, setGenerationLogs] = useState<any[]>([]);
   const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [includeSceneNumbers, setIncludeSceneNumbers] = useState(false);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -459,7 +460,9 @@ export default function ProjectPage() {
 
   async function handleExport(format: string) {
     try {
-      const res = await fetch(`/api/projects/${projectId}/export?format=${format}`);
+      const params = new URLSearchParams({ format });
+      if (includeSceneNumbers) params.set("includeSceneNumbers", "true");
+      const res = await fetch(`/api/projects/${projectId}/export?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json();
         alert(data.error || "Export fehlgeschlagen");
@@ -2273,9 +2276,27 @@ export default function ProjectPage() {
 
               {chapters.length > 0 && (
                 <Card className="p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Export</span>
-                    <div className="flex gap-2">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Export</span>
+                      <button
+                        type="button"
+                        onClick={() => setIncludeSceneNumbers((v) => !v)}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-colors ${
+                          includeSceneNumbers
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-transparent text-muted-foreground border-border hover:border-primary hover:text-foreground"
+                        }`}
+                      >
+                        <span className={`inline-block w-3.5 h-3.5 rounded border text-center leading-none ${
+                          includeSceneNumbers ? "bg-primary-foreground border-primary-foreground" : "border-current"
+                        }`}>
+                          {includeSceneNumbers && <span className="text-primary font-bold" style={{ fontSize: 9, lineHeight: "14px" }}>✓</span>}
+                        </span>
+                        {project.project_type === "screenplay" ? "Szenennummern einbeziehen" : "Kapitelnummern einbeziehen"}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       {project.project_type === "screenplay" && (
                         <>
                           <Button size="sm" onClick={() => handleExport("pdf")}>

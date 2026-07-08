@@ -15,6 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const url = new URL(req.url);
   const format = url.searchParams.get("format") || "markdown";
+  const includeSceneNumbers = url.searchParams.get("includeSceneNumbers") === "true";
 
   const project = await query(
     "SELECT * FROM projects WHERE id = $1 AND user_id = $2",
@@ -31,6 +32,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const p = project.rows[0];
   const safeTitle = p.title.replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g, "");
+  const unitLabel = p.project_type === "screenplay" ? "Szene" : "Kapitel";
+
+  function chapterHeading(ch: { chapter_number: number; title?: string | null }): string {
+    const title = ch.title || `${unitLabel} ${ch.chapter_number}`;
+    return includeSceneNumbers ? `${ch.chapter_number}. ${title}` : title;
+  }
 
   if (format === "docx") {
     const docChildren: Paragraph[] = [];
@@ -62,7 +69,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
       docChildren.push(
         new Paragraph({
-          text: ch.title || `Kapitel ${ch.chapter_number}`,
+          text: chapterHeading(ch),
           heading: HeadingLevel.HEADING_1,
           spacing: { before: 400, after: 300 },
         })
@@ -111,7 +118,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     md += `---\n\n`;
 
     for (const ch of chapters.rows) {
-      md += `## ${ch.title || `Kapitel ${ch.chapter_number}`}\n\n`;
+      md += `## ${chapterHeading(ch)}\n\n`;
       md += `${ch.content || "(Noch nicht geschrieben)"}\n\n`;
       md += `---\n\n`;
     }
@@ -128,7 +135,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let txt = `${p.title}\n${"=".repeat(p.title.length)}\n\n`;
 
     for (const ch of chapters.rows) {
-      txt += `${ch.title || `Kapitel ${ch.chapter_number}`}\n${"-".repeat(40)}\n\n`;
+      txt += `${chapterHeading(ch)}\n${"-".repeat(40)}\n\n`;
       txt += `${ch.content || "(Noch nicht geschrieben)"}\n\n\n`;
     }
 
@@ -147,9 +154,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         { status: 400 }
       );
     }
-    type ChapterRow = { title: string | null; content: string | null };
+    type ChapterRow = { chapter_number: number; title: string | null; content: string | null };
     const scenes = (chapters.rows as ChapterRow[]).map((ch) => ({
-      heading: ch.title || undefined,
+      heading: includeSceneNumbers ? chapterHeading(ch) : (ch.title || undefined),
       content: ch.content || "",
     }));
 

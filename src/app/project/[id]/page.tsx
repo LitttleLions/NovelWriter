@@ -347,26 +347,44 @@ export default function ProjectPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chapter_number: chapterNumber }),
       });
-      let data: any;
-      try {
-        data = await res.json();
-      } catch {
-        alert(
-          `Generierung fehlgeschlagen: Die Server-Antwort war kein gültiges JSON (Status ${res.status}). ` +
-          `Mögliche Ursache: Timeout nach sehr langer Generierung. Bitte erneut versuchen – ` +
-          `oder ein schnelleres Modell wählen (z.B. DeepSeek V4 Flash oder Gemini 3 Flash).`
-        );
+
+      if (!res.ok || !res.body) {
+        let errMsg = "Kapitel-Generierung fehlgeschlagen";
+        try { errMsg = (await res.json()).error || errMsg; } catch {}
+        alert(errMsg);
         return;
       }
-      if (res.ok) {
-        setActiveTab("chapters");
-        setExpandedChapter(chapterNumber);
-        // Full refetch — guarantees that narrative_summary and character_states
-        // are in sync with DB even if the POST response was assembled before
-        // the narrative-handoff write completed.
-        await loadProject();
-      } else {
-        alert(data.error || "Kapitel-Generierung fehlgeschlagen");
+
+      // Read the streaming response line-by-line (heartbeat pings keep connection alive)
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const msg = JSON.parse(trimmed);
+            if (msg.type === "ping") continue;
+            if (msg.type === "error") {
+              alert(msg.error || "Kapitel-Generierung fehlgeschlagen");
+              break outer;
+            }
+            if (msg.type === "done") {
+              setActiveTab("chapters");
+              setExpandedChapter(chapterNumber);
+              await loadProject();
+              break outer;
+            }
+          } catch {}
+        }
       }
     } catch (e: any) {
       alert(`Netzwerkfehler: ${e?.message || "Unbekannt"}`);

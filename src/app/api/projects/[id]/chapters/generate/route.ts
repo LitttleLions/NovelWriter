@@ -552,81 +552,116 @@ ${storySoFarBlock}
 ---
 ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt an die Stil-Gesetze aus dem System-Prompt.${screenplayFormatReminder}${manualNotesEcho}`;
 
-  try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
-    const result = await generateText(model, dynamicSystemPrompt, userPrompt, 16000);
+  // Capture variables needed inside the stream closure
+  const _id = id;
+  const _chapter_number = chapter_number;
+  const _lang = lang;
+  const _p = p;
+  const _chapterOutline = chapterOutline;
+  const _characterRows = characterRows;
+  const _dynamicSystemPrompt = dynamicSystemPrompt;
+  const _userPrompt = userPrompt;
 
-    const cleanedContent = stripMetaCommentary(result.content);
+  const encoder = new TextEncoder();
 
-    // Schutz vor Modell-Degeneration: prüfe auf Wiederholungsschleifen, Sprachmix, Müll-Bytes.
-    // Wenn der Output kaputt ist: NICHT speichern, sondern klaren Fehler an die UI zurückgeben.
-    const degeneration = detectDegeneration(cleanedContent, lang);
-    if (!degeneration.ok) {
-      return NextResponse.json({
-        error: `Das Modell "${model}" hat einen kaputten Output erzeugt: ${degeneration.reason} Bitte wechsle in den Projekt-Einstellungen das KI-Modell (z.B. zu Claude Sonnet 4.6, DeepSeek V4 Flash oder Gemini 3 Pro) und versuche es erneut.`,
-      }, { status: 502 });
-    }
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (obj: Record<string, unknown>) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n")); } catch {}
+      };
 
-    const wordCount = cleanedContent.trim().split(/\s+/).length;
-    const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
+      // Heartbeat every 10 s keeps the Replit proxy from cutting the connection
+      const pingInterval = setInterval(() => send({ type: "ping" }), 10_000);
 
-    const existing = await query(
-      "SELECT id FROM chapters WHERE project_id = $1 AND chapter_number = $2",
-      [id, chapter_number]
-    );
+      try {
+        const model = _p.ai_provider || "anthropic/claude-sonnet-4.6";
+        const result = await generateText(model, _dynamicSystemPrompt, _userPrompt, 16000);
 
-    let chapter;
-    if (existing.rows.length > 0) {
-      const updated = await query(
-        `UPDATE chapters SET content = $1, title = $2, word_count = $3, status = 'generated', updated_at = NOW()
-         WHERE id = $4 RETURNING *`,
-        [cleanedContent, chapterOutline?.title || `Kapitel ${chapter_number}`, wordCount, existing.rows[0].id]
-      );
-      chapter = updated.rows[0];
-    } else {
-      const inserted = await query(
-        `INSERT INTO chapters (project_id, chapter_number, title, content, word_count, status)
-         VALUES ($1, $2, $3, $4, $5, 'generated') RETURNING *`,
-        [id, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`, cleanedContent, wordCount]
-      );
-      chapter = inserted.rows[0];
-    }
+        const cleanedContent = stripMetaCommentary(result.content);
 
-    await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [id]);
+        const degeneration = detectDegeneration(cleanedContent, _lang);
+        if (!degeneration.ok) {
+          send({
+            type: "error",
+            error: `Das Modell "${model}" hat einen kaputten Output erzeugt: ${degeneration.reason} Bitte wechsle in den Projekt-Einstellungen das KI-Modell (z.B. zu Claude Sonnet 4.6, DeepSeek V4 Flash oder Gemini 3 Pro) und versuche es erneut.`,
+          });
+          return;
+        }
 
-    await query(
-      `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [id, "Kapitel generiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, chapter_number, chapterOutline?.title || `Kapitel ${chapter_number}`]
-    );
+        const wordCount = cleanedContent.trim().split(/\s+/).length;
+        const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
 
-    // Generate narrative summary in background (fire and await — ensures next chapter has memory)
-    const characterNames = characterRows.map((c: any) => c.name);
-    const handoff = await generateNarrativeSummary(
-      model,
-      cleanedContent,
-      chapter_number,
-      chapterOutline?.title || `Kapitel ${chapter_number}`,
-      characterNames
-    );
+        const existing = await query(
+          "SELECT id FROM chapters WHERE project_id = $1 AND chapter_number = $2",
+          [_id, _chapter_number]
+        );
 
-    if (handoff) {
-      const updated = await query(
-        `UPDATE chapters SET narrative_summary = $1, character_states = $2 WHERE id = $3 RETURNING *`,
-        [handoff.summary, JSON.stringify(handoff.character_states), chapter.id]
-      );
-      chapter = updated.rows[0];
-      await query(
-        `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [id, "Narrative Zusammenfassung", model, 0, 0, 0, 0, chapter_number, "Auto-generiertes Handoff-Dokument"]
-      );
-    }
+        let chapter;
+        if (existing.rows.length > 0) {
+          const updated = await query(
+            `UPDATE chapters SET content = $1, title = $2, word_count = $3, status = 'generated', updated_at = NOW()
+             WHERE id = $4 RETURNING *`,
+            [cleanedContent, _chapterOutline?.title || `Kapitel ${_chapter_number}`, wordCount, existing.rows[0].id]
+          );
+          chapter = updated.rows[0];
+        } else {
+          const inserted = await query(
+            `INSERT INTO chapters (project_id, chapter_number, title, content, word_count, status)
+             VALUES ($1, $2, $3, $4, $5, 'generated') RETURNING *`,
+            [_id, _chapter_number, _chapterOutline?.title || `Kapitel ${_chapter_number}`, cleanedContent, wordCount]
+          );
+          chapter = inserted.rows[0];
+        }
 
-    return NextResponse.json({ chapter, tokens: result.total_tokens, cost, narrativeSummaryGenerated: !!handoff });
-  } catch (error: any) {
-    console.error("Chapter generation error:", error);
-    const { message, status } = describeAiError(error);
-    return NextResponse.json({ error: `Kapitel-Generierung fehlgeschlagen. ${message}` }, { status });
-  }
+        await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [_id]);
+
+        await query(
+          `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [_id, "Kapitel generiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, _chapter_number, _chapterOutline?.title || `Kapitel ${_chapter_number}`]
+        );
+
+        // Narrative summary (second AI call — also slow, covered by same heartbeat)
+        const characterNames = _characterRows.map((c: any) => c.name);
+        const handoff = await generateNarrativeSummary(
+          model,
+          cleanedContent,
+          _chapter_number,
+          _chapterOutline?.title || `Kapitel ${_chapter_number}`,
+          characterNames
+        );
+
+        if (handoff) {
+          const updated = await query(
+            `UPDATE chapters SET narrative_summary = $1, character_states = $2 WHERE id = $3 RETURNING *`,
+            [handoff.summary, JSON.stringify(handoff.character_states), chapter.id]
+          );
+          chapter = updated.rows[0];
+          await query(
+            `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [_id, "Narrative Zusammenfassung", model, 0, 0, 0, 0, _chapter_number, "Auto-generiertes Handoff-Dokument"]
+          );
+        }
+
+        send({ type: "done", chapter, tokens: result.total_tokens, cost, narrativeSummaryGenerated: !!handoff });
+      } catch (error: any) {
+        console.error("Chapter generation error:", error);
+        const { message } = describeAiError(error);
+        send({ type: "error", error: `Kapitel-Generierung fehlgeschlagen. ${message}` });
+      } finally {
+        clearInterval(pingInterval);
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "Cache-Control": "no-cache, no-store",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

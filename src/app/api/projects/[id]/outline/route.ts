@@ -77,13 +77,61 @@ Format:
 
   try {
     const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
-    const result = await generateText(model, "Du bist ein präziser Buch-Architekt.", prompt, 4000);
+    // 8000 Tokens statt 4000 — verhindert abgeschnittene JSON-Arrays bei langen Outlines
+    const result = await generateText(model, "Du bist ein präziser Buch-Architekt.", prompt, 8000);
 
     let chapters: any[] = [];
     try {
-      const jsonMatch = result.content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        chapters = JSON.parse(jsonMatch[0]);
+      // 1. Rohen JSON-Bereich aus der Antwort extrahieren
+      const rawJson = result.content.match(/\[[\s\S]*\]/)?.[0] ?? "";
+
+      // 2. Steuerzeichen in JSON-Strings bereinigen (rohe Newlines, Tabs, \r etc.)
+      //    Ersetzt U+0000–U+001F innerhalb von String-Literalen durch sichere Escape-Sequenzen
+      const sanitized = rawJson.replace(
+        /"(?:[^"\\]|\\.)*"/g,
+        (match) => match.replace(/[\x00-\x1F]/g, (c) => {
+          if (c === "\n") return "\\n";
+          if (c === "\r") return "\\r";
+          if (c === "\t") return "\\t";
+          return "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0");
+        })
+      );
+
+      // 3. Direktes Parsen versuchen
+      try {
+        chapters = JSON.parse(sanitized);
+      } catch {
+        // 4. Fallback: Truncated-JSON-Repair — extrahiere alle vollständigen Objekte
+        //    Funktioniert wenn das Modell bei Token-Limit mitten in einem Objekt abbricht
+        const objects: any[] = [];
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        let start = -1;
+
+        for (let i = 0; i < sanitized.length; i++) {
+          const ch = sanitized[i];
+          if (escape) { escape = false; continue; }
+          if (ch === "\\" && inString) { escape = true; continue; }
+          if (ch === '"') { inString = !inString; continue; }
+          if (inString) continue;
+          if (ch === "{") {
+            if (depth === 0) start = i;
+            depth++;
+          } else if (ch === "}") {
+            depth--;
+            if (depth === 0 && start !== -1) {
+              try {
+                objects.push(JSON.parse(sanitized.slice(start, i + 1)));
+              } catch {}
+              start = -1;
+            }
+          }
+        }
+        chapters = objects;
+        if (chapters.length > 0) {
+          console.log(`JSON-Repair erfolgreich: ${chapters.length} vollständige Objekte aus truncated JSON extrahiert.`);
+        }
       }
     } catch (e) {
       console.error("Parsing error:", e);

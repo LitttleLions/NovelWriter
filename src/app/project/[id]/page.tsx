@@ -347,7 +347,17 @@ export default function ProjectPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chapter_number: chapterNumber }),
       });
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        alert(
+          `Generierung fehlgeschlagen: Die Server-Antwort war kein gültiges JSON (Status ${res.status}). ` +
+          `Mögliche Ursache: Timeout nach sehr langer Generierung. Bitte erneut versuchen – ` +
+          `oder ein schnelleres Modell wählen (z.B. DeepSeek V4 Flash oder Gemini 3 Flash).`
+        );
+        return;
+      }
       if (res.ok) {
         setActiveTab("chapters");
         setExpandedChapter(chapterNumber);
@@ -358,6 +368,8 @@ export default function ProjectPage() {
       } else {
         alert(data.error || "Kapitel-Generierung fehlgeschlagen");
       }
+    } catch (e: any) {
+      alert(`Netzwerkfehler: ${e?.message || "Unbekannt"}`);
     } finally {
       setGeneratingChapter(null);
     }
@@ -487,21 +499,34 @@ export default function ProjectPage() {
   }
 
   async function moveOutline(index: number, direction: "up" | "down") {
-    const newOutlines = [...outlines];
     const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= newOutlines.length) return;
+    if (swapIndex < 0 || swapIndex >= outlines.length) return;
 
+    // Deep-copy items so chapter_number can be swapped safely
+    const newOutlines = outlines.map((o) => ({ ...o }));
+    const tmpNum = newOutlines[index].chapter_number;
+    newOutlines[index].chapter_number = newOutlines[swapIndex].chapter_number;
+    newOutlines[swapIndex].chapter_number = tmpNum;
     [newOutlines[index], newOutlines[swapIndex]] = [newOutlines[swapIndex], newOutlines[index]];
 
+    // Optimistic update — numbers and order change immediately
+    setOutlines(newOutlines);
+
     const orderedIds = newOutlines.map((o) => o.id);
-    const res = await fetch(`/api/projects/${projectId}/outline/reorder`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderedIds }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setOutlines(data.outlines);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/outline/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOutlines(data.outlines);
+      } else {
+        setOutlines(outlines); // rollback
+      }
+    } catch {
+      setOutlines(outlines); // rollback on network error
     }
   }
 

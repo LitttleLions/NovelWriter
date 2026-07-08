@@ -57,6 +57,12 @@ export const AVAILABLE_MODELS = [
 
   // ── DeepSeek – Beste Preis-Leistung ──
   {
+    id: "deepseek/deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    provider: "DeepSeek",
+    description: "Neue V4-Generation, MoE mit 1M Kontext – höchste Qualität im DeepSeek-Portfolio",
+  },
+  {
     id: "deepseek/deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
     provider: "DeepSeek",
@@ -405,6 +411,7 @@ const MODEL_PRICES: Record<string, { prompt: number; completion: number }> = {
   "openai/gpt-4.1": { prompt: 0.0025, completion: 0.01 },
   "google/gemini-3-pro": { prompt: 0.00125, completion: 0.005 },
   "google/gemini-3-flash": { prompt: 0.0001, completion: 0.0004 },
+  "deepseek/deepseek-v4-pro": { prompt: 0.0007, completion: 0.002 },
   "deepseek/deepseek-v4-flash": { prompt: 0.00014, completion: 0.00028 },
   "deepseek/deepseek-v3.2": { prompt: 0.00027, completion: 0.0011 },
   "moonshotai/kimi-k2.6": { prompt: 0.0006, completion: 0.0025 },

@@ -308,6 +308,56 @@ function formatCharactersForPrompt(chars: any[], tierMode = false): string {
   }).join("\n\n");
 }
 
+/** Robuster JSON-Parser für den Narrative-Summarizer:
+ *  1. Direkt parsen
+ *  2. Steuerzeichen in Strings bereinigen + nochmal parsen
+ *  3. Letztes vollständiges {…}-Objekt per Stack extrahieren
+ *  4. Abgeschnittene JSON-Objekte durch Anhängen von Klammern reparieren
+ */
+function safeParseNarrativeJson(raw: string): Record<string, any> | null {
+  const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+  // Versuch 1: direktes Parsen
+  try { return JSON.parse(cleaned); } catch {}
+
+  // Versuch 2: Steuerzeichen bereinigen
+  const sanitized = cleaned.replace(/"(?:[^"\\]|\\.)*"/g, (m) =>
+    m.replace(/[\x00-\x1F]/g, (c) => {
+      if (c === "\n") return "\\n";
+      if (c === "\r") return "\\r";
+      if (c === "\t") return "\\t";
+      return "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0");
+    })
+  );
+  try { return JSON.parse(sanitized); } catch {}
+
+  // Versuch 3: vollständiges äußerstes {…} extrahieren
+  const firstBrace = sanitized.indexOf("{");
+  if (firstBrace !== -1) {
+    let depth = 0, inStr = false, esc = false, lastClose = -1;
+    for (let i = firstBrace; i < sanitized.length; i++) {
+      const ch = sanitized[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\" && inStr) { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") { depth--; if (depth === 0) { lastClose = i; break; } }
+    }
+    if (lastClose !== -1) {
+      try { return JSON.parse(sanitized.slice(firstBrace, lastClose + 1)); } catch {}
+    }
+
+    // Versuch 4: Abgeschnittenes JSON durch Anhängen von Klammern reparieren
+    const partial = sanitized.slice(firstBrace);
+    for (const tail of ["}", "}}", "]}}", "}]}", "}}"]) {
+      try { return JSON.parse(partial + tail); } catch {}
+    }
+  }
+
+  return null;
+}
+
 async function generateNarrativeSummary(
   model: string,
   chapterContent: string,
@@ -315,8 +365,7 @@ async function generateNarrativeSummary(
   chapterTitle: string,
   characterNames: string[]
 ): Promise<{ summary: string; character_states: any; last_scene_ending: string; open_plot_threads: string[] } | null> {
-  try {
-    const userPrompt = `Kapitel ${chapterNumber}: "${chapterTitle}"
+  const userPrompt = `Kapitel ${chapterNumber}: "${chapterTitle}"
 
 Vorkommende Figuren: ${characterNames.join(", ") || "unbekannt"}
 
@@ -325,13 +374,41 @@ ${chapterContent.substring(0, 12000)}
 
 Erstelle jetzt das Narrative Handoff-Dokument für das nächste Kapitel.`;
 
-    const result = await generateText(model, PROMPTS.narrativeSummarizer, userPrompt, 2000);
-    const cleaned = result.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    return JSON.parse(cleaned);
-  } catch (e) {
-    console.error("Narrative summary generation failed:", e);
-    return null;
+  // Versuch 1 + 2: bis zu 2 Versuche mit dem vollständigen JSON-Format
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const result = await generateText(model, PROMPTS.narrativeSummarizer, userPrompt, 3000);
+      const parsed = safeParseNarrativeJson(result.content);
+      if (parsed && parsed.summary) return parsed as any;
+      console.warn(`Narrative summary attempt ${attempt}: JSON unvollständig oder leer.`);
+    } catch (e) {
+      console.warn(`Narrative summary attempt ${attempt} failed:`, e);
+    }
   }
+
+  // Fallback: vereinfachter Prompt, der nur eine Textzusammenfassung zurückgibt
+  try {
+    const fallbackResult = await generateText(
+      model,
+      "Du bist ein Romanarchiv-Assistent. Fasse das Kapitel in 200-250 Wörtern auf Deutsch zusammen. Nur Fließtext, kein JSON, keine Überschriften.",
+      `Kapitel ${chapterNumber}: "${chapterTitle}"\n\nKAPITELTEXT:\n${chapterContent.substring(0, 8000)}\n\nSchreibe jetzt die Zusammenfassung.`,
+      800
+    );
+    const fallbackSummary = fallbackResult.content.trim();
+    if (fallbackSummary.length > 50) {
+      console.log("Narrative summary: Fallback-Textzusammenfassung erfolgreich.");
+      return {
+        summary: fallbackSummary,
+        character_states: {},
+        last_scene_ending: "",
+        open_plot_threads: [],
+      };
+    }
+  } catch (e) {
+    console.error("Narrative summary fallback failed:", e);
+  }
+
+  return null;
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -575,7 +652,10 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
 
       try {
         const model = _p.ai_provider || "anthropic/claude-sonnet-4.6";
-        const result = await generateText(model, _dynamicSystemPrompt, _userPrompt, 16000);
+        // Drehbuch-Szenen sind viel kürzer als Roman-Kapitel (1-5 Seiten ≈ 300-1000 Wörter).
+        // 6000 Tokens verhindert unnötig lange Wartezeiten und Timeouts bei Screenplay-Projekten.
+        const maxTokens = _p.project_type === "screenplay" ? 6000 : 16000;
+        const result = await generateText(model, _dynamicSystemPrompt, _userPrompt, maxTokens);
 
         const cleanedContent = stripMetaCommentary(result.content);
 

@@ -2098,7 +2098,15 @@ export default function ProjectPage() {
                       <span className="text-sm font-medium">Alle {terms.chapters} generieren</span>
                       <Button
                         onClick={async () => {
-                          const pending = outlines.filter(
+                          // Deduplicate outlines by chapter_number (keep first occurrence only)
+                          // Prevents silent skips when the AI generated duplicate numbers
+                          const seenNums = new Set<number>();
+                          const uniqueOutlines = outlines.filter((o) => {
+                            if (seenNums.has(o.chapter_number)) return false;
+                            seenNums.add(o.chapter_number);
+                            return true;
+                          });
+                          const pending = uniqueOutlines.filter(
                             (o) => !chapters.find((c) => c.chapter_number === o.chapter_number)
                           );
                           if (pending.length === 0) return;

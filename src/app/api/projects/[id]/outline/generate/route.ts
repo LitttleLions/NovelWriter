@@ -274,6 +274,10 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
       }
     }
 
+    // Normalize: ensure chapter numbers are strictly sequential 1…N
+    // The AI sometimes returns duplicates or skips numbers — force 1-indexed sequence
+    allChapters = allChapters.map((ch, i) => ({ ...ch, chapter_number: i + 1 }));
+
     await query("DELETE FROM chapters WHERE project_id = $1", [id]);
     await query("DELETE FROM chapter_outlines WHERE project_id = $1", [id]);
 

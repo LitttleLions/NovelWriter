@@ -194,6 +194,13 @@ export default function ProjectPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkTotal, setBulkTotal] = useState(0);
+  const [bulkDone, setBulkDone] = useState(0);
+  const [bulkCancelled, setBulkCancelled] = useState(false);
+  const bulkCancelRef = useRef(false);
+  const activeFetchAbortRef = useRef<AbortController | null>(null);
+
   const loadLogs = useCallback(async () => {
     setLoadingLogs(true);
     try {
@@ -287,7 +294,10 @@ export default function ProjectPage() {
     if (generatingOutline) return `${terms.outlineLabel} wird generiert …`;
     if (savingOutline) return `${terms.chapters} werden strukturiert …`;
     if (extractingCharacters) return "Charaktere werden extrahiert …";
-    if (generatingChapter !== null) return `${terms.chapter} ${generatingChapter} wird geschrieben …`;
+    if (generatingChapter !== null) {
+      if (bulkMode) return `${terms.chapter} ${generatingChapter} wird geschrieben … (${bulkDone + 1} von ${bulkTotal})`;
+      return `${terms.chapter} ${generatingChapter} wird geschrieben …`;
+    }
     return "";
   }
 
@@ -340,13 +350,14 @@ export default function ProjectPage() {
     }
   }
 
-  async function generateChapter(chapterNumber: number) {
+  async function generateChapter(chapterNumber: number, signal?: AbortSignal) {
     setGeneratingChapter(chapterNumber);
     try {
       const res = await fetch(`/api/projects/${projectId}/chapters/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chapter_number: chapterNumber }),
+        signal,
       });
 
       if (!res.ok || !res.body) {
@@ -388,6 +399,7 @@ export default function ProjectPage() {
         }
       }
     } catch (e: any) {
+      if (e?.name === "AbortError") return;
       alert(`Netzwerkfehler: ${e?.message || "Unbekannt"}`);
     } finally {
       setGeneratingChapter(null);
@@ -2086,11 +2098,30 @@ export default function ProjectPage() {
                       <span className="text-sm font-medium">Alle {terms.chapters} generieren</span>
                       <Button
                         onClick={async () => {
-                          for (const o of outlines) {
-                            const ch = chapters.find((c) => c.chapter_number === o.chapter_number);
-                            if (!ch) {
-                              await generateChapter(o.chapter_number);
+                          const pending = outlines.filter(
+                            (o) => !chapters.find((c) => c.chapter_number === o.chapter_number)
+                          );
+                          if (pending.length === 0) return;
+                          bulkCancelRef.current = false;
+                          setBulkCancelled(false);
+                          setBulkMode(true);
+                          setBulkTotal(pending.length);
+                          setBulkDone(0);
+                          try {
+                            for (let i = 0; i < pending.length; i++) {
+                              if (bulkCancelRef.current) {
+                                setBulkCancelled(true);
+                                break;
+                              }
+                              setBulkDone(i);
+                              const ctrl = new AbortController();
+                              activeFetchAbortRef.current = ctrl;
+                              await generateChapter(pending[i].chapter_number, ctrl.signal);
+                              activeFetchAbortRef.current = null;
                             }
+                          } finally {
+                            setBulkMode(false);
+                            activeFetchAbortRef.current = null;
                           }
                         }}
                         disabled={generatingChapter !== null}
@@ -2431,6 +2462,33 @@ export default function ProjectPage() {
             <span className="text-xs font-mono text-muted-foreground bg-muted rounded-md px-2 py-0.5 tabular-nums">
               {formatElapsed(elapsedSeconds)}
             </span>
+            {bulkMode && !bulkCancelRef.current && (
+              <button
+                onClick={() => {
+                  bulkCancelRef.current = true;
+                  activeFetchAbortRef.current?.abort();
+                }}
+                className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
+              >
+                Abbrechen
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {bulkCancelled && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-3 rounded-2xl bg-card border border-muted shadow-card px-5 py-3">
+            <span className="text-sm text-muted-foreground">
+              Generierung gestoppt – {bulkDone} von {bulkTotal} {terms.chapters} fertig
+            </span>
+            <button
+              onClick={() => setBulkCancelled(false)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}

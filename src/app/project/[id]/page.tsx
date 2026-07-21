@@ -406,6 +406,16 @@ export default function ProjectPage() {
     }
   }
 
+  async function generateChapterSingle(chapterNumber: number) {
+    const ctrl = new AbortController();
+    activeFetchAbortRef.current = ctrl;
+    try {
+      await generateChapter(chapterNumber, ctrl.signal);
+    } finally {
+      activeFetchAbortRef.current = null;
+    }
+  }
+
   async function saveCharacters() {
     setSavingCharacters(true);
     try {
@@ -2001,7 +2011,7 @@ export default function ProjectPage() {
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    generateChapter(o.chapter_number);
+                                    generateChapterSingle(o.chapter_number);
                                   }}
                                   disabled={generatingChapter !== null}
                                 >
@@ -2210,7 +2220,7 @@ export default function ProjectPage() {
                           size="sm"
                           variant="outline"
                           className="h-8 px-3 text-xs gap-1.5"
-                          onClick={() => generateChapter(ch.chapter_number)}
+                          onClick={() => generateChapterSingle(ch.chapter_number)}
                           disabled={generatingChapter !== null}
                         >
                           {generatingChapter === ch.chapter_number ? (
@@ -2474,6 +2484,16 @@ export default function ProjectPage() {
               <button
                 onClick={() => {
                   bulkCancelRef.current = true;
+                  activeFetchAbortRef.current?.abort();
+                }}
+                className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
+              >
+                Abbrechen
+              </button>
+            )}
+            {generatingChapter !== null && !bulkMode && (
+              <button
+                onClick={() => {
                   activeFetchAbortRef.current?.abort();
                 }}
                 className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"

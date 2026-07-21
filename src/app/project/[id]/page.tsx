@@ -2471,35 +2471,45 @@ export default function ProjectPage() {
 
       {isAiWorking && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <div className="flex items-center gap-3 rounded-2xl bg-card border border-primary/30 shadow-glow px-5 py-3">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
-            </span>
-            <span className="text-sm font-medium">{aiStatusLabel()}</span>
-            <span className="text-xs font-mono text-muted-foreground bg-muted rounded-md px-2 py-0.5 tabular-nums">
-              {formatElapsed(elapsedSeconds)}
-            </span>
-            {bulkMode && !bulkCancelRef.current && (
-              <button
-                onClick={() => {
-                  bulkCancelRef.current = true;
-                  activeFetchAbortRef.current?.abort();
-                }}
-                className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
-              >
-                Abbrechen
-              </button>
-            )}
-            {generatingChapter !== null && !bulkMode && (
-              <button
-                onClick={() => {
-                  activeFetchAbortRef.current?.abort();
-                }}
-                className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
-              >
-                Abbrechen
-              </button>
+          <div className="flex flex-col gap-2 rounded-2xl bg-card border border-primary/30 shadow-glow px-5 py-3 min-w-[280px]">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
+              </span>
+              <span className="text-sm font-medium flex-1">{aiStatusLabel()}</span>
+              <span className="text-xs font-mono text-muted-foreground bg-muted rounded-md px-2 py-0.5 tabular-nums">
+                {formatElapsed(elapsedSeconds)}
+              </span>
+              {bulkMode && !bulkCancelRef.current && (
+                <button
+                  onClick={() => {
+                    bulkCancelRef.current = true;
+                    activeFetchAbortRef.current?.abort();
+                  }}
+                  className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
+                >
+                  Abbrechen
+                </button>
+              )}
+              {generatingChapter !== null && !bulkMode && (
+                <button
+                  onClick={() => {
+                    activeFetchAbortRef.current?.abort();
+                  }}
+                  className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
+                >
+                  Abbrechen
+                </button>
+              )}
+            </div>
+            {bulkMode && bulkTotal > 0 && (
+              <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                  style={{ width: `${Math.round((bulkDone / bulkTotal) * 100)}%` }}
+                />
+              </div>
             )}
           </div>
         </div>

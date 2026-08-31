@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "dev": "next dev -p 5000 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 5000 -H 0.0.0.0"
@@ -52,5 +52,8 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
   }
 }

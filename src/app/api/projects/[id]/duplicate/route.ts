@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import pool from "@/lib/db";
-import { validateProjectModel } from "@/lib/ai-settings";
+import { resolveModel } from "@/lib/ai-settings";
 
 export async function POST(
   _req: Request,
@@ -29,7 +29,10 @@ export async function POST(
       return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
     }
     const src = sourceRes.rows[0];
-    const selectedModel = await validateProjectModel(src.ai_provider);
+    // Historical projects may reference a model that is no longer live or
+    // allowlisted. Resolve it through the current policy so duplication
+    // remains usable while never carrying an unapproved model forward.
+    const selectedModel = await resolveModel(src.ai_provider);
 
     const newTitle = `${src.title} (Kopie)`;
 

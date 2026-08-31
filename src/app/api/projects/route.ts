@@ -44,7 +44,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: err.message || "Ungültige Werk-Typ-Felder" }, { status: 400 });
     }
 
-    const selectedModel = await validateProjectModel(ai_provider);
+    let selectedModel: string;
+    try {
+      selectedModel = await validateProjectModel(ai_provider);
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: error?.message || "Ungültiges KI-Modell" },
+        { status: 400 },
+      );
+    }
     const result = await query(
       `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, ai_provider, project_type, screenplay_format, screenplay_style_preset, style_notes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)

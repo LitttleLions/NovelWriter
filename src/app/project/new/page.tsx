@@ -15,13 +15,6 @@ import { BookOpen, ArrowLeft, ArrowRight, Sparkles, Film, Tv, Info } from "lucid
 import { SCREENPLAY_STYLE_PRESETS } from "@/lib/screenplay-presets";
 import { DEFAULT_TARGET_WORDS, pagesToWords, wordsToPages } from "@/lib/terms";
 
-interface Model {
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-}
-
 type ProjectType = "novel" | "screenplay";
 type ScreenplayFormat = "feature" | "tv_episode";
 
@@ -39,7 +32,6 @@ function NewProjectInner() {
   const initialType: ProjectType = searchParams?.get("type") === "screenplay" ? "screenplay" : "novel";
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [models, setModels] = useState<Model[]>([]);
 
   const [projectType, setProjectType] = useState<ProjectType>(initialType);
   const [screenplayFormat, setScreenplayFormat] = useState<ScreenplayFormat>("feature");
@@ -51,7 +43,6 @@ function NewProjectInner() {
   const [genre, setGenre] = useState("");
   const [targetWordCount, setTargetWordCount] = useState("80000");
   const [language, setLanguage] = useState("Deutsch");
-  const [aiProvider, setAiProvider] = useState("anthropic/claude-sonnet-4.6");
 
   const [summary, setSummary] = useState("");
   const [characters, setCharacters] = useState("");
@@ -78,9 +69,6 @@ function NewProjectInner() {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
-    fetch("/api/models", { cache: "no-store" }).then((r) => r.json()).then((d) => {
-      setModels(d.models || []);
-    });
   }, [router]);
 
   // Auto-Defaults wenn Projekt-Typ wechselt
@@ -93,12 +81,6 @@ function NewProjectInner() {
       setTargetWordCount(String(DEFAULT_TARGET_WORDS.tv_episode));
     }
   }, [projectType, screenplayFormat]);
-
-  const groupedModels = models.reduce((acc, m) => {
-    if (!acc[m.provider]) acc[m.provider] = [];
-    acc[m.provider].push(m);
-    return acc;
-  }, {} as Record<string, Model[]>);
 
   async function handleCreate() {
     setLoading(true);
@@ -114,7 +96,6 @@ function NewProjectInner() {
           summary,
           characters,
           outline: outline || null,
-          ai_provider: aiProvider,
           project_type: projectType,
           screenplay_format: projectType === "screenplay" ? screenplayFormat : null,
           screenplay_style_preset: projectType === "screenplay" ? screenplayStylePreset : null,
@@ -337,33 +318,16 @@ function NewProjectInner() {
                 </>
               )}
 
-              <div className="space-y-2">
-                <Label>KI-Modell (via OpenRouter)</Label>
-                <Select value={aiProvider} onValueChange={setAiProvider}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(groupedModels).map(([provider, providerModels]) => (
-                      <SelectGroup key={provider}>
-                        <SelectLabel>{provider}</SelectLabel>
-                        {providerModels.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name} – {m.description}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <Label>KI-Modell</Label>
                 {isScreenplay ? (
                   <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                     <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />
-                    <span>Für Drehbücher empfohlen: <strong>Claude Sonnet 4.6</strong> oder <strong>GPT-5</strong> – beide halten das Format am zuverlässigsten ein.</span>
+                    <span>Das Standardmodell wird zentral von der Administration verwaltet und gilt für alle Projekte.</span>
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Wähle den KI-Anbieter und das Modell, das du nutzen möchtest
+                    Für alle KI-Funktionen wird das zentral konfigurierte Standardmodell verwendet.
                   </p>
                 )}
               </div>

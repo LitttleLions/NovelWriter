@@ -97,7 +97,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   // project_type and screenplay_format are intentionally NOT in this list:
   // they are immutable after creation (enforced above).
-  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "ai_provider", "status", "screenplay_style_preset"]) {
+  for (const key of ["title", "genre", "target_word_count", "language", "summary", "characters", "outline", "style_sample", "style_json", "style_notes", "status", "screenplay_style_preset"]) {
     if (body[key] !== undefined) {
       fields.push(`${key} = $${idx}`);
       values.push(key === "style_json" ? JSON.stringify(body[key]) : body[key]);

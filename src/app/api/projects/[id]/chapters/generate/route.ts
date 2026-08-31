@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost, describeAiError, detectDegeneration } from "@/lib/openrouter";
+import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
 import { getScreenplayStylePreset, getSluglineVocab } from "@/lib/screenplay-presets";
 
@@ -651,7 +652,7 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
       const pingInterval = setInterval(() => send({ type: "ping" }), 10_000);
 
       try {
-        const model = _p.ai_provider || "anthropic/claude-sonnet-4.6";
+        const model = await resolveModel();
         // Drehbuch-Szenen sind viel kürzer als Roman-Kapitel (1-5 Seiten ≈ 300-1000 Wörter).
         // 6000 Tokens verhindert unnötig lange Wartezeiten und Timeouts bei Screenplay-Projekten.
         const maxTokens = _p.project_type === "screenplay" ? 6000 : 16000;

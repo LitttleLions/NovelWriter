@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(255),
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -89,3 +90,15 @@ UPDATE projects SET project_type = 'novel' WHERE project_type IS NULL;
 -- (Setup / Inciting Incident / Rising Action / Midpoint / Crisis / Climax / Resolution
 --  bzw. Cold Open / Act Break / Tag bei TV-Episoden)
 ALTER TABLE chapter_outlines ADD COLUMN IF NOT EXISTS structural_role VARCHAR(50);
+
+-- Zentrale KI-Modellverwaltung. Die CHECK-Bedingung erlaubt genau eine Zeile.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS ai_settings (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE,
+  default_model VARCHAR(255) NOT NULL DEFAULT 'anthropic/claude-sonnet-4.6',
+  updated_at TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT ai_settings_singleton CHECK (id = TRUE)
+);
+INSERT INTO ai_settings (id, default_model)
+VALUES (TRUE, 'anthropic/claude-sonnet-4.6')
+ON CONFLICT (id) DO NOTHING;

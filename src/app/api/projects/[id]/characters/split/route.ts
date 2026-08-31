@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
+import { resolveModel } from "@/lib/ai-settings";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -29,7 +30,7 @@ Verwende ein klares Format, z.B. mit Überschriften oder Aufzählungszeichen.
 Charaktere:
 ${characters}`;
 
-    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
+    const model = await resolveModel();
     const result = await generateText(model, "Du bist ein erfahrener Roman-Editor.", prompt, 4000);
 
     await query(

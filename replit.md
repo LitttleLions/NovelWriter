@@ -1,7 +1,7 @@
 # RomanForge AI
 
 ## Overview
-RomanForge AI is a web application for generating complete, style-consistent novels from summaries, characters, and outlines. Users can select any AI model via OpenRouter (Anthropic, OpenAI, Google, Meta, etc.) and generate chapters with consistent style, character development, and plot coherence.
+RomanForge AI is a web application for generating complete, style-consistent novels from summaries, characters, and outlines. An administrator controls the centrally configured OpenRouter model used by all AI features, including consistent style, character development, and plot coherence.
 
 ## Tech Stack
 - **Frontend**: Next.js 14 (App Router) + React 18 + TypeScript
@@ -10,7 +10,7 @@ RomanForge AI is a web application for generating complete, style-consistent nov
 - **Backend**: Next.js API Routes
 - **Database**: Replit PostgreSQL (via `pg` package)
 - **Auth**: JWT-based (bcryptjs + jose) + optional Google Sign-In
-- **AI**: OpenRouter API (OpenAI-compatible SDK) - supports multiple providers/models
+- **AI**: OpenRouter API (OpenAI-compatible SDK) with centralized, server-side model resolution
 - **Export**: DOCX (via `docx`), Markdown, TXT, plus PDF (Courier 12 screenplay layout via `pdf-lib`) and Final Draft `.fdx` for screenplay projects
 
 ## Project Structure
@@ -30,7 +30,7 @@ src/
 │   └── api/
 │       ├── auth/           # login, register, logout, me, google
 │       ├── config/         # Public config (Google Client ID)
-│       ├── models/         # Available AI models list
+│       ├── models/         # Live, filtered AI models list
 │       └── projects/       # CRUD + style analysis + outline + chapter generation + export
 │           └── [id]/
 │               ├── outline/
@@ -48,14 +48,16 @@ src/
 │   ├── db/
 │   │   ├── index.ts        # PostgreSQL connection pool
 │   │   └── schema.sql      # Database schema reference
-│   ├── openrouter.ts       # OpenRouter client + 24 models across 8 providers
+│   ├── openrouter.ts       # OpenRouter client + compatibility pricing
+│   ├── ai-settings.ts      # Live model list, cache, global default, resolver
 │   ├── prompts.ts          # AI prompt templates
 │   └── utils.ts            # cn() utility
 ```
 
 ## Database Schema
-- **users**: id, email, password_hash, name
-- **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider, status
+- **users**: id, email, password_hash, name, is_admin
+- **ai_settings**: singleton row with default_model and updated_at
+- **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider (legacy), status
 - **chapters**: id, project_id, chapter_number, title, content, word_count, status, narrative_summary, character_states
 - **project_characters**: id, project_id, name, description, role, first_appears_chapter
 - **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes
@@ -64,12 +66,14 @@ src/
 - `DATABASE_URL` - PostgreSQL connection (auto-set by Replit)
 - `JWT_SECRET` - JWT signing secret (auto-generated)
 - `OPENROUTER_API_KEY` - OpenRouter API key (user provides in Secrets tab)
+- `OPENROUTER_MODEL` - (Optional) operator fallback model ID if the configured default is unavailable
+- `ADMIN_EMAIL` / `ADMIN_EMAILS` - (Optional) comma-separated operator email(s) that receive admin access
 - `GOOGLE_CLIENT_ID` - (Optional) Google OAuth Client ID for Google Sign-In
 
 ## Key Features
 1. **Auth**: Email/password + optional Google Sign-In
 2. **Theme**: Light/dark mode toggle on all pages
-3. **Project Creation**: Title, genre, word count, language, AI model selection
+3. **Project Creation**: Title, genre, word count, language; the AI model is centrally managed
 4. **Style Engine**: Three input modes:
    - **Beispieltext**: Paste book pages → KI analyzes and creates style profile
    - **Eigene Stilbeschreibung**: Write style directly → saved as-is (no AI analysis)
@@ -79,4 +83,4 @@ src/
 7. **Chapter Generation**: AI writes chapters following style, maintaining consistency
 8. **Live Editor**: Edit chapters directly, save changes
 9. **Export**: Word (DOCX), Markdown, and TXT download
-10. **Multi-Model**: 24 AI models across 8 providers (Anthropic, OpenAI, Google, Meta, DeepSeek, Mistral, Qwen, Cohere, NVIDIA) via OpenRouter
+10. **Central AI model management**: Admin-controlled default model from a live, provider- and price-filtered OpenRouter list

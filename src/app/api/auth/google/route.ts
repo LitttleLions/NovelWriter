@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { hashPassword, createToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { ensureAiSettingsSchema } from "@/lib/ai-settings";
 
 export async function POST(req: Request) {
   try {
+    await ensureAiSettingsSchema();
     const { credential } = await req.json();
 
     if (!credential) {
@@ -42,6 +44,13 @@ export async function POST(req: Request) {
       user = result.rows[0];
     }
 
+    await query(
+      `UPDATE users
+       SET is_admin = TRUE
+       WHERE id = $1
+         AND NOT EXISTS (SELECT 1 FROM users WHERE is_admin = TRUE AND id <> $1)`,
+      [user.id],
+    );
     const token = await createToken(user.id, user.email);
 
     const cookieStore = await cookies();

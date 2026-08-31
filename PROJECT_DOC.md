@@ -5,12 +5,14 @@
 - **Sprache**: TypeScript
 - **Datenbank**: PostgreSQL (Replit Managed)
 - **Authentifizierung**: JWT (jose) + Google Identity Services (GIS)
-- **KI-Integration**: OpenRouter API (OpenAI-kompatibler SDK)
+- **KI-Integration**: OpenRouter API (OpenAI-kompatibler SDK) mit zentraler, serverseitiger Modellauflösung
 
 ## 2. Kernfunktionen
 ### Projekt-Management
 - Erstellung von Projekten mit Titel, Genre, Zielwortzahl und Sprache.
-- Auswahl aus über 20 KI-Modellen (Claude, GPT, Gemini, DeepSeek, Llama etc.).
+- Ein Admin legt ein globales Standardmodell fest. Nutzer wählen kein Modell pro Projekt.
+- Die Admin-Modellliste wird live von OpenRouter geladen und serverseitig nach Anbieter-Allowlist und einem Preisdeckel von 20 USD pro 1 Mio. Tokens gefiltert.
+- Die Auswahl zeigt aktuelle Prompt-/Completion-Preise, Kontextlänge und Bildfähigkeit. Die Modellliste wird eine Stunde serverseitig gecacht und kann explizit aktualisiert werden.
 
 ### Stil-Engine
 - **Beispieltext**: Analyse von Textproben zur Erstellung eines Stil-Profils.
@@ -63,7 +65,7 @@
 ## 5. KI-Kosten & Generierungs-Log
 - **Tabelle**: `generation_log` in PostgreSQL speichert jede KI-Anfrage mit Aktion, Modell, Token-Zählung und geschätzten Kosten (USD).
 - **API**: `GET /api/projects/[id]/log` liefert alle Einträge plus Summenwerte.
-- **Preistabelle**: `estimateCost()` in `openrouter.ts` berechnet Kosten basierend auf hinterlegten Preisen pro Modell.
+- **Preistabelle**: `estimateCost()` nutzt aktuelle Preise der Live-Modellliste, wenn verfügbar, und fällt für historische/alte Modell-IDs auf die hinterlegte Kompatibilitätstabelle zurück.
 - **generateText()**: Gibt jetzt `{ content, prompt_tokens, completion_tokens, total_tokens }` zurück (statt nur String).
 - **UI**: Tab "KI-Log" zeigt alle Generierungen in einer Tabelle inkl. Zeitstempel, Aktion, Modell, Tokens und Kostenschätzung. Summenkarten zeigen Gesamtkosten und -tokens.
 
@@ -71,5 +73,5 @@
 - **Aktualisierung**: Diese Datei (`PROJECT_DOC.md`) muss bei jeder neuen Funktion oder Architekturänderung aktualisiert werden.
 - **Design-Treue**: Neue UI-Elemente müssen dem PromptMate Design-System folgen.
 - **Datenbank-Sicherheit**: IDs und Schemata dürfen nicht destruktiv geändert werden.
-- **Modell-Liste**: Neue Modelle in `src/lib/openrouter.ts` müssen a) in `AVAILABLE_MODELS` und b) in `MODEL_PRICES` mit korrekten Preisen eingetragen werden.
+- **Modell-Liste**: Laufzeitmodelle kommen live von OpenRouter; Allowlist und Preisdeckel liegen zentral in der serverseitigen Modellschicht. `MODEL_PRICES` bleibt nur als Kompatibilitäts-Fallback für historische Logs.
 - **Logging**: Jede neue KI-Generierungsroute muss einen Eintrag in `generation_log` schreiben und `estimateCost()` verwenden.

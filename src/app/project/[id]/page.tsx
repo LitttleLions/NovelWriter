@@ -92,13 +92,6 @@ interface ProjectCharacter {
   first_appears_chapter?: number;
 }
 
-interface Model {
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-}
-
 export default function ProjectPage() {
   const router = useRouter();
   const params = useParams();
@@ -107,7 +100,6 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [outlines, setOutlines] = useState<ChapterOutline[]>([]);
-  const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [editingCharacters, setEditingCharacters] = useState(false);
@@ -255,15 +247,8 @@ export default function ProjectPage() {
     fetch("/api/auth/me", { headers: authHeaders }).then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
-    fetch("/api/models", { headers: authHeaders, cache: "no-store" }).then((r) => r.json()).then((d) => setModels(d.models || []));
     loadProject();
   }, [router, loadProject]);
-
-  const groupedModels = models.reduce((acc, m) => {
-    if (!acc[m.provider]) acc[m.provider] = [];
-    acc[m.provider].push(m);
-    return acc;
-  }, {} as Record<string, Model[]>);
 
   const isAiWorking = generatingOutline || generatingChapter !== null || analyzingStyle || savingOutline || extractingCharacters;
 
@@ -469,15 +454,6 @@ export default function ProjectPage() {
     } finally {
       setSavingChapter(false);
     }
-  }
-
-  async function updateModel(modelId: string) {
-    await fetch(`/api/projects/${projectId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ai_provider: modelId }),
-    });
-    setProject((prev) => prev ? { ...prev, ai_provider: modelId } : null);
   }
 
   async function handleExport(format: string) {
@@ -836,23 +812,6 @@ export default function ProjectPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={project.ai_provider} onValueChange={updateModel}>
-              <SelectTrigger className="w-[200px] h-9 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(groupedModels).map(([provider, providerModels]) => (
-                  <SelectGroup key={provider}>
-                    <SelectLabel>{provider}</SelectLabel>
-                    {providerModels.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="text-xs">
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
             <ThemeToggle />
             <Button
               variant="outline"

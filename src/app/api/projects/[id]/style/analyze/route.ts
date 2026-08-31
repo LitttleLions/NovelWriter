@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
+import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
+    const model = await resolveModel();
     const result = await generateText(
       model,
       PROMPTS.styleAnalyzer,

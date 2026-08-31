@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost } from "@/lib/openrouter";
+import { resolveModel } from "@/lib/ai-settings";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -76,7 +77,7 @@ Format:
 ]`;
 
   try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
+    const model = await resolveModel();
     // 8000 Tokens statt 4000 — verhindert abgeschnittene JSON-Arrays bei langen Outlines
     const result = await generateText(model, "Du bist ein präziser Buch-Architekt.", prompt, 8000);
 
@@ -178,7 +179,7 @@ Format:
     const status = error?.status || 500;
     let message = "Fehler beim Hinzufügen des Punkts";
     if (status === 429) {
-      message = "Das KI-Modell ist gerade überlastet (Rate-Limit). Bitte in 1–2 Minuten erneut versuchen oder im Projekt ein anderes Modell wählen.";
+      message = "Das KI-Modell ist gerade überlastet (Rate-Limit). Bitte in 1–2 Minuten erneut versuchen.";
     } else if (error?.error?.message || error?.message) {
       message = `KI-Fehler: ${error?.error?.message || error.message}`;
     }

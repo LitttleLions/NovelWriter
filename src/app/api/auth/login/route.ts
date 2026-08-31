@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyPassword, createToken } from "@/lib/auth";
+import { ensureAiSettingsSchema } from "@/lib/ai-settings";
 import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
+    await ensureAiSettingsSchema();
     const { email, password } = await req.json();
 
     if (!email || !password) {

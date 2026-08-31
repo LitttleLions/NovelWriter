@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
+import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
 
 const CHUNK_SIZE = 25;
 
 function parseChaptersJson(content: string): any[] {
   if (!content || !content.trim()) {
-    throw new Error("Die KI hat eine leere Antwort zurückgegeben (vermutlich Timeout oder Rate-Limit). Bitte erneut versuchen oder ein anderes Modell wählen.");
+    throw new Error("Die KI hat eine leere Antwort zurückgegeben (vermutlich Timeout oder Rate-Limit). Bitte erneut versuchen.");
   }
   // 1) Try strict array match
   const arrayMatch = content.match(/\[[\s\S]*\]/);
@@ -191,7 +192,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { custom_outline } = body;
 
   try {
-    const model = p.ai_provider || "anthropic/claude-sonnet-4.6";
+    const model = await resolveModel();
     let allChapters: any[] = [];
     let totalTokens = { prompt: 0, completion: 0, total: 0 };
 

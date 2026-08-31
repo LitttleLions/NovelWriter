@@ -15,7 +15,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   BookOpen, Plus, Trash2, LogOut, FileText, Film, Tv, Copy, Search,
-  ChevronDown, Library, Sparkles, TrendingUp, ArrowUpDown,
+  ChevronDown, Library, Sparkles, TrendingUp, ArrowUpDown, Settings,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
 
@@ -197,6 +197,11 @@ export default function DashboardPage() {
               {user?.name || user?.email}
             </span>
             <ThemeToggle />
+            {user?.is_admin && (
+              <Button variant="ghost" size="icon" onClick={() => router.push("/admin")} title="KI-Einstellungen">
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={handleLogout} title="Abmelden">
               <LogOut className="h-4 w-4" />
             </Button>

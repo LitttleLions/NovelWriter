@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getCachedModelPrice } from "@/lib/ai-settings";
 
 export const AVAILABLE_MODELS = [
   // ── Anthropic – Top-Tier für literarisches Schreiben ──
@@ -438,9 +439,10 @@ const MODEL_PRICES: Record<string, { prompt: number; completion: number }> = {
 };
 
 export function estimateCost(modelId: string, promptTokens: number, completionTokens: number): number {
-  const prices = MODEL_PRICES[modelId];
+  const prices = getCachedModelPrice(modelId) || MODEL_PRICES[modelId];
   if (!prices) return 0;
-  return (promptTokens / 1000) * prices.prompt + (completionTokens / 1000) * prices.completion;
+  const divisor = getCachedModelPrice(modelId) ? 1_000_000 : 1000;
+  return (promptTokens / divisor) * prices.prompt + (completionTokens / divisor) * prices.completion;
 }
 
 export function describeAiError(error: any): { message: string; status: number } {
@@ -484,7 +486,7 @@ export function describeAiError(error: any): { message: string; status: number }
   }
   if (status === 404 || lower.includes("model not found") || lower.includes("no allowed providers") || lower.includes("model is not available")) {
     return {
-      message: "Das ausgewählte KI-Modell ist bei OpenRouter nicht (mehr) verfügbar. Wähle ein anderes Modell in den Projekteinstellungen.",
+      message: "Das konfigurierte KI-Modell ist bei OpenRouter nicht (mehr) verfügbar. Bitte informiere die Administration.",
       status: 502,
     };
   }

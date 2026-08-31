@@ -924,7 +924,7 @@ export default function ProjectPage() {
                         <SelectContent>
                           {models.map((model) => (
                             <SelectItem key={model.id} value={model.id}>
-                              {model.name} · {model.provider}
+                                {model.name}{model.id === defaultModel ? " · Empfohlen" : ""} · {model.provider}
                             </SelectItem>
                           ))}
                         </SelectContent>

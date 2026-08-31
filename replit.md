@@ -55,6 +55,7 @@ src/
 ```
 
 ## Database Schema
+- **Produktionsschutz**: Produktionsdatenbanken werden nicht für Entwicklungsprüfungen verwendet. Schema-Erweiterungen müssen additiv, idempotent und transaktional sein; bestehende Bücher und Generierungsdaten dürfen nicht verändert oder gelöscht werden.
 - **users**: id, email, password_hash, name, is_admin
 - **ai_settings**: singleton row with default_model, allowed_models and updated_at
 - **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider (saved project model), status

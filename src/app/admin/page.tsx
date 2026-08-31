@@ -166,20 +166,55 @@ export default function AdminPage() {
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Aktives Standardmodell</p>
-              <p className="text-lg font-bold">
-                {defaultModel || (loading ? "Wird geladen …" : "Automatische Auswahl")}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">Empfohlenes Standardmodell</p>
+                <Badge variant="outline">Für neue Projekte</Badge>
+              </div>
+              <p className="truncate text-lg font-bold">
+                {models.find((model) => model.id === defaultModel)?.name ||
+                  defaultModel ||
+                  (loading ? "Wird geladen …" : "Automatische Auswahl")}
               </p>
+              {defaultModel && models.find((model) => model.id === defaultModel) && (
+                <p className="truncate text-xs text-muted-foreground">{defaultModel}</p>
+              )}
               <p className="text-xs text-muted-foreground">
-                Neue Projekte starten damit. Bestehende Projekte behalten ihre eigene gültige Auswahl.
+                Neue Projekte starten damit. Bestehende Projekte behalten ihre eigene gültige Auswahl und können jederzeit zurücksetzen.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[340px]">
+              <label className="text-xs font-medium text-muted-foreground">Standardmodell festlegen</label>
+              <Select
+                value={models.some((model) => model.id === defaultModel) ? defaultModel : ""}
+                onValueChange={(value) => {
+                  setDefaultModel(value);
+                  setAdditionalModels((current) => current.filter((id) => id !== value));
+                }}
+                disabled={saving !== null || loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Standardmodell auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name} · {model.provider}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {defaultModel && !models.some((model) => model.id === defaultModel) && (
+                <p className="text-xs text-destructive">
+                  Das bisherige Standardmodell ist live nicht mehr verfügbar. Bitte ein neues auswählen.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 sm:self-end">
               <Badge variant="secondary">{additionalModels.length} / 4 Zusatzmodelle</Badge>
-              <Button onClick={saveSettings} disabled={saving !== null || !defaultModel}>
+              <Button onClick={saveSettings} disabled={saving !== null || !defaultModel || !models.some((model) => model.id === defaultModel)}>
                 {saving === "settings" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Speichern
+                Standard & Freigaben speichern
               </Button>
             </div>
           </CardContent>
@@ -209,33 +244,6 @@ export default function AdminPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-5 max-w-xl space-y-2">
-              <label className="text-sm font-medium">Standardmodell</label>
-              <Select
-                value={models.some((model) => model.id === defaultModel) ? defaultModel : ""}
-                onValueChange={(value) => {
-                  setDefaultModel(value);
-                  setAdditionalModels((current) => current.filter((id) => id !== value));
-                }}
-                disabled={saving !== null || loading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Standardmodell auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name} · {model.provider}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {defaultModel && !models.some((model) => model.id === defaultModel) && (
-                <p className="text-xs text-destructive">
-                  Das bisherige Standardmodell ist live nicht mehr verfügbar. Bitte ein neues auswählen.
-                </p>
-              )}
-            </div>
             {error && (
               <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="flex-1 text-destructive">{error}</p>

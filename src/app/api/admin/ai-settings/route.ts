@@ -3,7 +3,8 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import {
   getAiSettings,
   getAvailableModels,
-  setDefaultModel,
+  MAX_ADDITIONAL_MODELS,
+  setAiSettings,
 } from "@/lib/ai-settings";
 
 async function requireAdmin() {
@@ -22,7 +23,13 @@ export async function GET() {
       getAvailableModels(),
       getAiSettings(),
     ]);
-    return NextResponse.json({ models, defaultModel: settings.default_model });
+    return NextResponse.json({
+      models,
+      defaultModel: settings.default_model,
+      allowedModels: settings.allowed_models,
+      additionalModels: settings.allowed_models.filter((id: string) => id !== settings.default_model),
+      maxAdditionalModels: MAX_ADDITIONAL_MODELS,
+    });
   } catch (error) {
     console.error("Load admin AI settings error:", error);
     return NextResponse.json(
@@ -38,11 +45,23 @@ export async function PUT(req: Request) {
 
   try {
     const body = await req.json();
-    if (typeof body.model !== "string" || !body.model.trim()) {
+    const defaultModel = typeof body.defaultModel === "string"
+      ? body.defaultModel.trim()
+      : typeof body.model === "string"
+        ? body.model.trim()
+        : "";
+    const additionalModels = Array.isArray(body.additionalModels) ? body.additionalModels : [];
+    if (!defaultModel) {
       return NextResponse.json({ error: "Bitte ein Modell auswählen." }, { status: 400 });
     }
-    const selected = await setDefaultModel(body.model.trim());
-    return NextResponse.json({ defaultModel: selected.id, model: selected });
+    const settings = await setAiSettings(defaultModel, additionalModels);
+    const models = await getAvailableModels();
+    return NextResponse.json({
+      defaultModel: settings.default_model,
+      allowedModels: settings.allowed_models,
+      additionalModels: settings.allowed_models.filter((id) => id !== settings.default_model),
+      model: models.find((model) => model.id === settings.default_model) || null,
+    });
   } catch (error: any) {
     console.error("Update admin AI settings error:", error);
     return NextResponse.json(

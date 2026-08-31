@@ -192,7 +192,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { custom_outline } = body;
 
   try {
-    const model = await resolveModel();
+    const model = await resolveModel(p.ai_provider);
     let allChapters: any[] = [];
     let totalTokens = { prompt: 0, completion: 0, total: 0 };
 

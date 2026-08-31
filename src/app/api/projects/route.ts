@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { validateScreenplayFields } from "@/lib/screenplay-presets";
+import { validateProjectModel } from "@/lib/ai-settings";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   try {
     const {
       title, genre, target_word_count, language, summary, characters, outline,
-      project_type, screenplay_format, screenplay_style_preset, style_notes,
+      project_type, screenplay_format, screenplay_style_preset, style_notes, ai_provider,
     } = await req.json();
 
     if (!title) {
@@ -43,14 +44,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: err.message || "Ungültige Werk-Typ-Felder" }, { status: 400 });
     }
 
+    const selectedModel = await validateProjectModel(ai_provider);
     const result = await query(
-      `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, project_type, screenplay_format, screenplay_style_preset, style_notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO projects (user_id, title, genre, target_word_count, language, summary, characters, outline, ai_provider, project_type, screenplay_format, screenplay_style_preset, style_notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         user.id, title, genre || null,
         target_word_count || 80000, language || "Deutsch",
-        summary || null, characters || null, outline || null,
+        summary || null, characters || null, outline || null, selectedModel,
         validated.project_type, validated.screenplay_format, validated.screenplay_style_preset,
         (typeof style_notes === "string" && style_notes.trim()) ? style_notes : null,
       ]

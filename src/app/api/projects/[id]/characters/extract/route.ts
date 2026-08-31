@@ -44,7 +44,7 @@ Antworte NUR mit einem JSON-Array:
 Wichtig: Lass nichts weg – jede genannte Figur muss einen eigenen Eintrag bekommen.`;
 
   try {
-    const model = await resolveModel();
+    const model = await resolveModel(project.rows[0].ai_provider);
     const result = await generateText(model, "Du bist ein präziser Literaturanalyse-Experte.", prompt, 6000);
 
     let characters: any[] = [];

@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
-    const model = await resolveModel();
+    const model = await resolveModel(p.ai_provider);
     const result = await generateText(
       model,
       PROMPTS.styleAnalyzer,

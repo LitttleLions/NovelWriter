@@ -18,6 +18,13 @@ import { DEFAULT_TARGET_WORDS, pagesToWords, wordsToPages } from "@/lib/terms";
 type ProjectType = "novel" | "screenplay";
 type ScreenplayFormat = "feature" | "tv_episode";
 
+interface AiModel {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+}
+
 export default function NewProjectPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-muted-foreground animate-pulse">Laden...</div>}>
@@ -43,6 +50,10 @@ function NewProjectInner() {
   const [genre, setGenre] = useState("");
   const [targetWordCount, setTargetWordCount] = useState("80000");
   const [language, setLanguage] = useState("Deutsch");
+  const [models, setModels] = useState<AiModel[]>([]);
+  const [defaultModel, setDefaultModel] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [modelLoadError, setModelLoadError] = useState("");
 
   const [summary, setSummary] = useState("");
   const [characters, setCharacters] = useState("");
@@ -69,6 +80,18 @@ function NewProjectInner() {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
       if (d.error) router.push("/");
     });
+    fetch("/api/models", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Modellliste nicht verfügbar");
+        setModels(data.models || []);
+        setDefaultModel(data.defaultModel || "");
+        const liveDefault = data.models?.some((model: AiModel) => model.id === data.defaultModel)
+          ? data.defaultModel
+          : data.models?.[0]?.id || "";
+        setSelectedModel(liveDefault);
+      })
+      .catch(() => setModelLoadError("Die freigegebenen Modelle konnten nicht geladen werden. Das Standardmodell wird serverseitig verwendet."));
   }, [router]);
 
   // Auto-Defaults wenn Projekt-Typ wechselt
@@ -100,6 +123,7 @@ function NewProjectInner() {
           screenplay_format: projectType === "screenplay" ? screenplayFormat : null,
           screenplay_style_preset: projectType === "screenplay" ? screenplayStylePreset : null,
           style_notes: projectType === "screenplay" && styleNotes.trim() ? styleNotes : null,
+           ai_provider: selectedModel || undefined,
         }),
       });
       const data = await res.json();
@@ -319,15 +343,28 @@ function NewProjectInner() {
               )}
 
               <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <Label>KI-Modell</Label>
-                {isScreenplay ? (
-                  <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />
-                    <span>Das Standardmodell wird zentral von der Administration verwaltet und gilt für alle Projekte.</span>
-                  </div>
+                <Label htmlFor="project-model">KI-Modell für dieses Projekt</Label>
+                {models.length > 0 ? (
+                  <>
+                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                      <SelectTrigger id="project-model">
+                        <SelectValue placeholder="Modell auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {models.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name} · {model.provider}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Vorausgewählt: {models.find((model) => model.id === defaultModel)?.name || defaultModel || "Admin-Standard"}. Die Auswahl wird im Projekt gespeichert.
+                    </p>
+                  </>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Für alle KI-Funktionen wird das zentral konfigurierte Standardmodell verwendet.
+                    {modelLoadError || "Die freigegebenen Modelle werden geladen …"}
                   </p>
                 )}
               </div>

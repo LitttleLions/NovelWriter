@@ -11,6 +11,7 @@ export const ALLOWED_PROVIDER_PREFIXES = [
 export const MAX_PRICE_USD_PER_MILLION_TOKENS = 20;
 export const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
 export const DEFAULT_MODEL_ID = "anthropic/claude-sonnet-4.6";
+export const MAX_ADDITIONAL_MODELS = 4;
 
 export interface AiModel {
   id: string;
@@ -45,16 +46,27 @@ export function ensureAiSettingsSchema(): Promise<void> {
             CREATE TABLE IF NOT EXISTS ai_settings (
               id BOOLEAN PRIMARY KEY DEFAULT TRUE,
               default_model VARCHAR(255) NOT NULL DEFAULT '${DEFAULT_MODEL_ID}',
+              allowed_models TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
               updated_at TIMESTAMP DEFAULT NOW(),
               CONSTRAINT ai_settings_singleton CHECK (id = TRUE)
             )
           `);
+          await client.query(`
+            ALTER TABLE ai_settings
+            ADD COLUMN IF NOT EXISTS allowed_models TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]
+          `);
           await client.query(
-            `INSERT INTO ai_settings (id, default_model)
-             VALUES (TRUE, $1)
+            `INSERT INTO ai_settings (id, default_model, allowed_models)
+             VALUES (TRUE, $1::TEXT, ARRAY[$1::TEXT]::TEXT[])
              ON CONFLICT (id) DO NOTHING`,
             [DEFAULT_MODEL_ID],
           );
+          await client.query(`
+            UPDATE ai_settings
+            SET allowed_models = ARRAY[default_model]::TEXT[]
+            WHERE id = TRUE
+              AND (allowed_models IS NULL OR cardinality(allowed_models) = 0)
+          `);
 
           // Existing single-user installations get a usable admin without
           // exposing a public role-assignment endpoint. ADMIN_EMAIL can
@@ -197,46 +209,137 @@ export async function getAvailableModels(forceRefresh = false): Promise<AiModel[
   return modelsFetchPromise;
 }
 
-export async function getAiSettings() {
+export interface AiSettings {
+  id: boolean;
+  default_model: string;
+  allowed_models: string[];
+  updated_at?: string;
+}
+
+function normalizeModelIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value
+        .filter((modelId): modelId is string => typeof modelId === "string" && modelId.trim().length > 0)
+        .map((modelId) => modelId.trim()),
+    ),
+  ];
+}
+
+export async function getAiSettings(): Promise<AiSettings> {
   await ensureAiSettingsSchema();
   const result = await query(
-    "SELECT id, default_model, updated_at FROM ai_settings WHERE id = TRUE",
+    "SELECT id, default_model, allowed_models, updated_at FROM ai_settings WHERE id = TRUE",
   );
-  return result.rows[0] || { id: true, default_model: DEFAULT_MODEL_ID };
+  const row = result.rows[0];
+  if (!row) {
+    return { id: true, default_model: DEFAULT_MODEL_ID, allowed_models: [DEFAULT_MODEL_ID] };
+  }
+  const defaultModel = String(row.default_model || DEFAULT_MODEL_ID);
+  const configuredModels = normalizeModelIds(row.allowed_models);
+  return {
+    ...row,
+    default_model: defaultModel,
+    allowed_models: configuredModels.includes(defaultModel)
+      ? configuredModels
+      : [defaultModel, ...configuredModels],
+  };
 }
 
-export async function setDefaultModel(modelId: string): Promise<AiModel> {
-  const models = await getAvailableModels(true);
-  const selected = models.find((model) => model.id === modelId);
-  if (!selected) {
-    throw new Error("Das gewählte Modell ist nicht verfügbar oder überschreitet die erlaubte Preisgrenze.");
+function modelsByIds(models: AiModel[], ids: string[]): AiModel[] {
+  return ids.map((id) => models.find((model) => model.id === id)).filter(Boolean) as AiModel[];
+}
+
+export async function getSelectableModels(forceRefresh = false): Promise<AiModel[]> {
+  const [models, settings] = await Promise.all([
+    getAvailableModels(forceRefresh),
+    getAiSettings(),
+  ]);
+  return modelsByIds(models, settings.allowed_models);
+}
+
+export async function validateProjectModel(modelId?: unknown): Promise<string> {
+  const [settings, selectableModels] = await Promise.all([
+    getAiSettings(),
+    getSelectableModels(),
+  ]);
+  const requested = typeof modelId === "string" ? modelId.trim() : "";
+  if (!requested) {
+    if (selectableModels.some((model) => model.id === settings.default_model)) {
+      return settings.default_model;
+    }
+    return resolveModel();
   }
+  if (!selectableModels.some((model) => model.id === requested)) {
+    throw new Error("Das gewählte Modell ist nicht für dieses Projekt freigegeben oder nicht mehr verfügbar.");
+  }
+  return requested;
+}
+
+export async function setAiSettings(defaultModel: string, additionalModels: string[]): Promise<AiSettings> {
+  const models = await getAvailableModels(true);
+  const nextDefault = defaultModel.trim();
+  const extras = normalizeModelIds(additionalModels).filter((modelId) => modelId !== nextDefault);
+  if (extras.length > MAX_ADDITIONAL_MODELS) {
+    throw new Error(`Es können höchstens ${MAX_ADDITIONAL_MODELS} zusätzliche Modelle freigegeben werden.`);
+  }
+
+  const ids = [nextDefault, ...extras];
+  const selectedModels = modelsByIds(models, ids);
+  if (!nextDefault || selectedModels.length !== ids.length) {
+    throw new Error("Mindestens ein gewähltes Modell ist nicht verfügbar oder überschreitet die erlaubte Preisgrenze.");
+  }
+
   await ensureAiSettingsSchema();
   await query(
-    `INSERT INTO ai_settings (id, default_model, updated_at)
-     VALUES (TRUE, $1, NOW())
+    `INSERT INTO ai_settings (id, default_model, allowed_models, updated_at)
+     VALUES (TRUE, $1, $2::TEXT[], NOW())
      ON CONFLICT (id) DO UPDATE
-     SET default_model = EXCLUDED.default_model, updated_at = NOW()`,
-    [selected.id],
+     SET default_model = EXCLUDED.default_model,
+         allowed_models = EXCLUDED.allowed_models,
+         updated_at = NOW()`,
+    [nextDefault, ids],
   );
-  return selected;
+  return {
+    id: true,
+    default_model: nextDefault,
+    allowed_models: ids,
+    updated_at: new Date().toISOString(),
+  };
 }
 
-export async function resolveModel(): Promise<string> {
+// Kept as a compatibility wrapper for callers that only change the default.
+export async function setDefaultModel(modelId: string): Promise<AiModel> {
+  const settings = await getAiSettings();
+  const updated = await setAiSettings(
+    modelId,
+    settings.allowed_models.filter((id) => id !== modelId),
+  );
   const models = await getAvailableModels();
+  return models.find((model) => model.id === updated.default_model)!;
+}
+
+export async function resolveModel(preferredModel?: string): Promise<string> {
+  const [models, settings] = await Promise.all([
+    getAvailableModels(),
+    getAiSettings(),
+  ]);
   if (models.length === 0) {
     throw new Error("Keine zulässigen KI-Modelle verfügbar. Prüfe die OpenRouter-Modellliste und den API-Key.");
   }
 
-  const settings = await getAiSettings();
-  if (settings.default_model && models.some((model) => model.id === settings.default_model)) {
+  const liveIds = new Set(models.map((model) => model.id));
+  const selectableIds = settings.allowed_models.filter((modelId) => liveIds.has(modelId));
+  if (preferredModel && selectableIds.includes(preferredModel)) return preferredModel;
+  if (settings.default_model && selectableIds.includes(settings.default_model)) {
     return settings.default_model;
   }
 
   const operatorModel = process.env.OPENROUTER_MODEL?.trim();
-  if (operatorModel) return operatorModel;
+  if (operatorModel && liveIds.has(operatorModel)) return operatorModel;
 
-  return models[0].id;
+  return models.find((model) => selectableIds.includes(model.id))?.id || models[0].id;
 }
 
 export function clearModelsCache() {

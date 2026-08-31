@@ -77,7 +77,7 @@ Format:
 ]`;
 
   try {
-    const model = await resolveModel();
+    const model = await resolveModel(p.ai_provider);
     // 8000 Tokens statt 4000 — verhindert abgeschnittene JSON-Arrays bei langen Outlines
     const result = await generateText(model, "Du bist ein präziser Buch-Architekt.", prompt, 8000);
 

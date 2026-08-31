@@ -30,7 +30,7 @@ Verwende ein klares Format, z.B. mit Überschriften oder Aufzählungszeichen.
 Charaktere:
 ${characters}`;
 
-    const model = await resolveModel();
+    const model = await resolveModel(project.rows[0].ai_provider);
     const result = await generateText(model, "Du bist ein erfahrener Roman-Editor.", prompt, 4000);
 
     await query(

@@ -96,9 +96,14 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FAL
 CREATE TABLE IF NOT EXISTS ai_settings (
   id BOOLEAN PRIMARY KEY DEFAULT TRUE,
   default_model VARCHAR(255) NOT NULL DEFAULT 'anthropic/claude-sonnet-4.6',
+  allowed_models TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
   updated_at TIMESTAMP DEFAULT NOW(),
   CONSTRAINT ai_settings_singleton CHECK (id = TRUE)
 );
-INSERT INTO ai_settings (id, default_model)
-VALUES (TRUE, 'anthropic/claude-sonnet-4.6')
+ALTER TABLE ai_settings ADD COLUMN IF NOT EXISTS allowed_models TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+INSERT INTO ai_settings (id, default_model, allowed_models)
+VALUES (TRUE, 'anthropic/claude-sonnet-4.6', ARRAY['anthropic/claude-sonnet-4.6']::TEXT[])
 ON CONFLICT (id) DO NOTHING;
+UPDATE ai_settings
+SET allowed_models = ARRAY[default_model]::TEXT[]
+WHERE id = TRUE AND (allowed_models IS NULL OR cardinality(allowed_models) = 0);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { VALID_PROJECT_TYPES, VALID_SCREENPLAY_FORMATS, VALID_SCREENPLAY_PRESETS } from "@/lib/screenplay-presets";
+import { validateProjectModel } from "@/lib/ai-settings";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -46,13 +47,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Roman / Spielfilm / TV-Episode at creation; switching later would
   // invalidate prompt routing, page-vs-word units, and outline conventions.
   const existing = await query(
-    "SELECT project_type, screenplay_format FROM projects WHERE id = $1 AND user_id = $2",
+    "SELECT project_type, screenplay_format, ai_provider FROM projects WHERE id = $1 AND user_id = $2",
     [id, user.id]
   );
   if (existing.rows.length === 0) {
     return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
   }
   const current = existing.rows[0];
+
+  let selectedModel: string | undefined;
+  if (body.ai_provider !== undefined) {
+    try {
+      selectedModel = await validateProjectModel(body.ai_provider);
+    } catch (error: any) {
+      return NextResponse.json({ error: error?.message || "Ungültiges KI-Modell" }, { status: 400 });
+    }
+  }
 
   // Reject attempts to change project_type or screenplay_format on an
   // existing project. The screenplay style preset CAN still be changed
@@ -103,6 +113,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       values.push(key === "style_json" ? JSON.stringify(body[key]) : body[key]);
       idx++;
     }
+  }
+  if (selectedModel) {
+    fields.push(`ai_provider = $${idx}`);
+    values.push(selectedModel);
+    idx++;
   }
 
   if (fields.length === 0) {

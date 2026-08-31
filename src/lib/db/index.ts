@@ -3,8 +3,8 @@ import { Pool } from "pg";
 // Database schema with current columns
 /*
 users: id, email, password_hash, name, is_admin, created_at
-ai_settings: singleton id, default_model, updated_at
-projects: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, style_notes, ai_provider (legacy), status, project_type, screenplay_format, screenplay_style_preset, created_at, updated_at
+ai_settings: singleton id, default_model, allowed_models, updated_at
+projects: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, style_notes, ai_provider (saved project model), status, project_type, screenplay_format, screenplay_style_preset, created_at, updated_at
   - project_type: 'novel' (default) | 'screenplay'
   - screenplay_format: NULL | 'feature' | 'tv_episode'
   - screenplay_style_preset: NULL | 'sorkin' | 'tarantino' | 'dialogue_heavy' | 'action_heavy' | 'custom'

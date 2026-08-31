@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AiModel {
@@ -37,6 +38,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [models, setModels] = useState<AiModel[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
+  const [additionalModels, setAdditionalModels] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -62,6 +64,12 @@ export default function AdminPage() {
       }
       setModels(data.models || []);
       setDefaultModel(data.defaultModel || "");
+      const liveModelIds = new Set((data.models || []).map((model: AiModel) => model.id));
+      setAdditionalModels(
+        (data.additionalModels || [])
+          .filter((id: string) => id !== data.defaultModel && liveModelIds.has(id))
+          .slice(0, 4),
+      );
     } catch (err: any) {
       setError(err?.message || "Die Modellliste konnte nicht geladen werden.");
     } finally {
@@ -73,23 +81,36 @@ export default function AdminPage() {
     loadSettings();
   }, [loadSettings]);
 
-  async function chooseModel(model: AiModel) {
-    setSaving(model.id);
+  async function saveSettings() {
+    if (!defaultModel) return;
+    setSaving("settings");
     setError("");
     try {
       const response = await fetch("/api/admin/ai-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: model.id }),
+        body: JSON.stringify({ defaultModel, additionalModels }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Das Standardmodell konnte nicht gespeichert werden.");
-      setDefaultModel(data.defaultModel || model.id);
+      setDefaultModel(data.defaultModel || defaultModel);
+      setAdditionalModels(data.additionalModels || []);
     } catch (err: any) {
-      setError(err?.message || "Das Standardmodell konnte nicht gespeichert werden.");
+      setError(err?.message || "Die Modellfreigaben konnten nicht gespeichert werden.");
     } finally {
       setSaving(null);
     }
+  }
+
+  function toggleAdditionalModel(modelId: string) {
+    if (modelId === defaultModel) return;
+    setAdditionalModels((current) =>
+      current.includes(modelId)
+        ? current.filter((id) => id !== modelId)
+        : current.length < 4
+          ? [...current, modelId]
+          : current,
+    );
   }
 
   const filteredModels = useMemo(() => {
@@ -151,10 +172,16 @@ export default function AdminPage() {
                 {defaultModel || (loading ? "Wird geladen …" : "Automatische Auswahl")}
               </p>
               <p className="text-xs text-muted-foreground">
-                Dieses Modell wird von allen KI-Funktionen und Projekten verwendet.
+                Neue Projekte starten damit. Bestehende Projekte behalten ihre eigene gültige Auswahl.
               </p>
             </div>
-            <Badge variant="secondary">Serverseitig festgelegt</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{additionalModels.length} / 4 Zusatzmodelle</Badge>
+              <Button onClick={saveSettings} disabled={saving !== null || !defaultModel}>
+                {saving === "settings" ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Speichern
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -163,7 +190,7 @@ export default function AdminPage() {
             <div>
               <CardTitle>Verfügbare Modelle</CardTitle>
               <CardDescription>
-                Live von OpenRouter geladen, auf erlaubte Anbieter und maximal 20 USD pro 1 Mio. Tokens begrenzt.
+                Das Standardmodell ist immer freigegeben. Zusätzlich kannst du bis zu vier Modelle für Projekte freigeben.
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -182,6 +209,33 @@ export default function AdminPage() {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-5 max-w-xl space-y-2">
+              <label className="text-sm font-medium">Standardmodell</label>
+              <Select
+                value={models.some((model) => model.id === defaultModel) ? defaultModel : ""}
+                onValueChange={(value) => {
+                  setDefaultModel(value);
+                  setAdditionalModels((current) => current.filter((id) => id !== value));
+                }}
+                disabled={saving !== null || loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Standardmodell auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name} · {model.provider}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {defaultModel && !models.some((model) => model.id === defaultModel) && (
+                <p className="text-xs text-destructive">
+                  Das bisherige Standardmodell ist live nicht mehr verfügbar. Bitte ein neues auswählen.
+                </p>
+              )}
+            </div>
             {error && (
               <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="flex-1 text-destructive">{error}</p>
@@ -210,7 +264,8 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {filteredModels.map((model) => {
-                      const isSelected = model.id === defaultModel;
+                      const isDefault = model.id === defaultModel;
+                      const isAdditional = additionalModels.includes(model.id);
                       return (
                         <tr key={model.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="py-4 pr-4">
@@ -225,17 +280,21 @@ export default function AdminPage() {
                           </td>
                           <td className="py-4 pr-4 whitespace-nowrap">{formatContext(model.context_length)} Tokens</td>
                           <td className="py-4 pr-4">
-                            {model.supports_vision ? <Badge variant="outline">Bildfähig</Badge> : <span className="text-muted-foreground">Text</span>}
+                            <div className="flex flex-wrap gap-1">
+                              {isDefault && <Badge>Standard</Badge>}
+                              {isAdditional && <Badge variant="outline">Freigegeben</Badge>}
+                              {model.supports_vision ? <Badge variant="outline">Bildfähig</Badge> : <span className="text-muted-foreground">Text</span>}
+                            </div>
                           </td>
                           <td className="py-4 text-right">
                             <Button
                               size="sm"
-                              variant={isSelected ? "default" : "outline"}
-                              disabled={isSelected || saving !== null}
-                              onClick={() => chooseModel(model)}
+                              variant={isAdditional ? "default" : "outline"}
+                              disabled={isDefault || saving !== null || (!isAdditional && additionalModels.length >= 4)}
+                              onClick={() => toggleAdditionalModel(model.id)}
                             >
-                              {saving === model.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : isSelected ? <Check className="h-3.5 w-3.5" /> : null}
-                              {isSelected ? "Aktiv" : "Als Standard setzen"}
+                              {isAdditional && <Check className="h-3.5 w-3.5" />}
+                              {isAdditional ? "Freigegeben" : isDefault ? "Standard" : "Freigeben"}
                             </Button>
                           </td>
                         </tr>

@@ -49,15 +49,15 @@ src/
 │   │   ├── index.ts        # PostgreSQL connection pool
 │   │   └── schema.sql      # Database schema reference
 │   ├── openrouter.ts       # OpenRouter client + compatibility pricing
-│   ├── ai-settings.ts      # Live model list, cache, global default, resolver
+│   ├── ai-settings.ts      # Live model list, cache, admin-approved models, project resolver
 │   ├── prompts.ts          # AI prompt templates
 │   └── utils.ts            # cn() utility
 ```
 
 ## Database Schema
 - **users**: id, email, password_hash, name, is_admin
-- **ai_settings**: singleton row with default_model and updated_at
-- **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider (legacy), status
+- **ai_settings**: singleton row with default_model, allowed_models and updated_at
+- **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider (saved project model), status
 - **chapters**: id, project_id, chapter_number, title, content, word_count, status, narrative_summary, character_states
 - **project_characters**: id, project_id, name, description, role, first_appears_chapter
 - **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes

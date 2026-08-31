@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import pool from "@/lib/db";
+import { validateProjectModel } from "@/lib/ai-settings";
 
 export async function POST(
   _req: Request,
@@ -28,6 +29,7 @@ export async function POST(
       return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
     }
     const src = sourceRes.rows[0];
+    const selectedModel = await validateProjectModel(src.ai_provider);
 
     const newTitle = `${src.title} (Kopie)`;
 
@@ -58,7 +60,7 @@ export async function POST(
         src.style_sample,
         src.style_json,
         src.style_notes,
-        src.ai_provider,
+        selectedModel,
         src.project_type,
         src.screenplay_format,
         src.screenplay_style_preset,

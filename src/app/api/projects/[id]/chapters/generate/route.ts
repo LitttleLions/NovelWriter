@@ -652,7 +652,7 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
       const pingInterval = setInterval(() => send({ type: "ping" }), 10_000);
 
       try {
-        const model = await resolveModel();
+        const model = await resolveModel(_p.ai_provider);
         // Drehbuch-Szenen sind viel kürzer als Roman-Kapitel (1-5 Seiten ≈ 300-1000 Wörter).
         // 6000 Tokens verhindert unnötig lange Wartezeiten und Timeouts bei Screenplay-Projekten.
         const maxTokens = _p.project_type === "screenplay" ? 6000 : 16000;

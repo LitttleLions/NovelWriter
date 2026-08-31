@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAvailableModels, getAiSettings } from "@/lib/ai-settings";
+import { getAiSettings, getSelectableModels } from "@/lib/ai-settings";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +11,11 @@ export async function GET() {
 
   try {
     const [models, settings] = await Promise.all([
-      getAvailableModels(),
+      getSelectableModels(),
       getAiSettings(),
     ]);
     return NextResponse.json(
-      { models, defaultModel: settings.default_model },
+      { models, defaultModel: settings.default_model, allowedModels: settings.allowed_models },
       { headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   } catch (error: any) {

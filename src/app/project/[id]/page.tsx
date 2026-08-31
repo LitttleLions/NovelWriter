@@ -42,6 +42,13 @@ interface Project {
   screenplay_style_preset?: string;
 }
 
+interface AiModel {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+}
+
 interface Chapter {
   id: number;
   chapter_number: number;
@@ -100,6 +107,11 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [outlines, setOutlines] = useState<ChapterOutline[]>([]);
+  const [models, setModels] = useState<AiModel[]>([]);
+  const [defaultModel, setDefaultModel] = useState("");
+  const [savingModel, setSavingModel] = useState(false);
+  const [modelError, setModelError] = useState("");
+  const [modelFallback, setModelFallback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [editingCharacters, setEditingCharacters] = useState(false);
@@ -222,6 +234,19 @@ export default function ProjectPage() {
     setCharactersText(data.project.characters || "");
     setStyleSample(data.project.style_sample || "");
     setStyleNotes(data.project.style_notes || "");
+    const modelRes = await fetch("/api/models", { headers: authHeaders, cache: "no-store" });
+    const modelData = await modelRes.json().catch(() => ({}));
+    if (modelRes.ok) {
+      const availableModels = modelData.models || [];
+      setModels(availableModels);
+      setDefaultModel(modelData.defaultModel || "");
+      setModelFallback(
+        Boolean(data.project.ai_provider) &&
+        !availableModels.some((model: AiModel) => model.id === data.project.ai_provider),
+      );
+    } else {
+      setModelError(modelData.error || "Die freigegebenen Modelle konnten nicht geladen werden.");
+    }
     setLoading(false);
     // Load structured characters
     const charRes = await fetch(`/api/projects/${projectId}/characters`, { headers: authHeaders });
@@ -483,6 +508,26 @@ export default function ProjectPage() {
       URL.revokeObjectURL(url);
     } catch {
       alert("Export fehlgeschlagen");
+    }
+  }
+
+  async function updateModel(modelId: string) {
+    setSavingModel(true);
+    setModelError("");
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ai_provider: modelId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Das Projektmodell konnte nicht gespeichert werden.");
+      setProject((prev) => prev ? { ...prev, ai_provider: data.project?.ai_provider || modelId } : null);
+      setModelFallback(false);
+    } catch (error: any) {
+      setModelError(error?.message || "Das Projektmodell konnte nicht gespeichert werden.");
+    } finally {
+      setSavingModel(false);
     }
   }
 
@@ -843,6 +888,71 @@ export default function ProjectPage() {
           </TabsList>
 
           <TabsContent value="overview">
+            <Card className="mb-6 border-primary/20 bg-primary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">KI-Modell für dieses Projekt</CardTitle>
+                <CardDescription>
+                  Die Auswahl bleibt für dieses Projekt gespeichert und beeinflusst Stil und Ton der nächsten Generierungen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {modelFallback && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>Das bisherige Modell ist nicht mehr freigegeben. Bitte wähle ein neues Modell oder setze den aktuellen Admin-Standard.</span>
+                  </div>
+                )}
+                {modelError && (
+                  <p className="text-sm text-destructive">{modelError}</p>
+                )}
+                {models.length > 0 ? (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="project-model">Aktives Modell</Label>
+                      <Select
+                        value={
+                          models.some((model) => model.id === project.ai_provider)
+                            ? project.ai_provider
+                            : ""
+                        }
+                        onValueChange={updateModel}
+                        disabled={savingModel}
+                      >
+                        <SelectTrigger id="project-model">
+                          <SelectValue placeholder="Modell auswählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {models.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name} · {model.provider}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => updateModel(defaultModel)}
+                      disabled={savingModel || !defaultModel || project.ai_provider === defaultModel}
+                    >
+                      {savingModel ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      Admin-Standard verwenden
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Die freigegebenen Modelle sind momentan nicht verfügbar. KI-Aufrufe verwenden den serverseitigen Fallback.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {project.ai_provider === defaultModel && defaultModel
+                    ? "Dieses Projekt verwendet den aktuellen Admin-Standard."
+                    : project.ai_provider
+                      ? `Gespeichert: ${models.find((model) => model.id === project.ai_provider)?.name || project.ai_provider}`
+                      : "Noch kein Projektmodell gespeichert."}
+                </p>
+              </CardContent>
+            </Card>
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>

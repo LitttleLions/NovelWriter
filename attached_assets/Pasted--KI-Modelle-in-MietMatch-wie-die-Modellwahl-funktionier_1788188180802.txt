@@ -1,0 +1,82 @@
+# KI-Modelle in MietMatch — wie die Modellwahl funktioniert
+
+**Stand:** 31.08.2026
+**Zweck:** Vollständige Beschreibung des Mechanismus „ein zentrales Standardmodell + laufend aktualisierte Modellliste", so dass jemand anders dasselbe Muster in einem anderen Projekt nachbauen kann.
+
+---
+
+## 1. Die Idee in drei Sätzen
+
+Der Nutzer wählt **kein** KI-Modell. Ein Admin legt in `/admin` **genau ein** Standardmodell fest; es gilt für alle KI-Funktionen (Inseratstext, Schnellerfassung). Die Auswahlliste, aus der der Admin wählt, wird **live** beim Anbieter geholt und serverseitig auf erlaubte Anbieter und einen Preisdeckel gefiltert — die Liste altert also nicht, ohne dass jemand Code anfasst.
+
+---
+
+## 2. Beteiligte Teile
+
+| Teil | Datei | Aufgabe |
+|---|---|---|
+| Edge Function | `supabase/functions/ai-draft/index.ts` | Einziger Ort mit API-Schlüssel. Liefert die Modellliste, löst das aktive Modell auf, führt die KI-Aufrufe aus. |
+| Speicher | Tabelle `mietmatch_ai_settings` (eine einzige Zeile, `id = true`) | Spalte `default_model` hält die gewählte Modell-ID. |
+| Lade-Hook | `src/hooks/useAiModels.ts` | Holt die gefilterte Liste über die Edge Function, genau einmal pro Öffnung. |
+| Admin-UI | `src/components/AdminAiModelSettings.tsx` | Tabelle aller zulässigen Modelle mit Suche, Preis, Kontextlänge, Bildfähigkeit; Klick setzt das Standardmodell. |
+| Nutzer-Dialoge | `AiListingDraftDialog.tsx`, `AiCaptureDialog.tsx` | Rufen `ai-draft` auf — **ohne** Modellangabe. |
+
+Anbieter ist OpenRouter; der Schlüssel liegt als Secret `OPENROUTER_API_KEY_MIETMATCH` und verlässt den Server nie.
+
+---
+
+## 3. Die Modellliste (Modus `models`)
+
+Aufruf: `supabase.functions.invoke('ai-draft', { body: { mode: 'models' } })`.
+
+In der Function passiert genau das:
+
+1. **Live holen:** `GET https://openrouter.ai/api/v1/models` (aktuell ~150 Modelle).
+2. **Anbieter-Allowlist:** nur IDs mit einem Präfix aus
+   `ALLOWED_PROVIDER_PREFIXES = ['deepseek/', 'google/', 'anthropic/', 'openai/', 'qwen/']`.
+3. **Auf das Nötige eindampfen** (`toSlimModel`): ID, Name, Prompt-Preis und Completion-Preis **je 1 Mio. Tokens**, Kontextlänge, Bildfähigkeit.
+   Preise kommen bei OpenRouter als String in USD *pro Token* — `priceToPerMillion()` rechnet um; ein unlesbarer Preis wird zu `Infinity` und fliegt damit im nächsten Schritt raus (im Zweifel ausschließen, nicht durchlassen).
+   Bildfähigkeit liest `modelSupportsVision()` aus `architecture.input_modalities`, ersatzweise aus dem älteren Feld `architecture.modality`; im Zweifel `false`.
+4. **Preisdeckel:** `MAX_PRICE_USD_PER_MILLION_TOKENS = 20` — überschreitet Prompt- **oder** Completion-Preis den Wert, fällt das Modell raus.
+5. **Sortierung:** günstigstes zuerst.
+6. **Cache:** Ergebnis liegt eine Stunde in einer Modulvariablen (`MODELS_CACHE_TTL_MS`). Der Cache überlebt nur warme Function-Instanzen — er ist eine Beschleunigung, kein Zustand, auf den sich etwas verlassen darf.
+
+Die Allowlist und der Deckel sind je eine Zeile Code. Das ist Absicht: eine Änderung muss durch ein Deployment, nicht durch einen Klick.
+
+---
+
+## 4. Welches Modell ein Aufruf tatsächlich benutzt
+
+`resolveModel()` in der Edge Function, Reihenfolge:
+
+1. `mietmatch_ai_settings.default_model` — **aber nur**, wenn die ID Allowlist *und* Preisdeckel erfüllt (geprüft gegen die frische Liste).
+2. Secret `OPENROUTER_MODEL`, falls gesetzt — wird ungeprüft vertraut, weil nur der Betreiber Secrets setzen kann.
+3. Günstigstes Modell der aktuellen gefilterten Liste.
+4. Nichts davon: klare deutsche Fehlermeldung (503), kein Absturz.
+
+**Der Client schlägt kein Modell vor.** Ein mitgeschicktes `model`-Feld wird nirgends gelesen. Das ist stärker als eine Allowlist-Prüfung: es gibt keinen Eingabekanal, den man prüfen müsste.
+
+**Sonderfall Bild:** `resolveModelForCapture()` löst zuerst wie oben auf. Enthält die Anfrage ein Bild und kann das Standardmodell keine Bilder, weicht die Function automatisch auf das günstigste bildfähige Modell der Liste aus. Das Bild wird nie stillschweigend verworfen; gibt es kein bildfähiges Modell, wird klar abgelehnt.
+
+---
+
+## 5. Der Lade-Hook und eine Falle, die dort schon zugeschnappt ist
+
+`useAiModels(open)` lädt beim Öffnen **höchstens einmal**. Der Guard hängt an einem `useRef`, nicht am Datenzustand.
+
+Warum das wichtig ist — der ursprüngliche Bug: der Guard prüfte `models` und `modelsLoading`. Schlug der Request fehl, blieb `models` leer, `finally` setzte `loading` auf `false`, das Dependency-Array änderte sich, der Effect lief erneut, der Guard war wieder falsch → Endlosschleife von Requests gegen die Edge Function. Ein Ref ändert sich bei einem Fehlschlag nicht, also läuft nichts nach. Einen zweiten Versuch gibt es nur über `retry()`, ausgelöst durch einen Klick.
+
+Zweite Kleinigkeit dort: `extractErrorMessage()`. `supabase.functions.invoke` wirft bei Nicht-2xx einen `FunctionsHttpError`, dessen `.message` nur generisch ist — die eigentliche deutsche Meldung steckt im Response-Body unter `context`. Ohne dieses Auslesen sieht der Nutzer nie den echten Grund.
+
+---
+
+## 6. Nachbau in einem anderen Projekt — die Kurzfassung
+
+1. Tabelle mit **einer** Zeile anlegen (`id boolean primary key default true`, Spalte `default_model text`). Lesen für alle Angemeldeten, Schreiben nur für Admins (`has_role(auth.uid(), 'admin')`). `GRANT` nicht vergessen.
+2. Edge Function mit einem `mode`-Feld im Body. `mode: 'models'` gibt die gefilterte Liste zurück, die übrigen Modi machen die eigentliche Arbeit.
+3. Anbieterliste live holen, filtern (Allowlist + Preisdeckel), eindampfen, sortieren, kurz cachen.
+4. Modellauflösung ausschließlich serverseitig, mit Fallback-Kette und sprechendem Fehler statt Absturz.
+5. Im Client ein Hook mit Ref-Guard und explizitem Retry; im Admin-Bereich eine Tabelle mit Suche und Ein-Klick-Auswahl.
+6. API-Schlüssel als Secret, niemals im Client.
+
+**Bekannte Schwäche:** Die Allowlist ist eine feste Liste in genau dieser einen Function. Wird das Muster auf weitere Functions kopiert, entstehen mehrere Listen, die auseinanderdriften — dann vorher zentralisieren (z. B. `_shared/`).

@@ -18,7 +18,7 @@ import {
   BookOpen, ArrowLeft, Sparkles, Layers, PenTool, Download,
   RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
   Upload, FileText, ClipboardPaste, ArrowUp, ArrowDown, Pencil, X,
-  AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users,
+  AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users, Copy,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
 import { SCREENPLAY_STYLE_PRESETS } from "@/lib/screenplay-presets";
@@ -194,6 +194,8 @@ export default function ProjectPage() {
   const [logTotals, setLogTotals] = useState<{ total_tokens: string; total_cost: string } | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [includeSceneNumbers, setIncludeSceneNumbers] = useState(false);
+  const [chapterExporting, setChapterExporting] = useState<number | null>(null);
+  const [copiedChapterId, setCopiedChapterId] = useState<number | null>(null);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -508,6 +510,71 @@ export default function ProjectPage() {
       URL.revokeObjectURL(url);
     } catch {
       alert("Export fehlgeschlagen");
+    }
+  }
+
+  function chapterFilename(chapter: Chapter, extension: "md" | "docx") {
+    const projectName = (project?.title || "roman")
+      .replace(/[^a-zA-Z0-9äöüÄÖÜß _-]/g, "")
+      .trim() || "roman";
+    const chapterName = (chapter.title || `Kapitel ${chapter.chapter_number}`)
+      .replace(/[^a-zA-Z0-9äöüÄÖÜß _-]/g, "")
+      .trim() || `Kapitel ${chapter.chapter_number}`;
+    return `${projectName} - ${chapter.chapter_number} ${chapterName}.${extension}`;
+  }
+
+  async function getChapterExport(chapter: Chapter, format: "markdown" | "docx") {
+    const params = new URLSearchParams({
+      format,
+      chapterId: String(chapter.id),
+    });
+    if (includeSceneNumbers) params.set("includeSceneNumbers", "true");
+
+    const res = await fetch(`/api/projects/${projectId}/export?${params.toString()}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Kapitel-Export fehlgeschlagen");
+    }
+    return res;
+  }
+
+  async function copyChapterMarkdown(chapter: Chapter) {
+    setChapterExporting(chapter.id);
+    try {
+      const res = await getChapterExport(chapter, "markdown");
+      const markdown = await res.text();
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Die Zwischenablage ist in diesem Browser nicht verfügbar.");
+      }
+      await navigator.clipboard.writeText(markdown);
+      setCopiedChapterId(chapter.id);
+      window.setTimeout(() => {
+        setCopiedChapterId((current) => current === chapter.id ? null : current);
+      }, 2000);
+    } catch (error: any) {
+      alert(error?.message || "Markdown konnte nicht kopiert werden");
+    } finally {
+      setChapterExporting(null);
+    }
+  }
+
+  async function downloadChapter(chapter: Chapter, format: "markdown" | "docx") {
+    setChapterExporting(chapter.id);
+    try {
+      const res = await getChapterExport(chapter, format);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = chapterFilename(chapter, format === "markdown" ? "md" : "docx");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert(error?.message || "Kapitel konnte nicht exportiert werden");
+    } finally {
+      setChapterExporting(null);
     }
   }
 
@@ -2271,7 +2338,7 @@ export default function ProjectPage() {
                           <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                         <Button
                           size="sm"
                           variant="outline"
@@ -2299,6 +2366,48 @@ export default function ProjectPage() {
                           )}
                           Neu
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => copyChapterMarkdown(ch)}
+                          disabled={chapterExporting === ch.id}
+                          title={copiedChapterId === ch.id ? "Markdown kopiert" : "Markdown kopieren"}
+                          aria-label={copiedChapterId === ch.id ? "Markdown kopiert" : "Markdown kopieren"}
+                        >
+                          {copiedChapterId === ch.id ? (
+                            <Check className="h-3.5 w-3.5 text-success" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => downloadChapter(ch, "markdown")}
+                          disabled={chapterExporting === ch.id}
+                          title="Markdown herunterladen"
+                          aria-label="Markdown herunterladen"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => downloadChapter(ch, "docx")}
+                          disabled={chapterExporting === ch.id}
+                          title="Word herunterladen"
+                          aria-label="Word herunterladen"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        {copiedChapterId === ch.id && (
+                          <span className="text-xs text-success font-medium" role="status">
+                            Kopiert
+                          </span>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"

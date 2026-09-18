@@ -16,6 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const url = new URL(req.url);
   const format = url.searchParams.get("format") || "markdown";
   const includeSceneNumbers = url.searchParams.get("includeSceneNumbers") === "true";
+  const chapterId = url.searchParams.get("chapterId");
 
   const project = await query(
     "SELECT * FROM projects WHERE id = $1 AND user_id = $2",
@@ -25,14 +26,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
   }
 
-  const chapters = await query(
-    "SELECT * FROM chapters WHERE project_id = $1 ORDER BY chapter_number",
-    [id]
-  );
+  const chapters = chapterId
+    ? await query(
+        "SELECT * FROM chapters WHERE id = $1 AND project_id = $2",
+        [chapterId, id]
+      )
+    : await query(
+        "SELECT * FROM chapters WHERE project_id = $1 ORDER BY chapter_number",
+        [id]
+      );
+
+  if (chapterId && chapters.rows.length === 0) {
+    return NextResponse.json({ error: "Kapitel nicht gefunden" }, { status: 404 });
+  }
 
   const p = project.rows[0];
-  const safeTitle = p.title.replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g, "");
+  const safeFilenamePart = (value: string | null | undefined, fallback: string) =>
+    (value || "").replace(/[^a-zA-Z0-9äöüÄÖÜß _-]/g, "").trim() || fallback;
+  const safeTitle = safeFilenamePart(p.title, "roman");
   const unitLabel = p.project_type === "screenplay" ? "Szene" : "Kapitel";
+  const selectedChapter = chapterId ? chapters.rows[0] : null;
+  const exportFilename = selectedChapter
+    ? `${safeTitle} - ${selectedChapter.chapter_number} ${safeFilenamePart(selectedChapter.title, unitLabel)}`
+    : safeTitle;
 
   function chapterHeading(ch: { chapter_number: number; title?: string | null }): string {
     const title = ch.title || `${unitLabel} ${ch.chapter_number}`;
@@ -61,11 +77,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     for (const ch of chapters.rows) {
-      docChildren.push(
-        new Paragraph({
-          children: [new PageBreak()],
-        })
-      );
+      if (!chapterId || chapters.rows.length > 1) {
+        docChildren.push(
+          new Paragraph({
+            children: [new PageBreak()],
+          })
+        );
+      }
 
       docChildren.push(
         new Paragraph({
@@ -107,7 +125,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(uint8, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename="${safeTitle}.docx"`,
+        "Content-Disposition": `attachment; filename="${exportFilename}.docx"`,
       },
     });
   }
@@ -126,7 +144,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(md, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${safeTitle}.md"`,
+        "Content-Disposition": `attachment; filename="${exportFilename}.md"`,
       },
     });
   }
@@ -142,7 +160,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(txt, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${safeTitle}.txt"`,
+        "Content-Disposition": `attachment; filename="${exportFilename}.txt"`,
       },
     });
   }
@@ -171,7 +189,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return new NextResponse(pdfBuf, {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${safeTitle}.pdf"`,
+          "Content-Disposition": `attachment; filename="${exportFilename}.pdf"`,
         },
       });
     }
@@ -185,7 +203,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(xml, {
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${safeTitle}.fdx"`,
+        "Content-Disposition": `attachment; filename="${exportFilename}.fdx"`,
       },
     });
   }

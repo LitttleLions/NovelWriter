@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [unavailableModels, setUnavailableModels] = useState<string[]>([]);
   const [forbidden, setForbidden] = useState(false);
 
   const loadSettings = useCallback(async () => {
@@ -65,6 +66,13 @@ export default function AdminPage() {
       setModels(data.models || []);
       setDefaultModel(data.defaultModel || "");
       const liveModelIds = new Set((data.models || []).map((model: AiModel) => model.id));
+      const configuredModels = [
+        data.defaultModel,
+        ...(data.additionalModels || []),
+      ].filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+      setUnavailableModels(
+        [...new Set(configuredModels.filter((id) => !liveModelIds.has(id)))],
+      );
       setAdditionalModels(
         (data.additionalModels || [])
           .filter((id: string) => id !== data.defaultModel && liveModelIds.has(id))
@@ -95,6 +103,7 @@ export default function AdminPage() {
       if (!response.ok) throw new Error(data.error || "Das Standardmodell konnte nicht gespeichert werden.");
       setDefaultModel(data.defaultModel || defaultModel);
       setAdditionalModels(data.additionalModels || []);
+      setUnavailableModels([]);
     } catch (err: any) {
       setError(err?.message || "Die Modellfreigaben konnten nicht gespeichert werden.");
     } finally {
@@ -225,6 +234,7 @@ export default function AdminPage() {
             <div>
               <CardTitle>Verfügbare Modelle</CardTitle>
               <CardDescription>
+                Es werden aktuelle Modelle der unterstützten Anbieter bis zum Preislimit von 20 USD pro 1 Mio. Tokens angezeigt.
                 Das Standardmodell ist immer freigegeben. Zusätzlich kannst du bis zu vier Modelle für Projekte freigeben.
               </CardDescription>
             </div>
@@ -244,6 +254,15 @@ export default function AdminPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {unavailableModels.length > 0 && (
+              <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                <p className="font-medium text-destructive">Gespeicherte Modellfreigaben aktualisieren</p>
+                <p className="mt-1 text-muted-foreground">
+                  Diese Modelle sind im aktuellen OpenRouter-Katalog nicht mehr verfügbar oder nicht mehr zugelassen:
+                  {" "}{unavailableModels.join(", ")}. Bitte ein neues Standardmodell auswählen und die Freigaben speichern.
+                </p>
+              </div>
+            )}
             {error && (
               <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="flex-1 text-destructive">{error}</p>

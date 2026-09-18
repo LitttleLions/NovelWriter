@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
 import {
   clearModelsCache,
   getAiSettings,
+  getAvailableModels,
   resolveModel,
   setAiSettings,
   validateProjectModel,
@@ -98,6 +99,31 @@ describe("AI model permission policy", () => {
     await expect(setAiSettings(standardModel, ["not-allowlisted/model"])).rejects.toThrow(
       "nicht verfügbar",
     );
+  });
+
+  it("includes GLM and Kimi models while excluding legacy OpenAI families", async () => {
+    const glmModel = "z-ai/glm-4.5";
+    const kimiModel = "moonshotai/kimi-k2";
+    const currentOpenAiModel = "openai/gpt-4.1";
+    const legacyModels = [
+      "openai/gpt-3.5-turbo",
+      "openai/gpt-4",
+      "openai/gpt-4-turbo",
+      "openai/gpt-4o",
+      "openai/text-davinci-003",
+    ];
+
+    mockLiveModels([glmModel, kimiModel, currentOpenAiModel, ...legacyModels]);
+
+    await expect(getAvailableModels()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: glmModel, provider: "Z.ai" }),
+        expect.objectContaining({ id: kimiModel, provider: "Moonshot AI" }),
+        expect.objectContaining({ id: currentOpenAiModel }),
+      ]),
+    );
+    const models = await getAvailableModels();
+    expect(models.map((model) => model.id)).not.toEqual(expect.arrayContaining(legacyModels));
   });
 
   it("preserves approved project choices and rejects arbitrary IDs", async () => {

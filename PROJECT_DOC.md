@@ -13,7 +13,7 @@
 - Ein Admin legt ein globales Standardmodell und bis zu vier weitere freigegebene Modelle fest.
 - Beim Anlegen und in der Projektansicht kann ein Nutzer eines der freigegebenen Modelle wählen. Diese Auswahl wird pro Projekt gespeichert und beeinflusst die folgenden KI-Aufrufe.
 - Ein Projekt kann jederzeit wieder auf den aktuellen Admin-Standard zurückgesetzt werden. Eine gültige Projektwahl wird durch spätere Admin-Änderungen nicht überschrieben.
-- Die Admin-Modellliste wird live von OpenRouter geladen und serverseitig nach Anbieter-Allowlist und einem Preisdeckel von 20 USD pro 1 Mio. Tokens gefiltert.
+- Die Admin-Modellliste wird live von OpenRouter geladen und serverseitig nach Anbieter-Allowlist, Legacy-Ausschlüssen für alte OpenAI-Familien und einem Preisdeckel von 20 USD pro 1 Mio. Tokens gefiltert. Unterstützt werden unter anderem DeepSeek, Google, Anthropic, Moonshot AI, OpenAI, Qwen und Z.ai.
 - Die Auswahl zeigt aktuelle Prompt-/Completion-Preise, Kontextlänge und Bildfähigkeit. Die Modellliste wird eine Stunde serverseitig gecacht und kann explizit aktualisiert werden.
 
 ### Stil-Engine
@@ -75,6 +75,6 @@
 - **Aktualisierung**: Diese Datei (`PROJECT_DOC.md`) muss bei jeder neuen Funktion oder Architekturänderung aktualisiert werden.
 - **Design-Treue**: Neue UI-Elemente müssen dem PromptMate Design-System folgen.
 - **Datenbank-Sicherheit**: IDs und Schemata dürfen nicht destruktiv geändert werden.
-- **Modell-Liste**: Laufzeitmodelle kommen live von OpenRouter; Allowlist und Preisdeckel liegen zentral in der serverseitigen Modellschicht. `MODEL_PRICES` bleibt nur als Kompatibilitäts-Fallback für historische Logs.
+- **Modell-Liste**: Laufzeitmodelle kommen live von OpenRouter; Anbieter-Allowlist, Legacy-Ausschlüsse und Preisdeckel liegen zentral in der serverseitigen Modellschicht. `MODEL_PRICES` bleibt nur als Kompatibilitäts-Fallback für historische Logs.
 - **Projektmodell**: `projects.ai_provider` enthält aus Kompatibilitätsgründen die gespeicherte Projektmodell-ID. Sie wird bei jedem KI-Aufruf serverseitig gegen die aktuelle Admin-Freigabeliste und die Live-Liste geprüft.
 - **Logging**: Jede neue KI-Generierungsroute muss einen Eintrag in `generation_log` schreiben und `estimateCost()` verwenden.

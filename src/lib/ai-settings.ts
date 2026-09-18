@@ -4,14 +4,25 @@ export const ALLOWED_PROVIDER_PREFIXES = [
   "deepseek/",
   "google/",
   "anthropic/",
+  "moonshotai/",
   "openai/",
   "qwen/",
+  "z-ai/",
 ] as const;
 
 export const MAX_PRICE_USD_PER_MILLION_TOKENS = 20;
 export const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
 export const DEFAULT_MODEL_ID = "anthropic/claude-sonnet-4.6";
 export const MAX_ADDITIONAL_MODELS = 4;
+
+const LEGACY_OPENAI_MODEL_PATTERNS = [
+  /^openai\/gpt-3\.5(?:-|$)/i,
+  /^openai\/gpt-4(?:-|$)/i,
+  /^openai\/gpt-4o(?:-|$)/i,
+  /^openai\/chatgpt-4o(?:-|$)/i,
+  /^openai\/text-/i,
+  /^openai\/(?:ada|babbage|curie|davinci)(?:-|$)/i,
+] as const;
 
 export interface AiModel {
   id: string;
@@ -114,10 +125,16 @@ function providerLabel(id: string): string {
     anthropic: "Anthropic",
     deepseek: "DeepSeek",
     google: "Google",
+    moonshotai: "Moonshot AI",
     openai: "OpenAI",
     qwen: "Qwen",
+    "z-ai": "Z.ai",
   };
   return labels[provider] || provider;
+}
+
+export function isLegacyOpenAiModel(modelId: string): boolean {
+  return LEGACY_OPENAI_MODEL_PATTERNS.some((pattern) => pattern.test(modelId));
 }
 
 function modelSupportsVision(raw: any): boolean {
@@ -132,6 +149,7 @@ function modelSupportsVision(raw: any): boolean {
 function toSlimModel(raw: any): AiModel | null {
   if (!raw || typeof raw.id !== "string") return null;
   if (!ALLOWED_PROVIDER_PREFIXES.some((prefix) => raw.id.startsWith(prefix))) return null;
+  if (isLegacyOpenAiModel(raw.id)) return null;
 
   const promptPrice = priceToPerMillion(raw.pricing?.prompt);
   const completionPrice = priceToPerMillion(raw.pricing?.completion);

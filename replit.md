@@ -10,7 +10,7 @@ RomanForge AI is a web application for generating complete, style-consistent nov
 - **Backend**: Next.js API Routes
 - **Database**: Replit PostgreSQL (via `pg` package)
 - **Auth**: JWT-based (bcryptjs + jose) + optional Google Sign-In
-- **AI**: OpenRouter API (OpenAI-compatible SDK) with centralized, server-side model resolution
+- **AI**: OpenRouter API (OpenAI-compatible SDK) with centralized, server-side model resolution and current-model filtering
 - **Export**: DOCX (via `docx`), Markdown, TXT, plus PDF (Courier 12 screenplay layout via `pdf-lib`) and Final Draft `.fdx` for screenplay projects
 
 ## Project Structure
@@ -88,4 +88,4 @@ src/
 8. **Live Editor**: Edit chapters directly, save changes
 9. **Export**: Complete-book export as DOCX, Markdown, TXT, PDF, or FDX where applicable
 10. **Chapter exports**: Directly on each chapter card, copy Markdown to the clipboard or download the individual chapter as Markdown or Word
-11. **Central AI model management**: Admin-controlled default model from a live, provider- and price-filtered OpenRouter list
+11. **Central AI model management**: Admin-controlled default model from a live OpenRouter list filtered by supported providers, a 20 USD/M-token price cap, and legacy OpenAI exclusions

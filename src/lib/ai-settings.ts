@@ -114,6 +114,14 @@ export function ensureAiSettingsSchema(): Promise<void> {
 }
 
 function priceToPerMillion(value: unknown): number {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim().length === 0) ||
+    (typeof value !== "number" && typeof value !== "string")
+  ) {
+    return Infinity;
+  }
   const pricePerToken = Number(value);
   if (!Number.isFinite(pricePerToken) || pricePerToken < 0) return Infinity;
   return pricePerToken * 1_000_000;

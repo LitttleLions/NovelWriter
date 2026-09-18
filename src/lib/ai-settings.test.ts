@@ -40,6 +40,13 @@ function mockLiveModels(ids: string[]) {
   });
 }
 
+function mockRawLiveModels(models: unknown[]) {
+  fetchMock.mockResolvedValue({
+    ok: true,
+    json: async () => ({ data: models }),
+  });
+}
+
 function mockSettings(defaultModel = standardModel, allowedModels = [standardModel, alternateModel]) {
   queryMock.mockImplementation(async (sql: string) => {
     if (sql.includes("SELECT id, default_model, allowed_models")) {
@@ -124,6 +131,23 @@ describe("AI model permission policy", () => {
     );
     const models = await getAvailableModels();
     expect(models.map((model) => model.id)).not.toEqual(expect.arrayContaining(legacyModels));
+  });
+
+  it("keeps the existing price policy for newly supported providers", async () => {
+    const affordableKimi = rawModel("moonshotai/kimi-k2");
+    const expensiveGlm = {
+      ...rawModel("z-ai/glm-4.5"),
+      pricing: { prompt: "0.000021", completion: "0.000002" },
+    };
+    const missingPriceModel = {
+      ...rawModel("z-ai/glm-4.5-air"),
+      pricing: { prompt: null, completion: "0.000002" },
+    };
+    mockRawLiveModels([affordableKimi, expensiveGlm, missingPriceModel]);
+
+    const models = await getAvailableModels();
+
+    expect(models.map((model) => model.id)).toEqual(["moonshotai/kimi-k2"]);
   });
 
   it("preserves approved project choices and rejects arbitrary IDs", async () => {

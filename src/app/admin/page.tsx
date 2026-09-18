@@ -234,8 +234,9 @@ export default function AdminPage() {
             <div>
               <CardTitle>Verfügbare Modelle</CardTitle>
               <CardDescription>
-                Es werden aktuelle Modelle der unterstützten Anbieter bis zum Preislimit von 20 USD pro 1 Mio. Tokens angezeigt.
-                Das Standardmodell ist immer freigegeben. Zusätzlich kannst du bis zu vier Modelle für Projekte freigeben.
+                Angezeigt werden Modelle der unterstützten Anbieter bis zum Preislimit von 20 USD pro 1 Mio. Tokens;
+                bekannte Legacy-OpenAI-Familien werden ausgeblendet. Das Standardmodell ist immer freigegeben.
+                Zusätzlich kannst du bis zu vier Modelle für Projekte freigeben.
               </CardDescription>
             </div>
             <div className="flex gap-2">

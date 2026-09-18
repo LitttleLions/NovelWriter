@@ -39,7 +39,7 @@ src/
 │               │   └── [outlineId]/ # PUT: edit, DELETE: remove outline item
 │               ├── chapters/        # generate, [chapterId] edit
 │               ├── style/analyze/   # POST: analyze style (modes: "analyze" or "direct")
-│               └── export/          # GET: export as DOCX/MD/TXT
+│               └── export/          # GET: whole-book or chapter export as DOCX/MD/TXT/PDF/FDX
 ├── components/
 │   ├── theme-toggle.tsx    # Light/dark mode toggle
 │   └── ui/                 # Reusable UI components
@@ -55,13 +55,16 @@ src/
 ```
 
 ## Database Schema
-- **Produktionsschutz**: Produktionsdatenbanken werden nicht für Entwicklungsprüfungen verwendet. Schema-Erweiterungen müssen additiv, idempotent und transaktional sein; bestehende Bücher und Generierungsdaten dürfen nicht verändert oder gelöscht werden.
+- **Produktionsschutz**: Produktionsabfragen sind read-only. Schema-Erweiterungen müssen additiv, idempotent und transaktional sein; bestehende Bücher und Generierungsdaten dürfen nicht verändert oder gelöscht werden, außer bei einer ausdrücklich bestätigten Datenübernahme.
+- **Datenabgleich**: Ein vollständiger Live→Development-Abgleich darf Development ersetzen. Vorher Development sichern, den Umfang bestätigen, die Daten in Fremdschlüssel-Reihenfolge und transaktional übertragen und anschließend Tabellenstände sowie wichtige Inhalte verifizieren. Live bleibt unverändert.
 - **users**: id, email, password_hash, name, is_admin
 - **ai_settings**: singleton row with default_model, allowed_models and updated_at
-- **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, ai_provider (saved project model), status
-- **chapters**: id, project_id, chapter_number, title, content, word_count, status, narrative_summary, character_states
-- **project_characters**: id, project_id, name, description, role, first_appears_chapter
-- **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes
+- **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, style_notes, ai_provider (saved project model), status, project_type, screenplay_format, screenplay_style_preset
+- **chapters**: id, project_id, chapter_number, title, purpose, content, word_count, status, narrative_summary, character_states
+- **project_characters**: id, project_id, name, role, description, traits, backstory, appearance, notes, first_appears_chapter
+- **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role
+- **generation_log**: token and cost tracking for AI actions per project/chapter
+- **outline_characters**: outline-to-project-character assignments
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection (auto-set by Replit)
@@ -83,5 +86,6 @@ src/
 6. **Outline Editing**: Edit title/purpose/character_arc/tension_level per item; reorder items with up/down arrows
 7. **Chapter Generation**: AI writes chapters following style, maintaining consistency
 8. **Live Editor**: Edit chapters directly, save changes
-9. **Export**: Word (DOCX), Markdown, and TXT download
-10. **Central AI model management**: Admin-controlled default model from a live, provider- and price-filtered OpenRouter list
+9. **Export**: Complete-book export as DOCX, Markdown, TXT, PDF, or FDX where applicable
+10. **Chapter exports**: Directly on each chapter card, copy Markdown to the clipboard or download the individual chapter as Markdown or Word
+11. **Central AI model management**: Admin-controlled default model from a live, provider- and price-filtered OpenRouter list

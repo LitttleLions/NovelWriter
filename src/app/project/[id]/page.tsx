@@ -2368,50 +2368,48 @@ export default function ProjectPage() {
                         </Button>
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8 w-8"
+                          variant="outline"
+                          className="h-9 px-2.5 text-xs gap-1.5"
                           onClick={() => copyChapterMarkdown(ch)}
                           disabled={chapterExporting === ch.id}
                           title={copiedChapterId === ch.id ? "Markdown kopiert" : "Markdown kopieren"}
                           aria-label={copiedChapterId === ch.id ? "Markdown kopiert" : "Markdown kopieren"}
                         >
                           {copiedChapterId === ch.id ? (
-                            <Check className="h-3.5 w-3.5 text-success" />
+                            <Check className="h-4 w-4 text-success" />
                           ) : (
-                            <Copy className="h-3.5 w-3.5" />
+                            <Copy className="h-4 w-4" />
                           )}
+                          <span>{copiedChapterId === ch.id ? "Kopiert" : "Kopieren"}</span>
                         </Button>
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8 w-8"
+                          variant="outline"
+                          className="h-9 px-2.5 text-xs gap-1.5"
                           onClick={() => downloadChapter(ch, "markdown")}
                           disabled={chapterExporting === ch.id}
                           title="Markdown herunterladen"
                           aria-label="Markdown herunterladen"
                         >
-                          <FileText className="h-3.5 w-3.5" />
+                          <FileText className="h-4 w-4" />
+                          <span>Markdown</span>
                         </Button>
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8 w-8"
+                          variant="outline"
+                          className="h-9 px-2.5 text-xs gap-1.5"
                           onClick={() => downloadChapter(ch, "docx")}
                           disabled={chapterExporting === ch.id}
                           title="Word herunterladen"
                           aria-label="Word herunterladen"
                         >
-                          <Download className="h-3.5 w-3.5" />
+                          <Download className="h-4 w-4" />
+                          <span>Word</span>
                         </Button>
-                        {copiedChapterId === ch.id && (
-                          <span className="text-xs text-success font-medium" role="status">
-                            Kopiert
-                          </span>
-                        )}
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8"
+                          className="h-9 w-9"
                           onClick={() => {
                             if (editingChapter === ch.id) {
                               setEditingChapter(null);
@@ -2421,16 +2419,20 @@ export default function ProjectPage() {
                               setEditContent(ch.content || "");
                             }
                           }}
+                          title="Kapitel bearbeiten"
+                          aria-label="Kapitel bearbeiten"
                         >
-                          <PenTool className="h-3.5 w-3.5" />
+                          <PenTool className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => deleteChapter(ch.id)}
+                          title="Kapitel löschen"
+                          aria-label="Kapitel löschen"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

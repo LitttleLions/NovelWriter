@@ -4,3 +4,6 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+romanforge_export.sql
+*.pgdump
+*.dump.sql

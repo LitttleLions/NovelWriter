@@ -19,7 +19,7 @@ import {
   RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
   Upload, FileText, ClipboardPaste, ArrowUp, ArrowDown, Pencil, X,
   AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users, Copy, Settings2,
-  Gauge, ListChecks,
+  Gauge, ListChecks, Clock3,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
 import { SCREENPLAY_STYLE_PRESETS } from "@/lib/screenplay-presets";
@@ -38,6 +38,7 @@ interface Project {
   style_notes: string;
   ai_provider: string;
   status: string;
+  updated_at?: string;
   project_type?: string;
   screenplay_format?: string;
   screenplay_style_preset?: string;
@@ -255,7 +256,8 @@ export default function ProjectPage() {
     const charRes = await fetch(`/api/projects/${projectId}/characters`, { headers: authHeaders });
     const charData = await charRes.json();
     if (charRes.ok) setProjectCharacters(charData.characters || []);
-  }, [projectId, router]);
+    void loadLogs();
+  }, [projectId, router, loadLogs]);
 
   const outlineCharLoadedRef = useRef<Set<number>>(new Set());
   useEffect(() => {
@@ -300,6 +302,29 @@ export default function ProjectPage() {
   function formatElapsed(sec: number) {
     if (sec < 60) return `${sec}s`;
     return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+  }
+
+  function formatActivityDate(value?: string) {
+    if (!value) return "Noch nicht erfasst";
+    const date = new Date(String(value).replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) return "Noch nicht erfasst";
+    return date.toLocaleString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function formatGenerationAction(action?: string) {
+    const labels: Record<string, string> = {
+      style_analysis: "Stil-Analyse",
+      outline_generation: "Outline-Generierung",
+      chapter_generation: "Kapitel-Generierung",
+      character_extraction: "Figuren-Extraktion",
+    };
+    return labels[action || ""] || action || "KI-Generierung";
   }
 
   function aiStatusLabel() {
@@ -912,6 +937,7 @@ export default function ProjectPage() {
   const activeModel = models.find((model) => model.id === project.ai_provider);
   const activeModelName = activeModel?.name || project.ai_provider || "Noch nicht festgelegt";
   const activeModelProvider = activeModel?.provider || (project.ai_provider ? "Nicht mehr freigegeben" : "Noch keine Auswahl");
+  const latestGeneration = generationLogs[0];
 
   return (
     <div className="min-h-screen">
@@ -1056,6 +1082,39 @@ export default function ProjectPage() {
                 </Button>
               </CardContent>
             </Card>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Card>
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Clock3 className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Zuletzt bearbeitet</p>
+                    <p className="mt-1 truncate text-sm font-medium">{formatActivityDate(project.updated_at)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Letzte Änderung am Projekt</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Zap className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Letzte KI-Aktion</p>
+                    <p className="mt-1 truncate text-sm font-medium">
+                      {latestGeneration ? formatGenerationAction(latestGeneration.action) : "Noch keine KI-Aktion"}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {latestGeneration?.created_at
+                        ? formatActivityDate(latestGeneration.created_at)
+                        : "Noch keine Generierung protokolliert"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               <Card>

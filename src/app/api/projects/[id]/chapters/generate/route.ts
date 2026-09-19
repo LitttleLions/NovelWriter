@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { generateText, estimateCost, describeAiError, detectDegeneration } from "@/lib/openrouter";
+import { estimateCost, describeAiError, detectDegeneration, streamTextChunks } from "@/lib/openrouter";
 import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
 import { getScreenplayStylePreset, getSluglineVocab } from "@/lib/screenplay-presets";
+import { ensureGenerationSchema } from "@/lib/generation/schema";
+import { generateNarrativeSummary } from "@/lib/generation/handoff";
+import { remainingKeyEvents, stitchContinuation, wordCountOf } from "@/lib/generation/stitch";
+import { buildContinuationUserPrompt } from "@/lib/generation/continuation-prompt";
+import {
+  addRevision,
+  createRunningJob,
+  finishJob,
+  getJob,
+  getRunningJob,
+  isAbortRequested,
+  touchJob,
+  upsertGeneratingChapter,
+} from "@/lib/generation/jobs";
 
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
   const parts: string[] = [];
@@ -309,107 +323,74 @@ function formatCharactersForPrompt(chars: any[], tierMode = false): string {
   }).join("\n\n");
 }
 
-/** Robuster JSON-Parser für den Narrative-Summarizer:
- *  1. Direkt parsen
- *  2. Steuerzeichen in Strings bereinigen + nochmal parsen
- *  3. Letztes vollständiges {…}-Objekt per Stack extrahieren
- *  4. Abgeschnittene JSON-Objekte durch Anhängen von Klammern reparieren
- */
-function safeParseNarrativeJson(raw: string): Record<string, any> | null {
-  const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-  // Versuch 1: direktes Parsen
-  try { return JSON.parse(cleaned); } catch {}
-
-  // Versuch 2: Steuerzeichen bereinigen
-  const sanitized = cleaned.replace(/"(?:[^"\\]|\\.)*"/g, (m) =>
-    m.replace(/[\x00-\x1F]/g, (c) => {
-      if (c === "\n") return "\\n";
-      if (c === "\r") return "\\r";
-      if (c === "\t") return "\\t";
-      return "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0");
-    })
-  );
-  try { return JSON.parse(sanitized); } catch {}
-
-  // Versuch 3: vollständiges äußerstes {…} extrahieren
-  const firstBrace = sanitized.indexOf("{");
-  if (firstBrace !== -1) {
-    let depth = 0, inStr = false, esc = false, lastClose = -1;
-    for (let i = firstBrace; i < sanitized.length; i++) {
-      const ch = sanitized[i];
-      if (esc) { esc = false; continue; }
-      if (ch === "\\" && inStr) { esc = true; continue; }
-      if (ch === '"') { inStr = !inStr; continue; }
-      if (inStr) continue;
-      if (ch === "{") depth++;
-      else if (ch === "}") { depth--; if (depth === 0) { lastClose = i; break; } }
-    }
-    if (lastClose !== -1) {
-      try { return JSON.parse(sanitized.slice(firstBrace, lastClose + 1)); } catch {}
-    }
-
-    // Versuch 4: Abgeschnittenes JSON durch Anhängen von Klammern reparieren
-    const partial = sanitized.slice(firstBrace);
-    for (const tail of ["}", "}}", "]}}", "}]}", "}}"]) {
-      try { return JSON.parse(partial + tail); } catch {}
-    }
-  }
-
-  return null;
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function generateNarrativeSummary(
-  model: string,
-  chapterContent: string,
-  chapterNumber: number,
-  chapterTitle: string,
-  characterNames: string[]
-): Promise<{ summary: string; character_states: any; last_scene_ending: string; open_plot_threads: string[] } | null> {
-  const userPrompt = `Kapitel ${chapterNumber}: "${chapterTitle}"
+function streamHeaders() {
+  return {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Transfer-Encoding": "chunked",
+    "Cache-Control": "no-cache, no-store",
+    "X-Accel-Buffering": "no",
+  };
+}
 
-Vorkommende Figuren: ${characterNames.join(", ") || "unbekannt"}
-
-KAPITELTEXT:
-${chapterContent.substring(0, 12000)}
-
-Erstelle jetzt das Narrative Handoff-Dokument für das nächste Kapitel.`;
-
-  // Versuch 1 + 2: bis zu 2 Versuche mit dem vollständigen JSON-Format
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const result = await generateText(model, PROMPTS.narrativeSummarizer, userPrompt, 3000);
-      const parsed = safeParseNarrativeJson(result.content);
-      if (parsed && parsed.summary) return parsed as any;
-      console.warn(`Narrative summary attempt ${attempt}: JSON unvollständig oder leer.`);
-    } catch (e) {
-      console.warn(`Narrative summary attempt ${attempt} failed:`, e);
-    }
-  }
-
-  // Fallback: vereinfachter Prompt, der nur eine Textzusammenfassung zurückgibt
-  try {
-    const fallbackResult = await generateText(
-      model,
-      "Du bist ein Romanarchiv-Assistent. Fasse das Kapitel in 200-250 Wörtern auf Deutsch zusammen. Nur Fließtext, kein JSON, keine Überschriften.",
-      `Kapitel ${chapterNumber}: "${chapterTitle}"\n\nKAPITELTEXT:\n${chapterContent.substring(0, 8000)}\n\nSchreibe jetzt die Zusammenfassung.`,
-      800
-    );
-    const fallbackSummary = fallbackResult.content.trim();
-    if (fallbackSummary.length > 50) {
-      console.log("Narrative summary: Fallback-Textzusammenfassung erfolgreich.");
-      return {
-        summary: fallbackSummary,
-        character_states: {},
-        last_scene_ending: "",
-        open_plot_threads: [],
+function createNdjsonStream(work: (send: (obj: Record<string, unknown>) => void) => Promise<void>) {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    async start(controller) {
+      const send = (obj: Record<string, unknown>) => {
+        try { controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n")); } catch {}
       };
-    }
-  } catch (e) {
-    console.error("Narrative summary fallback failed:", e);
-  }
+      const pingInterval = setInterval(() => send({ type: "ping" }), 10_000);
+      try {
+        await work(send);
+      } finally {
+        clearInterval(pingInterval);
+        try { controller.close(); } catch {}
+      }
+    },
+  });
+}
 
-  return null;
+async function tailExistingJob(projectId: string, jobId: number, send: (obj: Record<string, unknown>) => void) {
+  let sentLen = 0;
+  let seq = 0;
+  send({ type: "job", job_id: jobId, seq: seq++ });
+  for (let i = 0; i < 240; i++) {
+    const job = await getJob(jobId, projectId);
+    if (!job) {
+      send({ type: "error", error: "Generierungsjob nicht gefunden." });
+      return;
+    }
+    const next = job.content_so_far || "";
+    if (next.length > sentLen) {
+      send({ type: "delta", text: next.slice(sentLen), seq: seq++ });
+      sentLen = next.length;
+    }
+    if (job.status === "completed") {
+      const chapter = await query(
+        "SELECT * FROM chapters WHERE project_id = $1 AND chapter_number = $2",
+        [projectId, job.chapter_number],
+      );
+      send({
+        type: "done",
+        chapter: chapter.rows[0] || null,
+        tokens: job.total_tokens,
+        cost: Number(job.estimated_cost_usd || 0),
+        job_id: job.id,
+        narrativeSummaryGenerated: Boolean(chapter.rows[0]?.narrative_summary),
+      });
+      return;
+    }
+    if (job.status === "failed" || job.status === "aborted") {
+      send({ type: "error", error: job.error_message || "Kapitel-Generierung abgebrochen." });
+      return;
+    }
+    await sleep(500);
+  }
+  send({ type: "error", error: "Reconnect-Timeout. Der Job läuft ggf. noch im Hintergrund – bitte Seite neu laden." });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -417,7 +398,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
 
   const { id } = await params;
-  const { chapter_number } = await req.json();
+  const body = await req.json().catch(() => ({}));
+  const chapter_number = body.chapter_number;
+  const reconnectJobId = Number(body.job_id) || null;
+
+  await ensureGenerationSchema();
 
   const project = await query(
     "SELECT * FROM projects WHERE id = $1 AND user_id = $2",
@@ -425,6 +410,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   );
   if (project.rows.length === 0) {
     return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
+  }
+
+  if (reconnectJobId) {
+    const owned = await getJob(reconnectJobId, id);
+    if (!owned) return NextResponse.json({ error: "Job nicht gefunden" }, { status: 404 });
+    const stream = createNdjsonStream((send) => tailExistingJob(id, reconnectJobId, send));
+    return new Response(stream, { headers: streamHeaders() });
+  }
+
+  if (!chapter_number) {
+    return NextResponse.json({ error: "chapter_number fehlt" }, { status: 400 });
+  }
+
+  const running = await getRunningJob(id, chapter_number);
+  if (running && !body.force_new) {
+    const stream = createNdjsonStream((send) => tailExistingJob(id, running.id, send));
+    return new Response(stream, { headers: streamHeaders() });
+  }
+  if (running && body.force_new) {
+    return NextResponse.json({ error: "Für dieses Kapitel läuft bereits eine Generierung." }, { status: 409 });
   }
 
   const p = project.rows[0];
@@ -639,110 +644,228 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
   const _characterRows = characterRows;
   const _dynamicSystemPrompt = dynamicSystemPrompt;
   const _userPrompt = userPrompt;
+  const _unitNoun = unitNoun;
+  const _keyEvents = chapterOutline?.key_events || "";
+  const _chapterTitle = chapterOutline?.title || `Kapitel ${chapter_number}`;
 
-  const encoder = new TextEncoder();
+  const stream = createNdjsonStream(async (send) => {
+    let jobId: number | null = null;
+    try {
+      const model = await resolveModel(_p.ai_provider);
+      const maxTokens = _p.project_type === "screenplay" ? 6000 : 16000;
+      const createdJob = await createRunningJob(_id, _chapter_number, model);
+      const job = createdJob.job;
+      jobId = job.id;
+      if (!createdJob.created) {
+        await tailExistingJob(_id, job.id, send);
+        return;
+      }
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (obj: Record<string, unknown>) => {
-        try { controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n")); } catch {}
+      let seq = 0;
+      send({ type: "job", job_id: job.id, chapter_number: _chapter_number, seq: seq++ });
+
+      let assembled = "";
+      let finishReason: string | null = null;
+      let promptTokens = 0;
+      let completionTokens = 0;
+      let lastCheckpointAt = 0;
+      const MAX_CONTINUATIONS = 3;
+
+      const checkpoint = async (source: string) => {
+        const chapter = await upsertGeneratingChapter({
+          projectId: _id,
+          chapterNumber: _chapter_number,
+          title: _chapterTitle,
+          content: assembled,
+          status: "generating",
+        });
+        await touchJob(job.id, {
+          content_so_far: assembled,
+          event_seq: seq,
+          attempt: source === "continue" ? 1 : 0,
+          finish_reason: finishReason,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
+          chapter_id: chapter.id,
+        });
+        await addRevision({
+          projectId: _id,
+          chapterNumber: _chapter_number,
+          chapterId: chapter.id,
+          jobId: job.id,
+          source,
+          content: assembled,
+          wordCount: wordCountOf(assembled),
+        });
+        lastCheckpointAt = assembled.length;
+        send({ type: "checkpoint", word_count: wordCountOf(assembled), seq: seq++ });
       };
 
-      // Heartbeat every 10 s keeps the Replit proxy from cutting the connection
-      const pingInterval = setInterval(() => send({ type: "ping" }), 10_000);
-
-      try {
-        const model = await resolveModel(_p.ai_provider);
-        // Drehbuch-Szenen sind viel kürzer als Roman-Kapitel (1-5 Seiten ≈ 300-1000 Wörter).
-        // 6000 Tokens verhindert unnötig lange Wartezeiten und Timeouts bei Screenplay-Projekten.
-        const maxTokens = _p.project_type === "screenplay" ? 6000 : 16000;
-        const result = await generateText(model, _dynamicSystemPrompt, _userPrompt, maxTokens);
-
-        const cleanedContent = stripMetaCommentary(result.content);
-
-        const degeneration = detectDegeneration(cleanedContent, _lang);
-        if (!degeneration.ok) {
-          send({
-            type: "error",
-            error: `Das Modell "${model}" hat einen kaputten Output erzeugt: ${degeneration.reason} Bitte wechsle in den Projekt-Einstellungen das KI-Modell (z.B. zu Claude Sonnet 4.6, DeepSeek V4 Flash oder Gemini 3 Pro) und versuche es erneut.`,
-          });
+      for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
+        if (await isAbortRequested(job.id)) {
+          await finishJob(job.id, "aborted", { content_so_far: assembled, error_message: "Vom Nutzer abgebrochen." });
+          send({ type: "error", error: "Generierung abgebrochen." });
           return;
         }
 
-        const wordCount = cleanedContent.trim().split(/\s+/).length;
-        const cost = estimateCost(model, result.prompt_tokens, result.completion_tokens);
+        send({ type: "status", phase: attempt === 0 ? "writing" : "continuing", attempt, seq: seq++ });
+        const prompt = attempt === 0
+          ? _userPrompt
+          : buildContinuationUserPrompt({
+              chapterNumber: _chapter_number,
+              written: assembled,
+              remainingEvents: remainingKeyEvents(_keyEvents, assembled),
+              lang: _lang,
+              unitNoun: _unitNoun,
+            });
 
-        const existing = await query(
-          "SELECT id FROM chapters WHERE project_id = $1 AND chapter_number = $2",
-          [_id, _chapter_number]
-        );
-
-        let chapter;
-        if (existing.rows.length > 0) {
-          const updated = await query(
-            `UPDATE chapters SET content = $1, title = $2, word_count = $3, status = 'generated', updated_at = NOW()
-             WHERE id = $4 RETURNING *`,
-            [cleanedContent, _chapterOutline?.title || `Kapitel ${_chapter_number}`, wordCount, existing.rows[0].id]
-          );
-          chapter = updated.rows[0];
-        } else {
-          const inserted = await query(
-            `INSERT INTO chapters (project_id, chapter_number, title, content, word_count, status)
-             VALUES ($1, $2, $3, $4, $5, 'generated') RETURNING *`,
-            [_id, _chapter_number, _chapterOutline?.title || `Kapitel ${_chapter_number}`, cleanedContent, wordCount]
-          );
-          chapter = inserted.rows[0];
+        let piece = "";
+        finishReason = null;
+        let chunkCount = 0;
+        for await (const chunk of streamTextChunks(model, _dynamicSystemPrompt, prompt, maxTokens)) {
+          chunkCount++;
+          if (chunkCount % 8 === 0 && await isAbortRequested(job.id)) {
+            assembled = attempt === 0 ? stripMetaCommentary(piece || assembled) : stitchContinuation(assembled, stripMetaCommentary(piece));
+            await checkpoint("aborted");
+            await finishJob(job.id, "aborted", { content_so_far: assembled, error_message: "Vom Nutzer abgebrochen." });
+            send({ type: "error", error: "Generierung abgebrochen." });
+            return;
+          }
+          if (chunk.text) {
+            piece += chunk.text;
+            send({ type: "delta", text: chunk.text, seq: seq++ });
+            const preview = attempt === 0 ? piece : stitchContinuation(assembled, piece);
+            if (preview.length - lastCheckpointAt > 800) {
+              await touchJob(job.id, { content_so_far: preview, event_seq: seq });
+              lastCheckpointAt = preview.length;
+            }
+          }
+          if (chunk.finish_reason) finishReason = chunk.finish_reason;
+          if (chunk.usage) {
+            promptTokens += chunk.usage.prompt_tokens;
+            completionTokens += chunk.usage.completion_tokens;
+          }
+          if (chunkCount % 12 === 0) {
+            const preview = attempt === 0 ? piece : stitchContinuation(assembled, piece);
+            await touchJob(job.id, { content_so_far: preview, event_seq: seq });
+          }
         }
 
-        await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [_id]);
+        piece = stripMetaCommentary(piece);
+        assembled = attempt === 0 ? piece : stitchContinuation(assembled, piece);
+        await checkpoint(attempt === 0 ? "checkpoint" : "continue");
+        if (finishReason !== "length") break;
+        if (attempt === MAX_CONTINUATIONS) {
+          send({ type: "status", phase: "truncated", seq: seq++ });
+        }
+      }
 
+      const cleanedContent = stripMetaCommentary(assembled);
+      const degeneration = detectDegeneration(cleanedContent, _lang);
+      if (!degeneration.ok) {
+        await finishJob(job.id, "failed", {
+          content_so_far: cleanedContent,
+          error_message: degeneration.reason,
+          finish_reason: finishReason,
+        });
+        send({
+          type: "error",
+          error: `Das Modell "${model}" hat einen kaputten Output erzeugt: ${degeneration.reason} Bitte wechsle in den Projekt-Einstellungen das KI-Modell (z.B. zu Claude Sonnet 4.6, DeepSeek V4 Flash oder Gemini 3 Pro) und versuche es erneut.`,
+        });
+        return;
+      }
+
+      const wordCount = wordCountOf(cleanedContent);
+      const cost = estimateCost(model, promptTokens, completionTokens);
+      const chapter = await upsertGeneratingChapter({
+        projectId: _id,
+        chapterNumber: _chapter_number,
+        title: _chapterTitle,
+        content: cleanedContent,
+        status: "generated",
+      });
+
+      await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [_id]);
+      await query(
+        `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [_id, "Kapitel generiert", model, promptTokens, completionTokens, promptTokens + completionTokens, cost, _chapter_number, _chapterTitle]
+      );
+
+      send({ type: "status", phase: "handoff", seq: seq++ });
+      const characterNames = _characterRows.map((c: any) => c.name);
+      const handoff = await generateNarrativeSummary(
+        model,
+        cleanedContent,
+        _chapter_number,
+        _chapterTitle,
+        characterNames,
+        _keyEvents,
+      );
+
+      let saved = chapter;
+      if (handoff) {
+        const updated = await query(
+          `UPDATE chapters
+           SET narrative_summary = $1,
+               character_states = $2,
+               last_scene_ending = $3,
+               open_plot_threads = $4
+           WHERE id = $5 RETURNING *`,
+          [
+            handoff.summary,
+            JSON.stringify(handoff.character_states),
+            handoff.last_scene_ending || null,
+            JSON.stringify(handoff.open_plot_threads || []),
+            chapter.id,
+          ]
+        );
+        saved = updated.rows[0];
         await query(
           `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [_id, "Kapitel generiert", model, result.prompt_tokens, result.completion_tokens, result.total_tokens, cost, _chapter_number, _chapterOutline?.title || `Kapitel ${_chapter_number}`]
+          [_id, "Narrative Zusammenfassung", model, 0, 0, 0, 0, _chapter_number, "Auto-generiertes Handoff-Dokument"]
         );
-
-        // Narrative summary (second AI call — also slow, covered by same heartbeat)
-        const characterNames = _characterRows.map((c: any) => c.name);
-        const handoff = await generateNarrativeSummary(
-          model,
-          cleanedContent,
-          _chapter_number,
-          _chapterOutline?.title || `Kapitel ${_chapter_number}`,
-          characterNames
-        );
-
-        if (handoff) {
-          const updated = await query(
-            `UPDATE chapters SET narrative_summary = $1, character_states = $2 WHERE id = $3 RETURNING *`,
-            [handoff.summary, JSON.stringify(handoff.character_states), chapter.id]
-          );
-          chapter = updated.rows[0];
-          await query(
-            `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [_id, "Narrative Zusammenfassung", model, 0, 0, 0, 0, _chapter_number, "Auto-generiertes Handoff-Dokument"]
-          );
-        }
-
-        send({ type: "done", chapter, tokens: result.total_tokens, cost, narrativeSummaryGenerated: !!handoff });
-      } catch (error: any) {
-        console.error("Chapter generation error:", error);
-        const { message } = describeAiError(error);
-        send({ type: "error", error: `Kapitel-Generierung fehlgeschlagen. ${message}` });
-      } finally {
-        clearInterval(pingInterval);
-        controller.close();
       }
-    },
+
+      await finishJob(job.id, "completed", {
+        content_so_far: cleanedContent,
+        chapter_id: saved.id,
+        finish_reason: finishReason,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: promptTokens + completionTokens,
+        estimated_cost_usd: cost,
+      });
+      await addRevision({
+        projectId: _id,
+        chapterNumber: _chapter_number,
+        chapterId: saved.id,
+        jobId: job.id,
+        source: "completed",
+        content: cleanedContent,
+        wordCount,
+      });
+
+      send({
+        type: "done",
+        chapter: saved,
+        tokens: promptTokens + completionTokens,
+        cost,
+        job_id: job.id,
+        narrativeSummaryGenerated: !!handoff,
+        finish_reason: finishReason,
+      });
+    } catch (error: any) {
+      console.error("Chapter generation error:", error);
+      const { message } = describeAiError(error);
+      if (jobId) {
+        await finishJob(jobId, "failed", { error_message: message }).catch(() => {});
+      }
+      send({ type: "error", error: `Kapitel-Generierung fehlgeschlagen. ${message}` });
+    }
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "Cache-Control": "no-cache, no-store",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return new Response(stream, { headers: streamHeaders() });
 }

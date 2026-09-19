@@ -259,17 +259,39 @@ export interface GenerateResult {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+  finish_reason: string | null;
+}
+
+export interface JsonSchemaFormat {
+  type: "json_schema";
+  json_schema: {
+    name: string;
+    strict?: boolean;
+    schema: Record<string, unknown>;
+  };
+}
+
+export interface GenerateTextOptions {
+  responseFormat?: JsonSchemaFormat;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+const DEFAULT_TIMEOUT_MS = 8 * 60 * 1000;
+
+function isTransientStatus(status: number) {
+  return status === 429 || status === 502 || status === 504;
 }
 
 export async function generateText(
   model: string,
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number = 8000
+  maxTokens: number = 8000,
+  options: GenerateTextOptions = {},
 ): Promise<GenerateResult> {
   const client = getOpenRouterClient();
-
-  const response = await client.chat.completions.create({
+  const body: Record<string, unknown> = {
     model,
     messages: [
       { role: "system", content: systemPrompt },
@@ -279,14 +301,101 @@ export async function generateText(
     temperature: 0.7,
     frequency_penalty: 0.3,
     presence_penalty: 0.2,
-  });
-
-  return {
-    content: response.choices[0]?.message?.content || "",
-    prompt_tokens: response.usage?.prompt_tokens || 0,
-    completion_tokens: response.usage?.completion_tokens || 0,
-    total_tokens: response.usage?.total_tokens || 0,
   };
+  if (options.responseFormat) body.response_format = options.responseFormat;
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await client.chat.completions.create(body as any, {
+        timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        signal: options.signal,
+      });
+
+      return {
+        content: response.choices[0]?.message?.content || "",
+        prompt_tokens: response.usage?.prompt_tokens || 0,
+        completion_tokens: response.usage?.completion_tokens || 0,
+        total_tokens: response.usage?.total_tokens || 0,
+        finish_reason: response.choices[0]?.finish_reason || null,
+      };
+    } catch (error) {
+      lastError = error;
+      const { status } = describeAiError(error);
+      if (!isTransientStatus(status) || attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
+    }
+  }
+  throw lastError;
+}
+
+export interface StreamChunk {
+  text?: string;
+  finish_reason?: string | null;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+}
+
+export async function* streamTextChunks(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 8000,
+  options: GenerateTextOptions = {},
+): AsyncGenerator<StreamChunk> {
+  const client = getOpenRouterClient();
+  const body: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    max_tokens: maxTokens,
+    temperature: 0.7,
+    frequency_penalty: 0.3,
+    presence_penalty: 0.2,
+    stream: true,
+    stream_options: { include_usage: true },
+  };
+  if (options.responseFormat) body.response_format = options.responseFormat;
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let yielded = false;
+    try {
+      const stream = await client.chat.completions.create(body as any, {
+        timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        signal: options.signal,
+      });
+      for await (const part of stream as any) {
+        const choice = part.choices?.[0];
+        const text = choice?.delta?.content || "";
+        const finish_reason = choice?.finish_reason || null;
+        const usage = part.usage;
+        if (text || finish_reason || usage) {
+          yielded = true;
+          yield {
+            text: text || undefined,
+            finish_reason,
+            usage: usage
+              ? {
+                  prompt_tokens: usage.prompt_tokens || 0,
+                  completion_tokens: usage.completion_tokens || 0,
+                  total_tokens: usage.total_tokens || 0,
+                }
+              : undefined,
+          };
+        }
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      if (yielded) throw error;
+      const { status } = describeAiError(error);
+      if (!isTransientStatus(status) || attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
+    }
+  }
+  throw lastError;
 }
 
 // Erkennt Degeneration: Token-Wiederholungsschleifen, Sprachmix, Mojibake.
@@ -525,22 +634,8 @@ export async function streamText(
   model: string,
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number = 8000
+  maxTokens: number = 8000,
+  options: GenerateTextOptions = {},
 ) {
-  const client = getOpenRouterClient();
-
-  const stream = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    max_tokens: maxTokens,
-    temperature: 0.7,
-    frequency_penalty: 0.3,
-    presence_penalty: 0.2,
-    stream: true,
-  });
-
-  return stream;
+  return streamTextChunks(model, systemPrompt, userPrompt, maxTokens, options);
 }

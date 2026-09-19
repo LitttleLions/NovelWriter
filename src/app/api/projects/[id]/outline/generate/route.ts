@@ -4,49 +4,15 @@ import { query } from "@/lib/db";
 import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
 import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
+import { ensureGenerationSchema } from "@/lib/generation/schema";
+import { isUsableOutline, parseOutlineArrayFromModel } from "@/lib/generation/outline-json";
+import { replaceProjectOutline } from "@/lib/generation/outline-replace";
 
 const CHUNK_SIZE = 25;
+const DETAIL_CHUNK = 8;
 
 function parseChaptersJson(content: string): any[] {
-  if (!content || !content.trim()) {
-    throw new Error("Die KI hat eine leere Antwort zurückgegeben (vermutlich Timeout oder Rate-Limit). Bitte erneut versuchen.");
-  }
-  // 1) Try strict array match
-  const arrayMatch = content.match(/\[[\s\S]*\]/);
-  if (arrayMatch) {
-    try { return JSON.parse(arrayMatch[0]); } catch {}
-  }
-  // 2) Try direct parse
-  try { return JSON.parse(content); } catch {}
-  // 3) Repair-Versuch: lies so viele vollständige Top-Level-Objekte wie möglich
-  const start = content.indexOf("[");
-  if (start === -1) {
-    throw new Error(`KI-Antwort enthält kein JSON-Array. Erste 200 Zeichen: ${content.slice(0, 200)}`);
-  }
-  const objects: any[] = [];
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  let objStart = -1;
-  for (let i = start + 1; i < content.length; i++) {
-    const c = content[i];
-    if (escape) { escape = false; continue; }
-    if (c === "\\") { escape = true; continue; }
-    if (c === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (c === "{") { if (depth === 0) objStart = i; depth++; }
-    else if (c === "}") {
-      depth--;
-      if (depth === 0 && objStart !== -1) {
-        try { objects.push(JSON.parse(content.slice(objStart, i + 1))); } catch {}
-        objStart = -1;
-      }
-    }
-  }
-  if (objects.length === 0) {
-    throw new Error(`KI-Antwort konnte nicht als JSON-Array gelesen werden (${content.length} Zeichen). Modell hat vermutlich abgebrochen.`);
-  }
-  return objects;
+  return parseOutlineArrayFromModel(content);
 }
 
 const ALLOWED_STRUCTURAL_ROLES = new Set([
@@ -133,17 +99,16 @@ DIES IST EIN DREHBUCH-PROJEKT. WICHTIG für das Feld "location":
   const userPrompt = `Wandle die folgenden ${chunk.length} Szenen in JSON um.
 Die Szenen sind durch "---SZENE---" getrennt.
 chapter_number beginnt bei ${startNumber}.
-ZIELSPRACHE: ${language} (Bitte alle Felder außer raw_notes in dieser Sprache ausgeben).
-BEHALTE jeden einzelnen Satz aus "raw_notes" 1:1 – kürze NICHTS.${screenplayHint}
+ZIELSPRACHE: ${language} (Bitte alle Felder in dieser Sprache ausgeben).
+Schreibe raw_notes NICHT – das Original bleibt serverseitig erhalten.${screenplayHint}
 
 ${chunkText}`;
 
-  const result = await generateText(model, PROMPTS.customOutlineConverter, userPrompt, 32000);
+  const result = await generateText(model, PROMPTS.customOutlineConverter, userPrompt, 8000);
 
   let chapters: any[] = [];
   try {
-    const jsonMatch = result.content.match(/\[[\s\S]*\]/);
-    chapters = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result.content);
+    chapters = parseChaptersJson(result.content);
   } catch {
     const partialMatch = result.content.match(/\{[\s\S]*?\}/g);
     if (partialMatch) {
@@ -151,7 +116,7 @@ ${chunkText}`;
         try {
           return JSON.parse(m);
         } catch {
-          return { chapter_number: startNumber + i, title: `Szene ${startNumber + i}`, purpose: "", character_arc: "", tension_level: 5, raw_notes: chunk[i] || "" };
+          return { chapter_number: startNumber + i, title: `Szene ${startNumber + i}`, purpose: "", character_arc: "", tension_level: 5 };
         }
       });
     }
@@ -160,12 +125,50 @@ ${chunkText}`;
   chapters = chapters.map((ch, i) => ({
     ...ch,
     chapter_number: startNumber + i,
+    raw_notes: chunk[i] || "",
   }));
 
   return {
     chapters,
     tokens: { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens },
   };
+}
+
+async function expandOutlineDetails(
+  model: string,
+  compact: any[],
+  language: string,
+): Promise<{ chapters: any[]; tokens: { prompt: number; completion: number; total: number } }> {
+  const tokens = { prompt: 0, completion: 0, total: 0 };
+  const expanded: any[] = [];
+  for (let i = 0; i < compact.length; i += DETAIL_CHUNK) {
+    const slice = compact.slice(i, i + DETAIL_CHUNK);
+    try {
+      const result = await generateText(
+        model,
+        PROMPTS.outlineDetailExpander,
+        `ZIELSPRACHE: ${language}\n\nKompakter Plan (unveränderliche Nummern):\n${JSON.stringify(slice)}`,
+        8000,
+      );
+      tokens.prompt += result.prompt_tokens;
+      tokens.completion += result.completion_tokens;
+      tokens.total += result.total_tokens;
+      const details = parseChaptersJson(result.content);
+      const byNumber = new Map(details.map((row: any) => [Number(row.chapter_number), row]));
+      for (const ch of slice) {
+        const extra = byNumber.get(Number(ch.chapter_number));
+        expanded.push({
+          ...ch,
+          ...extra,
+          chapter_number: ch.chapter_number,
+          raw_notes: extra?.raw_notes || ch.raw_notes || "",
+        });
+      }
+    } catch {
+      expanded.push(...slice);
+    }
+  }
+  return { chapters: expanded, tokens };
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -192,6 +195,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { custom_outline } = body;
 
   try {
+    await ensureGenerationSchema();
     const model = await resolveModel(p.ai_provider);
     let allChapters: any[] = [];
     let totalTokens = { prompt: 0, completion: 0, total: 0 };
@@ -248,9 +252,19 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
-        const result = await generateText(model, PROMPTS.screenplayOutlineArchitect, userPrompt, 32000);
-        allChapters = parseChaptersJson(result.content);
-        totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
+        const compactResult = await generateText(
+          model,
+          PROMPTS.screenplayOutlineArchitect,
+          `${userPrompt}\n\nHalte jedes Objekt KOMPAKT (kurze Felder, kein ausformulierter Szenentext).`,
+          8000,
+        );
+        const compact = parseChaptersJson(compactResult.content);
+        totalTokens = { prompt: compactResult.prompt_tokens, completion: compactResult.completion_tokens, total: compactResult.total_tokens };
+        const expanded = await expandOutlineDetails(model, compact, p.language || "Deutsch");
+        allChapters = expanded.chapters;
+        totalTokens.prompt += expanded.tokens.prompt;
+        totalTokens.completion += expanded.tokens.completion;
+        totalTokens.total += expanded.tokens.total;
       } else {
         const userPrompt = `Werk-Typ: Roman
 Titel: ${p.title}
@@ -269,38 +283,26 @@ ${p.outline ? `Vorhandene Outline:\n${p.outline}` : "Keine Outline vorhanden –
 
 ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
 
-        const result = await generateText(model, PROMPTS.chapterArchitect, userPrompt, 32000);
-        allChapters = parseChaptersJson(result.content);
-        totalTokens = { prompt: result.prompt_tokens, completion: result.completion_tokens, total: result.total_tokens };
+        const compactResult = await generateText(model, PROMPTS.chapterArchitectCompact, userPrompt, 8000);
+        const compact = parseChaptersJson(compactResult.content);
+        totalTokens = { prompt: compactResult.prompt_tokens, completion: compactResult.completion_tokens, total: compactResult.total_tokens };
+        const expanded = await expandOutlineDetails(model, compact, p.language || "Deutsch");
+        allChapters = expanded.chapters;
+        totalTokens.prompt += expanded.tokens.prompt;
+        totalTokens.completion += expanded.tokens.completion;
+        totalTokens.total += expanded.tokens.total;
       }
     }
 
-    // Normalize: ensure chapter numbers are strictly sequential 1…N
-    // The AI sometimes returns duplicates or skips numbers — force 1-indexed sequence
     allChapters = allChapters.map((ch, i) => ({ ...ch, chapter_number: i + 1 }));
-
-    await query("DELETE FROM chapters WHERE project_id = $1", [id]);
-    await query("DELETE FROM chapter_outlines WHERE project_id = $1", [id]);
-
-    for (const ch of allChapters) {
-      await query(
-        `INSERT INTO chapter_outlines
-           (project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          id,
-          ch.chapter_number,
-          ch.title || `Szene ${ch.chapter_number}`,
-          ch.purpose || "",
-          ch.character_arc || "",
-          ch.tension_level || 5,
-          ch.location || "",
-          ch.key_events || "",
-          ch.raw_notes || "",
-          normalizeStructuralRole(ch.structural_role),
-        ]
+    if (!isUsableOutline(allChapters)) {
+      return NextResponse.json(
+        { error: "Die KI-Outline war unvollständig. Bestehende Kapitel wurden nicht gelöscht." },
+        { status: 502 },
       );
     }
+
+    await replaceProjectOutline(id, allChapters, normalizeStructuralRole);
 
     await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [id]);
 

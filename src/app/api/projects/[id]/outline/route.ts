@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { generateText, estimateCost } from "@/lib/openrouter";
 import { resolveModel } from "@/lib/ai-settings";
+import { ensureGenerationSchema } from "@/lib/generation/schema";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -17,6 +18,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (project.rows.length === 0) {
     return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
   }
+
+  await ensureGenerationSchema();
 
   const p = project.rows[0];
   const body = await req.json();

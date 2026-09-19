@@ -60,15 +60,16 @@ src/
 - **users**: id, email, password_hash, name, is_admin
 - **ai_settings**: singleton row with default_model, allowed_models and updated_at
 - **projects**: id, user_id, title, genre, target_word_count, language, summary, characters, outline, style_sample, style_json, style_notes, ai_provider (saved project model), status, project_type, screenplay_format, screenplay_style_preset
-- **chapters**: id, project_id, chapter_number, title, purpose, content, word_count, status, narrative_summary, character_states
+- **chapters**: id, project_id, chapter_number, title, purpose, content, word_count, status, narrative_summary, character_states, last_scene_ending, open_plot_threads; UNIQUE (project_id, chapter_number)
+- **chapter_generation_jobs** / **chapter_revisions**: persistent generation + draft snapshots
+- **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role; UNIQUE (project_id, chapter_number)
 - **project_characters**: id, project_id, name, role, description, traits, backstory, appearance, notes, first_appears_chapter
-- **chapter_outlines**: id, project_id, chapter_number, title, purpose, character_arc, tension_level, location, key_events, raw_notes, structural_role
 - **generation_log**: token and cost tracking for AI actions per project/chapter
 - **outline_characters**: outline-to-project-character assignments
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection (auto-set by Replit)
-- `JWT_SECRET` - JWT signing secret (auto-generated)
+- `JWT_SECRET` - JWT signing secret. Must be a Replit/deployment secret, never committed. Changing it invalidates all sessions. The app has no fallback secret.
 - `OPENROUTER_API_KEY` - OpenRouter API key (user provides in Secrets tab)
 - `OPENROUTER_MODEL` - (Optional) operator fallback model ID if the configured default is unavailable
 - `ADMIN_EMAIL` / `ADMIN_EMAILS` - (Optional) comma-separated operator email(s) that receive admin access

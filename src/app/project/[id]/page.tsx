@@ -139,6 +139,8 @@ export default function ProjectPage() {
   const [outlineInputMode, setOutlineInputMode] = useState<"generate" | "paste">("generate");
   const [pastedOutline, setPastedOutline] = useState("");
   const [generatingChapter, setGeneratingChapter] = useState<number | null>(null);
+  const [generatingDraft, setGeneratingDraft] = useState("");
+  const generatingJobIdRef = useRef<number | null>(null);
   const [editingChapter, setEditingChapter] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [expandedChapter, setExpandedChapter] = useState<number | null>(null);
@@ -400,13 +402,14 @@ export default function ProjectPage() {
     }
   }
 
-  async function generateChapter(chapterNumber: number, signal?: AbortSignal) {
+  async function generateChapter(chapterNumber: number, signal?: AbortSignal, jobId?: number, reconnectAttempt = 0) {
     setGeneratingChapter(chapterNumber);
+    setGeneratingDraft("");
     try {
       const res = await fetch(`/api/projects/${projectId}/chapters/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapter_number: chapterNumber }),
+        body: JSON.stringify(jobId ? { chapter_number: chapterNumber, job_id: jobId } : { chapter_number: chapterNumber }),
         signal,
       });
 
@@ -417,10 +420,12 @@ export default function ProjectPage() {
         return;
       }
 
-      // Read the streaming response line-by-line (heartbeat pings keep connection alive)
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let sawDone = false;
+      let sawError = false;
+      let localJobId = jobId || null;
 
       outer: while (true) {
         const { done, value } = await reader.read();
@@ -432,27 +437,63 @@ export default function ProjectPage() {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
+          let msg: any;
           try {
-            const msg = JSON.parse(trimmed);
-            if (msg.type === "ping") continue;
-            if (msg.type === "error") {
-              alert(msg.error || "Kapitel-Generierung fehlgeschlagen");
-              break outer;
-            }
-            if (msg.type === "done") {
-              setActiveTab("chapters");
-              setExpandedChapter(chapterNumber);
-              await loadProject();
-              break outer;
-            }
-          } catch {}
+            msg = JSON.parse(trimmed);
+          } catch {
+            console.warn("Ungültige Stream-Zeile:", trimmed.slice(0, 200));
+            continue;
+          }
+          if (msg.type === "ping") continue;
+          if (msg.type === "job" && msg.job_id) {
+            localJobId = msg.job_id;
+            generatingJobIdRef.current = msg.job_id;
+            continue;
+          }
+          if (msg.type === "delta" && typeof msg.text === "string") {
+            setGeneratingDraft((prev) => prev + msg.text);
+            continue;
+          }
+          if (msg.type === "error") {
+            sawError = true;
+            alert(msg.error || "Kapitel-Generierung fehlgeschlagen");
+            break outer;
+          }
+          if (msg.type === "done") {
+            sawDone = true;
+            setActiveTab("chapters");
+            setExpandedChapter(chapterNumber);
+            setGeneratingDraft("");
+            await loadProject();
+            break outer;
+          }
         }
+      }
+
+      if (!sawDone && !sawError) {
+        if (localJobId && reconnectAttempt < 1) {
+          generatingJobIdRef.current = localJobId;
+          await generateChapter(chapterNumber, signal, localJobId, reconnectAttempt + 1);
+          return;
+        }
+        alert("Die Verbindung endete, bevor das Kapitel fertig war. Bitte erneut versuchen – ein Draft kann bereits gespeichert sein.");
+        await loadProject();
       }
     } catch (e: any) {
       if (e?.name === "AbortError") return;
+      const jobIdToResume = generatingJobIdRef.current;
+      if (jobIdToResume && !jobId && reconnectAttempt < 1) {
+        try {
+          await generateChapter(chapterNumber, signal, jobIdToResume, reconnectAttempt + 1);
+          return;
+        } catch {}
+      }
       alert(`Netzwerkfehler: ${e?.message || "Unbekannt"}`);
     } finally {
-      setGeneratingChapter(null);
+      if (!jobId) {
+        setGeneratingChapter(null);
+        generatingJobIdRef.current = null;
+      }
     }
   }
 
@@ -2416,12 +2457,19 @@ export default function ProjectPage() {
                 chapters.map((ch) => (
                   <Card key={ch.id} className={`overflow-hidden transition-all ${generatingChapter === ch.chapter_number ? "ring-1 ring-primary/40" : ""}`}>
                     {generatingChapter === ch.chapter_number && (
-                      <div className="px-4 py-2.5 bg-primary/5 border-b border-primary/20 flex items-center gap-2">
-                        <span className="relative flex h-2 w-2 shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                        </span>
-                        <span className="text-xs text-primary font-medium">KI schreibt diese {terms.chapter} … {formatElapsed(elapsedSeconds)}</span>
+                      <div className="px-4 py-2.5 bg-primary/5 border-b border-primary/20 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-2 w-2 shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                          </span>
+                          <span className="text-xs text-primary font-medium">KI schreibt diese {terms.chapter} … {formatElapsed(elapsedSeconds)}</span>
+                        </div>
+                        {generatingDraft && (
+                          <pre className="text-xs whitespace-pre-wrap max-h-40 overflow-y-auto text-muted-foreground font-sans leading-relaxed">
+                            {generatingDraft.slice(-1200)}
+                          </pre>
+                        )}
                       </div>
                     )}
                     <div className="flex items-center gap-2 p-4 hover:bg-muted/40 transition-colors">
@@ -2877,6 +2925,13 @@ export default function ProjectPage() {
                 <button
                   onClick={() => {
                     bulkCancelRef.current = true;
+                    if (generatingChapter !== null) {
+                      fetch(`/api/projects/${projectId}/chapters/generate/abort`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ chapter_number: generatingChapter }),
+                      }).catch(() => {});
+                    }
                     activeFetchAbortRef.current?.abort();
                   }}
                   className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"
@@ -2887,6 +2942,11 @@ export default function ProjectPage() {
               {generatingChapter !== null && !bulkMode && (
                 <button
                   onClick={() => {
+                    fetch(`/api/projects/${projectId}/chapters/generate/abort`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ chapter_number: generatingChapter }),
+                    }).catch(() => {});
                     activeFetchAbortRef.current?.abort();
                   }}
                   className="ml-1 text-xs font-medium text-destructive hover:text-destructive/80 bg-destructive/10 hover:bg-destructive/20 rounded-xl px-3 py-1 transition-colors"

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { requireOwnedProject } from "@/lib/project-access";
 
 export async function PUT(
   req: Request,
@@ -12,11 +13,8 @@ export async function PUT(
   const { id, chapterId } = await params;
   const { content, title, narrative_summary } = await req.json();
 
-  const project = await query(
-    "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-    [id, user.id]
-  );
-  if (project.rows.length === 0) {
+  const project = await requireOwnedProject(id, user.id);
+  if (!project) {
     return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
   }
 
@@ -68,9 +66,17 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
 
   const { id, chapterId } = await params;
-  await query(
-    "DELETE FROM chapters WHERE id = $1 AND project_id = $2",
+  const project = await requireOwnedProject(id, user.id);
+  if (!project) {
+    return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
+  }
+
+  const result = await query(
+    "DELETE FROM chapters WHERE id = $1 AND project_id = $2 RETURNING id",
     [chapterId, id]
   );
+  if (result.rows.length === 0) {
+    return NextResponse.json({ error: "Kapitel nicht gefunden" }, { status: 404 });
+  }
   return NextResponse.json({ success: true });
 }

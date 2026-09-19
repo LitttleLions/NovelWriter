@@ -107,3 +107,50 @@ ON CONFLICT (id) DO NOTHING;
 UPDATE ai_settings
 SET allowed_models = ARRAY[default_model]::TEXT[]
 WHERE id = TRUE AND (allowed_models IS NULL OR cardinality(allowed_models) = 0);
+
+ALTER TABLE chapters ADD COLUMN IF NOT EXISTS last_scene_ending TEXT;
+ALTER TABLE chapters ADD COLUMN IF NOT EXISTS open_plot_threads JSONB;
+
+DELETE FROM chapters a USING chapters b
+  WHERE a.project_id = b.project_id AND a.chapter_number = b.chapter_number AND a.id < b.id;
+DELETE FROM chapter_outlines a USING chapter_outlines b
+  WHERE a.project_id = b.project_id AND a.chapter_number = b.chapter_number AND a.id < b.id;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chapters_project_number ON chapters (project_id, chapter_number);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_outlines_project_number ON chapter_outlines (project_id, chapter_number);
+
+CREATE TABLE IF NOT EXISTS chapter_generation_jobs (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  chapter_number INTEGER NOT NULL,
+  chapter_id INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'queued',
+  abort_requested BOOLEAN NOT NULL DEFAULT FALSE,
+  attempt INTEGER NOT NULL DEFAULT 0,
+  finish_reason VARCHAR(80),
+  content_so_far TEXT DEFAULT '',
+  event_seq INTEGER NOT NULL DEFAULT 0,
+  model VARCHAR(200),
+  prompt_tokens INTEGER DEFAULT 0,
+  completion_tokens INTEGER DEFAULT 0,
+  total_tokens INTEGER DEFAULT 0,
+  estimated_cost_usd NUMERIC(10, 6) DEFAULT 0,
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_jobs_one_running
+  ON chapter_generation_jobs (project_id, chapter_number)
+  WHERE status = 'running';
+
+CREATE TABLE IF NOT EXISTS chapter_revisions (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  chapter_id INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
+  chapter_number INTEGER NOT NULL,
+  job_id INTEGER REFERENCES chapter_generation_jobs(id) ON DELETE SET NULL,
+  source VARCHAR(50) NOT NULL,
+  content TEXT,
+  word_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);

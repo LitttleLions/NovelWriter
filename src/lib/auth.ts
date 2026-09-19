@@ -3,11 +3,7 @@ import { cookies, headers } from "next/headers";
 import bcrypt from "bcryptjs";
 import { query } from "./db";
 import { ensureAiSettingsSchema } from "./ai-settings";
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET || "romanforge_fallback_secret_2026_x99";
-  return new TextEncoder().encode(secret);
-}
+import { getJwtSecretBytes } from "./jwt-secret";
 
 
 export async function hashPassword(password: string): Promise<string> {
@@ -25,12 +21,12 @@ export async function createToken(userId: number, email: string): Promise<string
   return new SignJWT({ userId, email })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
-    .sign(getJwtSecret());
+    .sign(getJwtSecretBytes());
 }
 
 export async function verifyToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
+    const { payload } = await jwtVerify(token, getJwtSecretBytes());
     return payload as { userId: number; email: string };
   } catch {
     return null;

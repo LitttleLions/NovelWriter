@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET || "romanforge_fallback_secret_2026_x99";
-  return new TextEncoder().encode(secret);
-}
+import { getJwtSecretBytes } from "@/lib/jwt-secret";
 
 export async function middleware(req: NextRequest) {
   const response = NextResponse.next();
@@ -12,7 +8,7 @@ export async function middleware(req: NextRequest) {
   const cookieToken = req.cookies.get("auth_token")?.value;
   if (cookieToken) {
     try {
-      await jwtVerify(cookieToken, getJwtSecret());
+      await jwtVerify(cookieToken, getJwtSecretBytes());
       return response;
     } catch {
     }
@@ -22,7 +18,7 @@ export async function middleware(req: NextRequest) {
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
     try {
-      await jwtVerify(token, getJwtSecret());
+      await jwtVerify(token, getJwtSecretBytes());
       response.cookies.set("auth_token", token, {
         httpOnly: true,
         secure: true,

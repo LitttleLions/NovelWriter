@@ -151,11 +151,11 @@ REGELN:
 
 KRITISCHE REGELN:
 1. JEDE Szene, jeder Absatz, jeder Ort bekommt einen EIGENEN Eintrag. NIEMALS Szenen zusammenfassen oder zusammenlegen.
-2. Der "raw_notes"-Wert enthält den VOLLSTÄNDIGEN Originaltext der Szene – WORT FÜR WORT, NICHTS weglassen, NICHTS umformulieren.
-3. Erstelle so viele Einträge wie die Vorlage Szenen/Abschnitte hat.
-4. chapter_number ist fortlaufend (1, 2, 3, ...).
-5. SPRACHE: Erzeuge ALLE Texte (title, purpose, character_arc, location, key_events) in der Sprache des Projekts (Standard: Deutsch). NUR raw_notes bleibt in der Originalsprache der Vorlage.
-6. Die strukturierten Felder werden später als KAPITEL-ANWEISUNG an die Schreib-KI übergeben. Sie müssen so ausführlich sein, dass die Schreib-KI auch OHNE raw_notes ein vollständiges Kapitel daraus ableiten könnte.
+2. Erstelle so viele Einträge wie die Vorlage Szenen/Abschnitte hat.
+3. chapter_number ist fortlaufend (1, 2, 3, ...).
+4. SPRACHE: Erzeuge ALLE Texte (title, purpose, character_arc, location, key_events) in der Sprache des Projekts (Standard: Deutsch).
+5. Die strukturierten Felder werden später als KAPITEL-ANWEISUNG an die Schreib-KI übergeben. Sie müssen so ausführlich sein, dass die Schreib-KI ein vollständiges Kapitel daraus ableiten könnte.
+6. Schreibe raw_notes NICHT. Das Original bleibt serverseitig erhalten.
 7. Antworte NUR mit dem JSON-Array – kein erklärender Text, kein Markdown-Block, keine Code-Fences.
 
 JSON-Schema pro Eintrag:
@@ -166,8 +166,7 @@ JSON-Schema pro Eintrag:
   "character_arc": "<Pro beteiligter Figur 1 Satz: Welche innere Entwicklung, Erkenntnis oder Veränderung macht sie durch? Format: 'Figur A: <Entwicklung>. Figur B: <Entwicklung>.' Wenn nur eine Figur relevant ist, ein ausführlicher Satz.>",
   "tension_level": <1-10, ehrliche Einschätzung – nicht alles auf 7-8 setzen>,
   "location": "<Ort, Tageszeit, Atmosphäre, z.B. 'Hamburg, Hafen, frühe Morgenstunden, Nebel über den Containerstapeln'>",
-  "key_events": "<Nummerierte Liste der konkreten Handlungs-Beats in chronologischer Reihenfolge. Format: '1. <Beat>. 2. <Beat>. 3. <Beat>.' Mindestens 3, maximal 8 Beats. Konkrete Handlungen, keine Abstraktionen ('Sibel öffnet den Container und sieht die Frau' statt 'Entdeckung wird gemacht').>",
-  "raw_notes": "<VOLLSTÄNDIGER ORIGINALTEXT DIESER SZENE – wort für wort aus der Vorlage>"
+  "key_events": "<Nummerierte Liste der konkreten Handlungs-Beats in chronologischer Reihenfolge. Format: '1. <Beat>. 2. <Beat>. 3. <Beat>.' Mindestens 3, maximal 8 Beats. Konkrete Handlungen, keine Abstraktionen ('Sibel öffnet den Container und sieht die Frau' statt 'Entdeckung wird gemacht').>"
 }
 
 WICHTIG: Wenn die Originalvorlage zu einer Szene wenig Information enthält, leite die Felder dennoch SO AUSFÜHRLICH WIE MÖGLICH aus dem Kontext ab – fülle nicht mit Floskeln auf, aber sei beschreibend. Die Schreib-KI soll später eine echte Arbeitsanweisung haben, keine bloße Stichwortliste.`,
@@ -196,16 +195,18 @@ Weitere Regeln:
 Antworte AUSSCHLIESSLICH mit validem JSON in folgendem Format:
 {
   "summary": "Prägnante Zusammenfassung in 200-300 Wörtern: Was ist passiert? Welche Ereignisse waren dramaturgisch relevant? Welche Konflikte wurden eröffnet oder gelöst? Wie endet das Kapitel?",
-  "character_states": {
-    "Figurenname": {
+  "character_states": [
+    {
+      "name": "Figurenname",
       "location": "Wo befindet sich die Figur am Ende des Kapitels?",
       "emotional_state": "Emotionaler/psychischer Zustand",
       "key_decisions": "Wichtige Entscheidungen oder Handlungen dieser Figur im Kapitel",
       "open_threads": "Ungelöste Konflikte oder offene Handlungsstränge dieser Figur"
     }
-  },
+  ],
   "last_scene_ending": "Die letzten 2-3 Sätze Zusammenfassung: Wie endet das Kapitel genau? Was ist der letzte emotionale/atmosphärische Eindruck?",
-  "open_plot_threads": ["Liste der offenen Handlungsstränge, die im weiteren Verlauf aufgegriffen werden müssen"]
+  "open_plot_threads": ["Liste der offenen Handlungsstränge, die im weiteren Verlauf aufgegriffen werden müssen"],
+  "key_events": ["Konkrete Ereignisse dieses Kapitels in chronologischer Reihenfolge"]
 }
 
 Kein erklärender Text, nur das JSON.`,
@@ -360,6 +361,41 @@ VERBOTEN:
 - Code-Fences.
 
 Beginne direkt mit der Slugline. Höre direkt mit dem letzten Beat auf.`,
+
+  chapterArchitectCompact: `Du bist Master Book Architect. Liefere NUR einen kompakten Gesamtplan als JSON-Array, keine ausformulierten Kapiteltexte.
+
+[
+  {
+    "chapter_number": 1,
+    "title": "Kurzer Cliffhanger-Titel",
+    "purpose": "1-2 Sätze Zweck",
+    "tension_level": 5,
+    "location": "Ort/Zeit",
+    "key_events": "3-6 Stichworte der Pflicht-Beats",
+    "structural_role": "Setup"
+  }
+]
+
+Regeln:
+- So viele Einträge wie die Story braucht, aber jedes Objekt KURZ halten.
+- structural_role nur setzen wenn klar (Setup, Inciting Incident, Rising Action, Midpoint, Crisis, Climax, Resolution, Cold Open, Act Break, Tag).
+- Keine raw_notes, kein Markdown, nur das JSON-Array.`,
+
+  outlineDetailExpander: `Du erweiterst einen bereits feststehenden Outline-Gesamtplan. Die chapter_number-Werte sind verbindlich. Erfinde KEINE zusätzlichen Kapitel und lasse keines weg.
+
+Antworte NUR mit einem JSON-Array. Pro Eintrag:
+{
+  "chapter_number": <gleiche Nummer>,
+  "title": "<kann den kompakten Titel behalten oder leicht schärfen>",
+  "purpose": "<2-3 Sätze>",
+  "character_arc": "<Figur: Entwicklung>",
+  "tension_level": <1-10>,
+  "location": "<Ort/Zeit oder Slugline>",
+  "key_events": "1. Beat. 2. Beat. 3. Beat.",
+  "raw_notes": "<2-4 Sätze Arbeitsnotiz für die Schreib-KI, kein Romantext>"
+}
+
+Kein Markdown, keine Code-Fences.`,
 
   editingEngine: `Du bist Senior Editor bei HarperCollins Fiction.
 

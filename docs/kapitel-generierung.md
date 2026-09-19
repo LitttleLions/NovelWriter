@@ -91,12 +91,64 @@ Wenn keine manuellen Notizen vorhanden sind, wird das KI-Profil als [A] geführt
 3. Narrative Vorgeschichte (Story-So-Far-Block)
 4. Erinnerung am Ende: Sprache + Stil-Gesetz erneut betont
 
-### Schritt 6 — KI-Aufruf
+### Schritt 6 — KI-Aufruf (Job + echter Token-Stream)
 
-Über OpenRouter mit dem Modell aus `project.ai_provider` (Default: `anthropic/claude-sonnet-4.6`).
-Max. **16.000 Tokens** Output.
+Es wird ein persistenter `chapter_generation_jobs`-Eintrag angelegt (`status=running`). Über OpenRouter kommt ein **Token-Stream** (nicht nur Heartbeats). Drafts landen periodisch in `chapters` (`status=generating`) und `chapter_revisions`.
+
+- Roman: max. 16.000 Tokens pro Schreibversuch
+- Drehbuch: max. 6.000 Tokens
+- `finish_reason` wird ausgewertet. Bei `length` setzt dasselbe Modell das **gleiche Kapitel** mit Overlap-Stitch fort (max. 2–3 Fortsetzungen) — kein Split in unabhängige Hälften.
+- **Reconnect** (Browser verliert die Verbindung) liest den laufenden Job; das ist kein neuer Modellaufruf.
+- **Abbrechen** setzt `abort_requested` serverseitig; der Server speichert danach nicht als `generated`.
+
+`UNIQUE (project_id, chapter_number)` verhindert doppelte Kapitelzeilen.
 
 ### Schritt 7 — Bereinigung
+
+Die Funktion `stripMetaCommentary()` entfernt automatisch:
+- Markdown-Code-Fences (```` ``` ````)
+- Meta-Sektionen am Ende: "Schlüsselelemente", "Anmerkungen", "Hinweise", "Wortzahl", "Notes", "Key elements", "Translation notes" usw.
+- Trailing Meta-Absätze die mit "(Anmerkung:", "Hinweis:", "Wortzahl:" beginnen
+- Einleitungen wie "Hier ist Kapitel X" oder "Here is the chapter"
+
+### Schritt 8 — Speichern
+
+Kapitel wird in `chapters` gespeichert/aktualisiert mit:
+- `content`, `title`, `word_count`
+- `status = 'generated'`
+- `updated_at = NOW()`
+
+Ein Eintrag in `generation_log` wird angelegt mit Modell, Token-Verbrauch und geschätzten Kosten.
+
+### Schritt 9 — Gedächtnis fürs nächste Kapitel erzeugen (automatisch!)
+
+Direkt im selben Job folgt der Narrative-Handoff (`PROMPTS.narrativeSummarizer`) mit OpenRouter `json_schema`. Input ist der **volle Kapiteltext**, wenn er ins Kontextfenster passt; sonst Kopf + Ende plus die Outline-`key_events`.
+
+```json
+{
+  "summary": "Kompakte Zusammenfassung des Kapitels, kuratiert für Folgekapitel",
+  "character_states": [
+    {
+      "name": "FigurX",
+      "location": "Aufenthaltsort am Kapitelende",
+      "emotional_state": "Stimmung",
+      "key_decisions": "Entscheidungen",
+      "open_threads": "Offene Handlungsfäden"
+    }
+  ],
+  "last_scene_ending": "Wie die letzte Szene endet",
+  "open_plot_threads": ["Faden 1", "Faden 2"],
+  "key_events": ["Ereignis 1"]
+}
+```
+
+Gespeichert in:
+- `chapters.narrative_summary` ← `summary`
+- `chapters.character_states` ← Map aus dem Array (JSONB)
+- `chapters.last_scene_ending`
+- `chapters.open_plot_threads`
+
+Ein zweiter `generation_log`-Eintrag dokumentiert die Erzeugung des Handoff-Dokuments.
 
 Die Funktion `stripMetaCommentary()` entfernt automatisch:
 - Markdown-Code-Fences (```` ``` ````)
@@ -185,9 +237,11 @@ Klicke in der Kapitel-Liste auf **"Gedächtnis"** — du kannst es manuell editi
 ## Beteiligte Dateien
 
 - `src/app/api/projects/[id]/chapters/generate/route.ts` — Haupt-Logik (alles oben Beschriebene)
+- `src/app/api/projects/[id]/chapters/generate/abort/route.ts` — Server-Abort
+- `src/lib/generation/` — Jobs, Schema, Handoff, Stitch, Outline-Replace
 - `src/lib/prompts.ts` — `PROMPTS.narrativeSummarizer` für die Gedächtnis-Erzeugung
-- `src/lib/openrouter.ts` — `generateText`, `estimateCost`, `describeAiError`
-- `src/lib/db/schema.sql` — Schema für `chapters.narrative_summary` und `character_states`
+- `src/lib/openrouter.ts` — `generateText`, `streamTextChunks`, `estimateCost`, `describeAiError`
+- `src/lib/db/schema.sql` — Schema für `chapters.narrative_summary`, `character_states`, Jobs
 - `src/app/project/[id]/page.tsx` — UI-Buttons "Generieren" / "Neu" / "Gedächtnis"
 
 ---

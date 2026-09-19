@@ -34,12 +34,21 @@
 - **Detail-Ansicht**: Klick auf Szene expandiert `location`, `key_events` und `raw_notes`.
 
 ### Kapitel-Generierung & Konsistenz (Narrative Memory)
-- **Sequentielle Generierung**: AI schreibt Kapitel basierend auf Stil und Charakter-Profilen.
-- **Narrative Memory System**: 
-  - Nach jeder Generierung wird eine `narrative_summary` (200-300 Wörter) und `character_states` (JSON) erstellt.
-  - Das nächste Kapitel erhält alle bisherigen Zusammenfassungen ("The Story So Far") plus den Volltext des unmittelbar vorangegangenen Kapitels.
-- **Charakter-Filter**: Nur Charaktere mit `first_appears_chapter <= aktuelle_nummer` werden an die KI gesendet (außer die Outline ordnet sie explizit zu).
-- **Stil-Injektion**: Stilvorgaben und Sprachregeln werden direkt in den *System Prompt* injiziert (`buildDynamicSystemPrompt`), um maximale Treue zu gewährleisten.
+- **Persistente Jobs**: Jede Kapitel-Generierung ist ein `chapter_generation_jobs`-Datensatz. Höchstens ein `running`-Job pro `(project_id, chapter_number)`. `UNIQUE (project_id, chapter_number)` auf `chapters` und `chapter_outlines`.
+- **Echter Token-Stream**: OpenRouter-Streaming mit NDJSON-Events (`job`, `delta`, `checkpoint`, `done`, `error`) plus Heartbeats. Drafts und `chapter_revisions` werden laufend gespeichert.
+- **Reconnect ≠ Continuation**: Browser-Reconnect liest den laufenden Job. Modell-Continuation nur bei `finish_reason=length`, gleiche Stimme, Overlap-Stitch, max. 2–3 Versuche.
+- **Abort**: `POST .../chapters/generate/abort` setzt `abort_requested`; der Server speichert danach nicht als `generated`.
+- **Narrative Memory**: `narrative_summary`, `character_states`, `last_scene_ending`, `open_plot_threads`. Handoff per `json_schema`; Input ist Volltext oder Kopf+Ende+Outline-Beats.
+- **Charakter-Filter**: Nur Charaktere mit `first_appears_chapter <= aktuelle_nummer` (außer Outline-Zuweisung).
+- **Stil-Injektion**: `buildDynamicSystemPrompt`.
+
+### Outline-Generierung
+- Auto-Architect: kompakter Gesamtplan, dann Detailblöcke. Custom-Paste: `raw_notes` bleiben serverseitig das Original.
+- Ersetzen der alten Outline nur in einer Transaktion, nachdem das Ergebnis gültig ist. Partielles JSON löscht keine bestehenden Kapitel.
+
+### Sicherheit
+- Kapitel-DELETE und Outline-Figuren-Zuordnung prüfen Projektbesitz und Kindobjekt-Zugehörigkeit.
+- `JWT_SECRET` kommt nur aus der Umgebung, ohne Fallback-String und ohne committed Key. Rotation macht alle Sessions ungültig.
 
 ### Fehlerbehebung (Bugfixes)
 - **Hydration**: Badge-Komponenten im Dashboard von `<CardDescription>` (p) in `<div>` verschoben.
@@ -69,7 +78,7 @@
 - **Tabelle**: `generation_log` in PostgreSQL speichert jede KI-Anfrage mit Aktion, Modell, Token-Zählung und geschätzten Kosten (USD).
 - **API**: `GET /api/projects/[id]/log` liefert alle Einträge plus Summenwerte. `GET /api/projects/[id]` ergänzt die aktuellste KI-Aktion für die Übersicht.
 - **Preistabelle**: `estimateCost()` nutzt aktuelle Preise der Live-Modellliste, wenn verfügbar, und fällt für historische/alte Modell-IDs auf die hinterlegte Kompatibilitätstabelle zurück.
-- **generateText()**: Gibt jetzt `{ content, prompt_tokens, completion_tokens, total_tokens }` zurück (statt nur String).
+- **generateText() / streamTextChunks()**: `{ content, prompt_tokens, completion_tokens, total_tokens, finish_reason }`; optionales `response_format` (json_schema).
 - **UI**: Die Projektübersicht zeigt den lokalisierten Zeitpunkt der letzten Bearbeitung sowie die jüngste KI-Aktion; bei fehlenden Daten erscheinen neutrale Hinweise. Der Tab "KI-Log" zeigt alle Generierungen in einer Tabelle inkl. Zeitstempel, Aktion, Modell, Tokens und Kostenschätzung. Summenkarten zeigen Gesamtkosten und -tokens.
 
 ## 6. Regeln für zukünftige Entwicklungen

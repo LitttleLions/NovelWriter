@@ -4,17 +4,43 @@ export function stitchContinuation(existing: string, continuation: string): stri
   if (!existingTrim) return cont;
   if (!cont) return existingTrim;
 
-  const max = Math.min(existingTrim.length, 1200);
-  for (let len = max; len >= 24; len--) {
-    const suffix = existingTrim.slice(-len);
-    const idx = cont.indexOf(suffix);
-    if (idx !== -1 && idx < 400) {
-      return existingTrim + cont.slice(idx + suffix.length);
+  // Prefer complete word overlaps. Character-level matching can hit a common
+  // phrase in the wrong place and can split a word or sentence at the seam.
+  const existingWords = [...existingTrim.matchAll(/\S+/g)];
+  const continuationWords = [...cont.matchAll(/\S+/g)];
+  const maxWords = Math.min(80, existingWords.length, continuationWords.length);
+  for (let wordCount = maxWords; wordCount >= 6; wordCount--) {
+    const existingStart = existingWords[existingWords.length - wordCount].index ?? 0;
+    const overlap = existingWords
+      .slice(existingWords.length - wordCount)
+      .map((match) => match[0])
+      .join(" ");
+    const normalizedOverlap = normalizeWords(overlap);
+    const continuationPrefix = continuationWords.slice(0, wordCount).map((match) => match[0]).join(" ");
+    if (normalizeWords(continuationPrefix) === normalizedOverlap) {
+      const continuationStart = continuationWords[wordCount - 1].index! + continuationWords[wordCount - 1][0].length;
+      const existingOverlap = existingTrim.slice(existingStart, existingStart + overlap.length);
+      const continuationOverlap = cont.slice(0, continuationStart);
+      const punctuationMismatch =
+        /[.!?]$/.test(existingOverlap) && !/[.!?]$/.test(continuationOverlap);
+      const preservedExisting = punctuationMismatch
+        ? existingTrim.slice(0, existingStart + overlap.length).replace(/[.!?]+$/, "")
+        : existingTrim.slice(0, existingStart + overlap.length);
+      return preservedExisting + cont.slice(continuationStart);
     }
   }
 
   const glue = /[.!?…»"'”]\s*$/.test(existingTrim) ? "\n\n" : (/[^\s]$/.test(existingTrim) && /^[^\s]/.test(cont) ? " " : "");
   return existingTrim + glue + cont;
+}
+
+function normalizeWords(text: string): string {
+  return text
+    .toLocaleLowerCase()
+    .replace(/[“”„«»"'`´]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function remainingKeyEvents(keyEvents: string | undefined, written: string): string {

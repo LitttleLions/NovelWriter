@@ -5,7 +5,7 @@ import { generateText, estimateCost, describeAiError } from "@/lib/openrouter";
 import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
 import { ensureGenerationSchema } from "@/lib/generation/schema";
-import { isUsableOutline, parseOutlineArrayFromModel } from "@/lib/generation/outline-json";
+import { parseOutlineArrayFromModel, validateOutline } from "@/lib/generation/outline-json";
 import { replaceProjectOutline } from "@/lib/generation/outline-replace";
 
 const CHUNK_SIZE = 25;
@@ -106,20 +106,11 @@ ${chunkText}`;
 
   const result = await generateText(model, PROMPTS.customOutlineConverter, userPrompt, 8000);
 
-  let chapters: any[] = [];
-  try {
-    chapters = parseChaptersJson(result.content);
-  } catch {
-    const partialMatch = result.content.match(/\{[\s\S]*?\}/g);
-    if (partialMatch) {
-      chapters = partialMatch.map((m: string, i: number) => {
-        try {
-          return JSON.parse(m);
-        } catch {
-          return { chapter_number: startNumber + i, title: `Szene ${startNumber + i}`, purpose: "", character_arc: "", tension_level: 5 };
-        }
-      });
-    }
+  let chapters = parseChaptersJson(result.content);
+  if (chapters.length !== chunk.length) {
+    throw new Error(
+      `Outline-Antwort unvollständig: Erwartet waren ${chunk.length} Einträge, erhalten wurden ${chapters.length}.`,
+    );
   }
 
   chapters = chapters.map((ch, i) => ({
@@ -164,7 +155,8 @@ async function expandOutlineDetails(
           raw_notes: extra?.raw_notes || ch.raw_notes || "",
         });
       }
-    } catch {
+    } catch (error) {
+      console.warn(`Outline-Detailanreicherung für Einträge ${i + 1}-${i + slice.length} fehlgeschlagen:`, error);
       expanded.push(...slice);
     }
   }
@@ -199,6 +191,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const model = await resolveModel(p.ai_provider);
     let allChapters: any[] = [];
     let totalTokens = { prompt: 0, completion: 0, total: 0 };
+    let expectedOutlineEntries: { min: number; max?: number } = { min: 2 };
 
     if (custom_outline) {
       const scenes = splitOutlineIntoScenes(custom_outline);
@@ -206,6 +199,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (scenes.length === 0) {
         return NextResponse.json({ error: "Keine Szenen in der Outline erkannt" }, { status: 400 });
       }
+      expectedOutlineEntries = { min: scenes.length, max: scenes.length };
 
       const chunks: string[][] = [];
       for (let i = 0; i < scenes.length; i += CHUNK_SIZE) {
@@ -227,6 +221,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       if (isScreenplay) {
         const targetSceneCount = isTvEpisode ? 25 : 40;
+        expectedOutlineEntries = {
+          min: Math.max(2, Math.floor(targetSceneCount * 0.7)),
+          max: Math.ceil(targetSceneCount * 1.3),
+        };
         const formatLabel = isTvEpisode ? "TV-Episode (Drehbuch)" : "Spielfilm (Drehbuch)";
         const pageCount = Math.round((p.target_word_count || (isTvEpisode ? 12500 : 27500)) / 250);
 
@@ -295,9 +293,13 @@ ${p.style_json ? `Stil-Vorgaben:\n${JSON.stringify(p.style_json)}` : ""}`;
     }
 
     allChapters = allChapters.map((ch, i) => ({ ...ch, chapter_number: i + 1 }));
-    if (!isUsableOutline(allChapters)) {
+    const outlineValidation = validateOutline(allChapters, {
+      minEntries: expectedOutlineEntries.min,
+      maxEntries: expectedOutlineEntries.max,
+    });
+    if (!outlineValidation.ok) {
       return NextResponse.json(
-        { error: "Die KI-Outline war unvollständig. Bestehende Kapitel wurden nicht gelöscht." },
+        { error: `Die KI-Outline war unvollständig: ${outlineValidation.reason} Bestehende Kapitel wurden nicht gelöscht.` },
         { status: 502 },
       );
     }

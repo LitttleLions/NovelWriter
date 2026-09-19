@@ -402,14 +402,26 @@ export default function ProjectPage() {
     }
   }
 
-  async function generateChapter(chapterNumber: number, signal?: AbortSignal, jobId?: number, reconnectAttempt = 0) {
+  async function generateChapter(
+    chapterNumber: number,
+    signal?: AbortSignal,
+    jobId?: number,
+    reconnectAttempt = 0,
+    resumeFailedJob = false,
+  ) {
     setGeneratingChapter(chapterNumber);
     setGeneratingDraft("");
     try {
       const res = await fetch(`/api/projects/${projectId}/chapters/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(jobId ? { chapter_number: chapterNumber, job_id: jobId } : { chapter_number: chapterNumber }),
+        body: JSON.stringify(
+          jobId
+            ? resumeFailedJob
+              ? { chapter_number: chapterNumber, resume_job_id: jobId }
+              : { chapter_number: chapterNumber, job_id: jobId }
+            : { chapter_number: chapterNumber },
+        ),
         signal,
       });
 
@@ -456,6 +468,14 @@ export default function ProjectPage() {
           }
           if (msg.type === "error") {
             sawError = true;
+            const resumableError =
+              localJobId &&
+              reconnectAttempt < 1 &&
+              !/abgebrochen|abort/i.test(String(msg.error || ""));
+            if (resumableError) {
+              await generateChapter(chapterNumber, signal, localJobId || undefined, reconnectAttempt + 1, true);
+              return;
+            }
             alert(msg.error || "Kapitel-Generierung fehlgeschlagen");
             break outer;
           }

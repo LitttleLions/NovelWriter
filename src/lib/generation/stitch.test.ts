@@ -13,6 +13,13 @@ describe("stitchContinuation", () => {
     expect(result).toBe("Ein langer Absatz endet hier mit einem Blick aus dem Fenster. Der Regen setzte ein.");
     expect(result.match(/Blick aus dem Fenster/g)?.length).toBe(1);
   });
+
+  it("matches a word overlap despite punctuation differences", () => {
+    const existing = "Sie blieb stehen, sah zum Himmel und wartete auf den Regen.";
+    const continuation = "Himmel und wartete auf den Regen – dann ging sie weiter.";
+    const result = stitchContinuation(existing, continuation);
+    expect(result).toBe("Sie blieb stehen, sah zum Himmel und wartete auf den Regen – dann ging sie weiter.");
+  });
 });
 
 describe("remainingKeyEvents", () => {

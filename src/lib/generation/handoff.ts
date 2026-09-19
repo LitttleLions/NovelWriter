@@ -90,26 +90,33 @@ export function safeParseNarrativeJson(raw: string): Record<string, any> | null 
     if (lastClose !== -1) {
       try { return JSON.parse(sanitized.slice(firstBrace, lastClose + 1)); } catch {}
     }
-    const partial = sanitized.slice(firstBrace);
-    for (const tail of ["}", "}}", "]}}", "}]}", "}}"]) {
-      try { return JSON.parse(partial + tail); } catch {}
-    }
   }
 
   return null;
 }
 
 export function normalizeHandoff(parsed: Record<string, any> | null): NarrativeHandoff | null {
-  if (!parsed || !parsed.summary) return null;
+  if (
+    !parsed ||
+    typeof parsed.summary !== "string" ||
+    parsed.summary.trim().length < 10 ||
+    typeof parsed.last_scene_ending !== "string" ||
+    !Array.isArray(parsed.open_plot_threads) ||
+    !Array.isArray(parsed.key_events) ||
+    (!Array.isArray(parsed.character_states) &&
+      !(parsed.character_states && typeof parsed.character_states === "object"))
+  ) {
+    return null;
+  }
   const states: Record<string, any> = {};
   if (Array.isArray(parsed.character_states)) {
     for (const row of parsed.character_states) {
-      if (row?.name) {
+      if (row && typeof row.name === "string" && row.name.trim()) {
         states[row.name] = {
-          location: row.location || "",
-          emotional_state: row.emotional_state || "",
-          key_decisions: row.key_decisions || "",
-          open_threads: row.open_threads || "",
+          location: typeof row.location === "string" ? row.location : "",
+          emotional_state: typeof row.emotional_state === "string" ? row.emotional_state : "",
+          key_decisions: typeof row.key_decisions === "string" ? row.key_decisions : "",
+          open_threads: typeof row.open_threads === "string" ? row.open_threads : "",
         };
       }
     }
@@ -120,8 +127,8 @@ export function normalizeHandoff(parsed: Record<string, any> | null): NarrativeH
     summary: String(parsed.summary),
     character_states: states,
     last_scene_ending: String(parsed.last_scene_ending || ""),
-    open_plot_threads: Array.isArray(parsed.open_plot_threads) ? parsed.open_plot_threads.map(String) : [],
-    key_events: Array.isArray(parsed.key_events) ? parsed.key_events.map(String) : [],
+    open_plot_threads: parsed.open_plot_threads.filter((item: unknown) => typeof item === "string").map((item: string) => item.trim()).filter(Boolean),
+    key_events: parsed.key_events.filter((item: unknown) => typeof item === "string").map((item: string) => item.trim()).filter(Boolean),
   };
 }
 
@@ -153,14 +160,26 @@ Erstelle jetzt das Narrative Handoff-Dokument für das nächste Kapitel.`;
       console.warn(`Narrative summary attempt ${attempt}: JSON unvollständig oder leer.`);
     } catch (e) {
       console.warn(`Narrative summary attempt ${attempt} failed:`, e);
-      try {
-        const fallback = await generateText(model, PROMPTS.narrativeSummarizer, userPrompt, 3000);
-        const parsed = normalizeHandoff(safeParseNarrativeJson(fallback.content));
-        if (parsed) return parsed;
-      } catch (inner) {
-        console.warn(`Narrative summary plaintext JSON attempt ${attempt} failed:`, inner);
-      }
     }
+  }
+
+  // Some providers reject response_format=json_schema even though they can
+  // return valid JSON. Use one explicit repair request without the provider
+  // schema instead of accepting a truncated object or silently dropping fields.
+  try {
+    const repair = await generateText(
+      model,
+      PROMPTS.narrativeSummarizer,
+      `${userPrompt}
+
+Die vorherige Antwort war kein vollständiges gültiges JSON. Gib ausschließlich ein vollständiges JSON-Objekt zurück. Alle Felder aus dem geforderten Handoff-Schema sind Pflicht: summary, last_scene_ending, open_plot_threads, key_events und character_states. Keine Markdown-Codeblöcke und kein zusätzlicher Text.`,
+      1800,
+    );
+    const parsed = normalizeHandoff(safeParseNarrativeJson(repair.content));
+    if (parsed) return parsed;
+    console.warn("Narrative summary repair: JSON weiterhin unvollständig.");
+  } catch (error) {
+    console.warn("Narrative summary repair failed:", error);
   }
 
   try {

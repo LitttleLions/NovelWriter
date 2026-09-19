@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 
 export type GenerationJobStatus = "queued" | "running" | "completed" | "failed" | "aborted";
 
@@ -36,6 +36,29 @@ export async function getJob(jobId: number, projectId: string): Promise<Generati
   const result = await query(
     "SELECT * FROM chapter_generation_jobs WHERE id = $1 AND project_id = $2",
     [jobId, projectId],
+  );
+  return result.rows[0] || null;
+}
+
+export async function resumeGenerationJob(
+  jobId: number,
+  projectId: string,
+  chapterNumber: number,
+  model: string,
+): Promise<GenerationJob | null> {
+  const result = await query(
+    `UPDATE chapter_generation_jobs
+     SET status = 'running',
+         abort_requested = FALSE,
+         error_message = NULL,
+         model = $4,
+         updated_at = NOW()
+     WHERE id = $1
+       AND project_id = $2
+       AND chapter_number = $3
+       AND status IN ('failed', 'aborted')
+     RETURNING *`,
+    [jobId, projectId, chapterNumber, model],
   );
   return result.rows[0] || null;
 }
@@ -172,26 +195,127 @@ export async function addRevision(opts: {
   );
 }
 
-export async function upsertGeneratingChapter(opts: {
+export async function finalizeGeneratedChapter(opts: {
   projectId: string;
   chapterNumber: number;
   title: string;
   content: string;
-  status?: string;
+  jobId: number;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  estimatedCostUsd: number;
+  finishReason?: string | null;
+  handoff?: {
+    summary: string;
+    character_states: Record<string, any>;
+    last_scene_ending: string;
+    open_plot_threads: string[];
+  } | null;
 }) {
   const wordCount = opts.content.trim() ? opts.content.trim().split(/\s+/).length : 0;
-  const result = await query(
-    `INSERT INTO chapters (project_id, chapter_number, title, content, word_count, status, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
-     ON CONFLICT (project_id, chapter_number)
-     DO UPDATE SET
-       content = EXCLUDED.content,
-       word_count = EXCLUDED.word_count,
-       status = EXCLUDED.status,
-       title = EXCLUDED.title,
-       updated_at = NOW()
-     RETURNING *`,
-    [opts.projectId, opts.chapterNumber, opts.title, opts.content, wordCount, opts.status || "generating"],
-  );
-  return result.rows[0];
+  return withTransaction(async (client) => {
+    const handoff = opts.handoff || null;
+    const chapterResult = await client.query(
+      `INSERT INTO chapters (
+         project_id, chapter_number, title, content, word_count, status,
+         narrative_summary, character_states, last_scene_ending, open_plot_threads, updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, 'generated', $6, $7, $8, $9, NOW())
+       ON CONFLICT (project_id, chapter_number)
+       DO UPDATE SET
+         content = EXCLUDED.content,
+         word_count = EXCLUDED.word_count,
+         status = EXCLUDED.status,
+         title = EXCLUDED.title,
+         narrative_summary = COALESCE(EXCLUDED.narrative_summary, chapters.narrative_summary),
+         character_states = COALESCE(EXCLUDED.character_states, chapters.character_states),
+         last_scene_ending = COALESCE(EXCLUDED.last_scene_ending, chapters.last_scene_ending),
+         open_plot_threads = COALESCE(EXCLUDED.open_plot_threads, chapters.open_plot_threads),
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        opts.projectId,
+        opts.chapterNumber,
+        opts.title,
+        opts.content,
+        wordCount,
+        handoff?.summary || null,
+        handoff ? JSON.stringify(handoff.character_states || {}) : null,
+        handoff?.last_scene_ending || null,
+        handoff ? JSON.stringify(handoff.open_plot_threads || []) : null,
+      ],
+    );
+    const chapter = chapterResult.rows[0];
+    const totalTokens = opts.promptTokens + opts.completionTokens;
+
+    await client.query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [opts.projectId]);
+    await client.query(
+      `INSERT INTO generation_log (
+         project_id, action, model, prompt_tokens, completion_tokens, total_tokens,
+         estimated_cost_usd, chapter_number, details
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        opts.projectId,
+        "Kapitel generiert",
+        opts.model,
+        opts.promptTokens,
+        opts.completionTokens,
+        totalTokens,
+        opts.estimatedCostUsd,
+        opts.chapterNumber,
+        opts.title,
+      ],
+    );
+    if (handoff) {
+      await client.query(
+        `INSERT INTO generation_log (
+           project_id, action, model, prompt_tokens, completion_tokens, total_tokens,
+           estimated_cost_usd, chapter_number, details
+         ) VALUES ($1, $2, $3, 0, 0, 0, 0, $4, $5)`,
+        [opts.projectId, "Narrative Zusammenfassung", opts.model, opts.chapterNumber, "Auto-generiertes Handoff-Dokument"],
+      );
+    }
+    const jobResult = await client.query(
+      `UPDATE chapter_generation_jobs
+       SET status = 'completed',
+           error_message = NULL,
+           finish_reason = COALESCE($2, finish_reason),
+           content_so_far = $3,
+           chapter_id = $4,
+           prompt_tokens = $5,
+           completion_tokens = $6,
+           total_tokens = $7,
+           estimated_cost_usd = $8,
+           updated_at = NOW()
+       WHERE id = $1
+         AND project_id = $9
+         AND chapter_number = $10
+         AND status = 'running'
+         AND abort_requested = FALSE
+       RETURNING id`,
+      [
+        opts.jobId,
+        opts.finishReason ?? null,
+        opts.content,
+        chapter.id,
+        opts.promptTokens,
+        opts.completionTokens,
+        totalTokens,
+        opts.estimatedCostUsd,
+        opts.projectId,
+        opts.chapterNumber,
+      ],
+    );
+    if (jobResult.rowCount !== 1) {
+      throw new Error("Der Generierungsjob wurde vor der Finalisierung beendet oder gehört nicht zu diesem Kapitel.");
+    }
+    await client.query(
+      `INSERT INTO chapter_revisions (
+         project_id, chapter_id, chapter_number, job_id, source, content, word_count
+       ) VALUES ($1, $2, $3, $4, 'completed', $5, $6)`,
+      [opts.projectId, chapter.id, opts.chapterNumber, opts.jobId, opts.content, wordCount],
+    );
+    return chapter;
+  });
 }

@@ -1,2 +1,3 @@
 - [Concurrent schema initialization](schema-initialization-lock.md) — first-request DDL must be serialized at the database level across independently evaluated Next.js route bundles.
 - [Production-to-development sync](production-development-data-sync.md) — refresh Development only with explicit confirmation, a backup, transactional ordering, and post-restore verification.
+- [Generation checkpoint safety](generation-checkpoint-safety.md) — only validated segments may be resumable; promotion of chapter, handoff, job, and revision must share one transaction.

@@ -39,8 +39,45 @@ export function parseJsonArray(content: string): any[] {
 }
 
 export function isUsableOutline(chapters: unknown): chapters is any[] {
-  if (!Array.isArray(chapters) || chapters.length === 0) return false;
-  return chapters.some((ch) => ch && (String(ch.title || "").trim() || String(ch.raw_notes || "").trim() || String(ch.purpose || "").trim()));
+  return validateOutline(chapters).ok;
+}
+
+export function validateOutline(
+  chapters: unknown,
+  options: { minEntries?: number; maxEntries?: number; expectedEntries?: number } = {},
+): { ok: true } | { ok: false; reason: string } {
+  if (!Array.isArray(chapters) || chapters.length === 0) {
+    return { ok: false, reason: "Die Outline enthält keine Kapitel oder Szenen." };
+  }
+  const minEntries = options.expectedEntries ?? options.minEntries ?? 2;
+  const maxEntries = options.expectedEntries ?? options.maxEntries;
+  if (chapters.length < minEntries) {
+    return { ok: false, reason: `Die Outline enthält nur ${chapters.length} statt mindestens ${minEntries} Einträgen.` };
+  }
+  if (maxEntries !== undefined && chapters.length > maxEntries) {
+    return { ok: false, reason: `Die Outline enthält ${chapters.length} statt höchstens ${maxEntries} Einträgen.` };
+  }
+
+  const numbers = new Set<number>();
+  for (const [index, chapter] of chapters.entries()) {
+    if (!chapter || typeof chapter !== "object") {
+      return { ok: false, reason: `Outline-Eintrag ${index + 1} ist kein Objekt.` };
+    }
+    const chapterNumber = Number((chapter as any).chapter_number);
+    if (!Number.isInteger(chapterNumber) || chapterNumber < 1 || numbers.has(chapterNumber)) {
+      return { ok: false, reason: `Outline-Eintrag ${index + 1} hat eine fehlende oder doppelte Kapitelnummer.` };
+    }
+    if (chapterNumber !== index + 1) {
+      return { ok: false, reason: `Outline-Eintrag ${index + 1} ist nicht fortlaufend nummeriert.` };
+    }
+    numbers.add(chapterNumber);
+    const hasContent = ["title", "purpose", "raw_notes", "key_events"].some((key) => String((chapter as any)[key] || "").trim());
+    if (!hasContent) {
+      return { ok: false, reason: `Outline-Eintrag ${chapterNumber} enthält keine verwertbaren Inhalte.` };
+    }
+  }
+
+  return { ok: true };
 }
 
 export function sanitizeJsonStrings(raw: string): string {

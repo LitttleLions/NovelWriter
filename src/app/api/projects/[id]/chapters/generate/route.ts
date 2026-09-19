@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { estimateCost, describeAiError, detectDegeneration, streamTextChunks } from "@/lib/openrouter";
+import { estimateCost, describeAiError, streamTextChunks } from "@/lib/openrouter";
 import { resolveModel } from "@/lib/ai-settings";
 import { PROMPTS } from "@/lib/prompts";
 import { getScreenplayStylePreset, getSluglineVocab } from "@/lib/screenplay-presets";
@@ -9,15 +9,17 @@ import { ensureGenerationSchema } from "@/lib/generation/schema";
 import { generateNarrativeSummary } from "@/lib/generation/handoff";
 import { remainingKeyEvents, stitchContinuation, wordCountOf } from "@/lib/generation/stitch";
 import { buildContinuationUserPrompt } from "@/lib/generation/continuation-prompt";
+import { isIncompleteFinishReason, validateCandidateText } from "@/lib/generation/quality";
 import {
   addRevision,
   createRunningJob,
+  finalizeGeneratedChapter,
   finishJob,
   getJob,
   getRunningJob,
   isAbortRequested,
+  resumeGenerationJob,
   touchJob,
-  upsertGeneratingChapter,
 } from "@/lib/generation/jobs";
 
 function formatStyleForPrompt(style_json: any, style_notes?: string): string {
@@ -401,6 +403,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const body = await req.json().catch(() => ({}));
   const chapter_number = body.chapter_number;
   const reconnectJobId = Number(body.job_id) || null;
+  const resumeJobId = Number(body.resume_job_id) || null;
 
   await ensureGenerationSchema();
 
@@ -647,13 +650,34 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
   const _unitNoun = unitNoun;
   const _keyEvents = chapterOutline?.key_events || "";
   const _chapterTitle = chapterOutline?.title || `Kapitel ${chapter_number}`;
+  const _resumeJobId = resumeJobId;
+  const _continuationContext = [
+    `KAPITEL-ANWEISUNG:\n${outlineBlock}`,
+    `FIGUREN:\n${formatCharactersForPrompt(characterRows)}`,
+    `KONTEXT-ENDE:\n${storySoFarBlock.slice(-3500)}`,
+    manualNotesTrimmed ? `MANUELLE STIL-DIREKTIVEN:\n${manualNotesTrimmed}` : "",
+  ].filter(Boolean).join("\n\n");
+  const minimumChapterWords = isScreenplay ? 300 : 1800;
 
   const stream = createNdjsonStream(async (send) => {
     let jobId: number | null = null;
+    let assembled = "";
+    let finishReason: string | null = null;
+    let promptTokens = 0;
+    let completionTokens = 0;
     try {
       const model = await resolveModel(_p.ai_provider);
       const maxTokens = _p.project_type === "screenplay" ? 6000 : 16000;
-      const createdJob = await createRunningJob(_id, _chapter_number, model);
+      const resumedJob = _resumeJobId
+        ? await resumeGenerationJob(_resumeJobId, _id, _chapter_number, model)
+        : null;
+      if (_resumeJobId && !resumedJob) {
+        send({ type: "error", error: "Dieser Job kann nicht fortgesetzt werden. Der gespeicherte Abschnitt fehlt oder der Job läuft bereits." });
+        return;
+      }
+      const createdJob = resumedJob
+        ? { job: resumedJob, created: true }
+        : await createRunningJob(_id, _chapter_number, model);
       const job = createdJob.job;
       jobId = job.id;
       if (!createdJob.created) {
@@ -662,23 +686,18 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
       }
 
       let seq = 0;
-      send({ type: "job", job_id: job.id, chapter_number: _chapter_number, seq: seq++ });
-
-      let assembled = "";
-      let finishReason: string | null = null;
-      let promptTokens = 0;
-      let completionTokens = 0;
-      let lastCheckpointAt = 0;
       const MAX_CONTINUATIONS = 3;
+      send({ type: "job", job_id: job.id, chapter_number: _chapter_number, seq: seq++ });
+      const resuming = Boolean(resumedJob);
+      const startingAttempt = resuming
+        ? Math.min(MAX_CONTINUATIONS, Math.max(1, Number(job.attempt || 1)))
+        : 0;
+      if (resuming) {
+        assembled = job.content_so_far || "";
+        if (assembled) send({ type: "delta", text: assembled, seq: seq++ });
+      }
 
       const checkpoint = async (source: string) => {
-        const chapter = await upsertGeneratingChapter({
-          projectId: _id,
-          chapterNumber: _chapter_number,
-          title: _chapterTitle,
-          content: assembled,
-          status: "generating",
-        });
         await touchJob(job.id, {
           content_so_far: assembled,
           event_seq: seq,
@@ -687,22 +706,21 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           total_tokens: promptTokens + completionTokens,
-          chapter_id: chapter.id,
+          chapter_id: null,
         });
         await addRevision({
           projectId: _id,
           chapterNumber: _chapter_number,
-          chapterId: chapter.id,
+          chapterId: null,
           jobId: job.id,
           source,
           content: assembled,
           wordCount: wordCountOf(assembled),
         });
-        lastCheckpointAt = assembled.length;
         send({ type: "checkpoint", word_count: wordCountOf(assembled), seq: seq++ });
       };
 
-      for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
+      for (let attempt = startingAttempt; attempt <= MAX_CONTINUATIONS; attempt++) {
         if (await isAbortRequested(job.id)) {
           await finishJob(job.id, "aborted", { content_so_far: assembled, error_message: "Vom Nutzer abgebrochen." });
           send({ type: "error", error: "Generierung abgebrochen." });
@@ -718,15 +736,20 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
               remainingEvents: remainingKeyEvents(_keyEvents, assembled),
               lang: _lang,
               unitNoun: _unitNoun,
+              context: _continuationContext,
+              remainingWords: Math.max(0, minimumChapterWords - wordCountOf(assembled)),
             });
 
         let piece = "";
         finishReason = null;
         let chunkCount = 0;
-        for await (const chunk of streamTextChunks(model, _dynamicSystemPrompt, prompt, maxTokens)) {
+        const remainingWords = Math.max(500, minimumChapterWords - wordCountOf(assembled));
+        const requestMaxTokens = attempt === 0
+          ? maxTokens
+          : Math.min(maxTokens, Math.max(1800, Math.ceil(remainingWords * 1.7)));
+        for await (const chunk of streamTextChunks(model, _dynamicSystemPrompt, prompt, requestMaxTokens)) {
           chunkCount++;
           if (chunkCount % 8 === 0 && await isAbortRequested(job.id)) {
-            assembled = attempt === 0 ? stripMetaCommentary(piece || assembled) : stitchContinuation(assembled, stripMetaCommentary(piece));
             await checkpoint("aborted");
             await finishJob(job.id, "aborted", { content_so_far: assembled, error_message: "Vom Nutzer abgebrochen." });
             send({ type: "error", error: "Generierung abgebrochen." });
@@ -734,12 +757,9 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
           }
           if (chunk.text) {
             piece += chunk.text;
-            send({ type: "delta", text: chunk.text, seq: seq++ });
-            const preview = attempt === 0 ? piece : stitchContinuation(assembled, piece);
-            if (preview.length - lastCheckpointAt > 800) {
-              await touchJob(job.id, { content_so_far: preview, event_seq: seq });
-              lastCheckpointAt = preview.length;
-            }
+            // Continuation overlap is not sent raw: it may repeat the last
+            // sentence in the browser even though stitching will remove it.
+            if (attempt === 0) send({ type: "delta", text: chunk.text, seq: seq++ });
           }
           if (chunk.finish_reason) finishReason = chunk.finish_reason;
           if (chunk.usage) {
@@ -747,51 +767,62 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
             completionTokens += chunk.usage.completion_tokens;
           }
           if (chunkCount % 12 === 0) {
-            const preview = attempt === 0 ? piece : stitchContinuation(assembled, piece);
-            await touchJob(job.id, { content_so_far: preview, event_seq: seq });
+            // Keep the job alive without persisting an unvalidated fragment.
+            await touchJob(job.id, { event_seq: seq });
           }
         }
 
         piece = stripMetaCommentary(piece);
-        assembled = attempt === 0 ? piece : stitchContinuation(assembled, piece);
+        const previousAssembled = assembled;
+        const candidate = attempt === 0 ? piece : stitchContinuation(assembled, piece);
+        const candidateQuality = validateCandidateText(candidate, _lang);
+        if (!candidateQuality.ok) {
+          await finishJob(job.id, "failed", {
+            content_so_far: assembled,
+            error_message: `Abschnitt ${attempt + 1} wurde wegen schlechter Textqualität verworfen: ${candidateQuality.reason}`,
+            finish_reason: finishReason,
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
+          });
+          send({ type: "error", error: `Ein Generierungsabschnitt wurde wegen schlechter Textqualität verworfen. ${candidateQuality.reason}` });
+          return;
+        }
+        assembled = candidate;
+        if (attempt > 0 && candidate.startsWith(previousAssembled)) {
+          const appended = candidate.slice(previousAssembled.length);
+          if (appended) send({ type: "delta", text: appended, seq: seq++ });
+        }
         await checkpoint(attempt === 0 ? "checkpoint" : "continue");
-        if (finishReason !== "length") break;
+        const needsContinuation =
+          isIncompleteFinishReason(finishReason) ||
+          wordCountOf(assembled) < minimumChapterWords;
+        if (!needsContinuation) break;
         if (attempt === MAX_CONTINUATIONS) {
           send({ type: "status", phase: "truncated", seq: seq++ });
         }
       }
 
       const cleanedContent = stripMetaCommentary(assembled);
-      const degeneration = detectDegeneration(cleanedContent, _lang);
-      if (!degeneration.ok) {
+      const finalQuality = validateCandidateText(cleanedContent, _lang, { minimumWords: minimumChapterWords });
+      const incompleteFinish = isIncompleteFinishReason(finishReason);
+      if (!finalQuality.ok || incompleteFinish) {
+        const qualityReason = finalQuality.ok
+          ? `Der Provider hat den Lauf mit "${finishReason || "unbekannt"}" beendet, bevor ein vollständiger Abschluss bestätigt wurde.`
+          : finalQuality.reason;
         await finishJob(job.id, "failed", {
           content_so_far: cleanedContent,
-          error_message: degeneration.reason,
+          error_message: qualityReason,
           finish_reason: finishReason,
         });
         send({
           type: "error",
-          error: `Das Modell "${model}" hat einen kaputten Output erzeugt: ${degeneration.reason} Bitte wechsle in den Projekt-Einstellungen das KI-Modell (z.B. zu Claude Sonnet 4.6, DeepSeek V4 Flash oder Gemini 3 Pro) und versuche es erneut.`,
+          error: `Das Modell "${model}" hat keinen vollständigen Kapiteltext erzeugt: ${qualityReason} Bitte versuche es erneut oder setze den Lauf fort.`,
         });
         return;
       }
 
-      const wordCount = wordCountOf(cleanedContent);
       const cost = estimateCost(model, promptTokens, completionTokens);
-      const chapter = await upsertGeneratingChapter({
-        projectId: _id,
-        chapterNumber: _chapter_number,
-        title: _chapterTitle,
-        content: cleanedContent,
-        status: "generated",
-      });
-
-      await query("UPDATE projects SET updated_at = NOW() WHERE id = $1", [_id]);
-      await query(
-        `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [_id, "Kapitel generiert", model, promptTokens, completionTokens, promptTokens + completionTokens, cost, _chapter_number, _chapterTitle]
-      );
 
       send({ type: "status", phase: "handoff", seq: seq++ });
       const characterNames = _characterRows.map((c: any) => c.name);
@@ -804,48 +835,21 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
         _keyEvents,
       );
 
-      let saved = chapter;
-      if (handoff) {
-        const updated = await query(
-          `UPDATE chapters
-           SET narrative_summary = $1,
-               character_states = $2,
-               last_scene_ending = $3,
-               open_plot_threads = $4
-           WHERE id = $5 RETURNING *`,
-          [
-            handoff.summary,
-            JSON.stringify(handoff.character_states),
-            handoff.last_scene_ending || null,
-            JSON.stringify(handoff.open_plot_threads || []),
-            chapter.id,
-          ]
-        );
-        saved = updated.rows[0];
-        await query(
-          `INSERT INTO generation_log (project_id, action, model, prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd, chapter_number, details)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [_id, "Narrative Zusammenfassung", model, 0, 0, 0, 0, _chapter_number, "Auto-generiertes Handoff-Dokument"]
-        );
-      }
-
-      await finishJob(job.id, "completed", {
-        content_so_far: cleanedContent,
-        chapter_id: saved.id,
-        finish_reason: finishReason,
-        prompt_tokens: promptTokens,
-        completion_tokens: completionTokens,
-        total_tokens: promptTokens + completionTokens,
-        estimated_cost_usd: cost,
-      });
-      await addRevision({
+      // Promote the candidate, handoff and completed-job marker together.
+      // Intermediate drafts remain in the job/revision tables and cannot
+      // replace an already generated chapter.
+      const saved = await finalizeGeneratedChapter({
         projectId: _id,
         chapterNumber: _chapter_number,
-        chapterId: saved.id,
-        jobId: job.id,
-        source: "completed",
+        title: _chapterTitle,
         content: cleanedContent,
-        wordCount,
+        jobId: job.id,
+        model,
+        promptTokens,
+        completionTokens,
+        estimatedCostUsd: cost,
+        finishReason,
+        handoff,
       });
 
       send({
@@ -861,7 +865,14 @@ ERINNERUNG: Schreibe ausschließlich auf ${lang.toUpperCase()}. Halte dich exakt
       console.error("Chapter generation error:", error);
       const { message } = describeAiError(error);
       if (jobId) {
-        await finishJob(jobId, "failed", { error_message: message }).catch(() => {});
+        await finishJob(jobId, "failed", {
+          error_message: message,
+          content_so_far: assembled,
+          finish_reason: finishReason,
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
+        }).catch(() => {});
       }
       send({ type: "error", error: `Kapitel-Generierung fehlgeschlagen. ${message}` });
     }

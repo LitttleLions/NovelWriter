@@ -18,7 +18,8 @@ import {
   BookOpen, ArrowLeft, Sparkles, Layers, PenTool, Download,
   RefreshCw, Check, AlertCircle, ChevronDown, ChevronUp, Save,
   Upload, FileText, ClipboardPaste, ArrowUp, ArrowDown, Pencil, X,
-  AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users, Copy,
+  AlertTriangle, Type, Wand2, Plus, Receipt, Zap, Users, Copy, Settings2,
+  Gauge, ListChecks,
 } from "lucide-react";
 import { getTerms, formatWordcount } from "@/lib/terms";
 import { SCREENPLAY_STYLE_PRESETS } from "@/lib/screenplay-presets";
@@ -908,6 +909,9 @@ export default function ProjectPage() {
   const progress = Math.min(100, (totalWords / project.target_word_count) * 100);
   const terms = getTerms(project.project_type, project.screenplay_format);
   const isScreenplay = project.project_type === "screenplay";
+  const activeModel = models.find((model) => model.id === project.ai_provider);
+  const activeModelName = activeModel?.name || project.ai_provider || "Noch nicht festgelegt";
+  const activeModelProvider = activeModel?.provider || (project.ai_provider ? "Nicht mehr freigegeben" : "Noch keine Auswahl");
 
   return (
     <div className="min-h-screen">

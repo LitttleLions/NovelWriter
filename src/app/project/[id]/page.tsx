@@ -946,7 +946,7 @@ export default function ProjectPage() {
 
       <main className="container py-6">
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === "log") loadLogs(); }}>
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 max-w-full overflow-x-auto">
             <TabsTrigger value="overview">Übersicht</TabsTrigger>
             <TabsTrigger value="style">Stil-Engine</TabsTrigger>
             <TabsTrigger value="characters">Figuren ({projectCharacters.length})</TabsTrigger>
@@ -956,112 +956,107 @@ export default function ProjectPage() {
               <Receipt className="h-3.5 w-3.5 mr-1" />
               KI-Log
             </TabsTrigger>
+            <TabsTrigger value="ai-settings">
+              <Settings2 className="h-3.5 w-3.5 mr-1" />
+              KI-Einstellungen
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
-            <Card className="mb-6 overflow-hidden border-primary/25 bg-card/90">
-              <CardContent className="p-0">
-                <div className="relative p-5 md:p-6">
-                  <div className="absolute bottom-0 left-0 top-0 w-1 bg-primary" />
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <Sparkles className="h-5 w-5" />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <Card className="bg-primary/[0.06]">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fortschritt</span>
+                    <Gauge className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="mt-3 text-2xl font-bold text-primary">{Math.round(progress)}%</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatWordcount(totalWords, project.project_type)} von {formatWordcount(project.target_word_count, project.project_type)}
+                  </p>
+                  <Progress value={progress} className="mt-3 h-1.5" />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{terms.chapters}</span>
+                    <BookOpen className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="mt-3 text-2xl font-bold">{chapters.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {outlines.length} geplant
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Outline</span>
+                    <ListChecks className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="mt-3 text-2xl font-bold">{outlines.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Strukturpunkte angelegt</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Figuren</span>
+                    <Users className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="mt-3 text-2xl font-bold">{projectCharacters.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">strukturiert erfasst</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</span>
+                    <span className={`h-2.5 w-2.5 rounded-full ${project.status === "completed" ? "bg-success" : project.status === "generating" ? "bg-warning" : "bg-primary"}`} />
+                  </div>
+                  <p className="mt-3 truncate text-lg font-bold">
+                    {project.status === "draft" ? "Entwurf" : project.status === "generating" ? "In Arbeit" : project.status === "completed" ? "Fertig" : project.status}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{terms.workType} · {project.language}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="mt-6 border-primary/20">
+              <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aktives KI-Modell</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="truncate font-semibold">{activeModelName}</p>
+                      {project.ai_provider === defaultModel && defaultModel && <Badge variant="success" className="text-[10px]">Admin-Standard</Badge>}
+                      {modelFallback && <Badge variant="warning" className="text-[10px]">Prüfung nötig</Badge>}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Projektkonfiguration</p>
-                        <Badge variant="success">KI-Modell</Badge>
-                      </div>
-                      <CardTitle className="mt-2 text-xl tracking-tight">KI-Modell für dieses Projekt</CardTitle>
-                      <CardDescription className="mt-1 max-w-2xl">
-                        Die Auswahl bleibt gespeichert und beeinflusst Stil und Ton der nächsten Generierungen.
-                      </CardDescription>
-                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{activeModelProvider}</p>
+                    {modelFallback && (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Dieses Modell ist nicht mehr freigegeben.
+                      </p>
+                    )}
                   </div>
                 </div>
-                {modelFallback && (
-                  <div className="mx-5 mb-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300 md:mx-6">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>Das bisherige Modell ist nicht mehr freigegeben. Bitte wähle ein neues Modell oder setze den aktuellen Admin-Standard.</span>
-                  </div>
-                )}
-                {modelError && (
-                  <p className="mx-5 mb-4 text-sm text-destructive md:mx-6">{modelError}</p>
-                )}
-                {models.length > 0 ? (
-                  <div className="border-t bg-muted/15 p-5 md:p-6">
-                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <Label className="text-xs font-semibold text-muted-foreground">Aktives Modell</Label>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Wähle aus den {models.length} zentral freigegebenen Modellen.
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateModel(defaultModel)}
-                        disabled={savingModel || !defaultModel || project.ai_provider === defaultModel}
-                      >
-                        {savingModel ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                        Admin-Standard
-                      </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {models.map((model) => {
-                        const isSelected = model.id === project.ai_provider;
-                        const isDefault = model.id === defaultModel;
-                        return (
-                          <button
-                            key={model.id}
-                            type="button"
-                            aria-pressed={isSelected}
-                            disabled={savingModel}
-                            onClick={() => updateModel(model.id)}
-                            className={`group relative rounded-xl border p-4 text-left transition-all duration-200 ${
-                              isSelected
-                                ? "border-primary bg-primary/[0.08] shadow-sm ring-1 ring-primary/25"
-                                : "bg-card hover:border-primary/40 hover:bg-muted/25"
-                            } disabled:cursor-not-allowed disabled:opacity-60`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                                isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
-                              }`}>
-                                {isSelected ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                              </div>
-                              <div className="flex flex-wrap justify-end gap-1.5">
-                                {isDefault && <Badge variant="success" className="text-[10px]">Standard</Badge>}
-                                {isSelected && <Badge className="text-[10px]">Aktiv</Badge>}
-                              </div>
-                            </div>
-                            <p className="mt-3 truncate font-semibold">{model.name}</p>
-                            <p className="mt-1 truncate text-xs text-muted-foreground">{model.provider}</p>
-                            <p className="mt-3 line-clamp-2 min-h-8 text-[11px] leading-relaxed text-muted-foreground">
-                              {model.description || model.id}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="border-t p-5 text-sm text-muted-foreground md:p-6">
-                    Die freigegebenen Modelle sind momentan nicht verfügbar. KI-Aufrufe verwenden den serverseitigen Fallback.
-                  </p>
-                )}
-                <div className="flex flex-col gap-2 border-t bg-primary/[0.035] px-5 py-3.5 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between md:px-6">
-                  <p>
-                    {project.ai_provider === defaultModel && defaultModel
-                      ? "Dieses Projekt verwendet den aktuellen Admin-Standard."
-                      : project.ai_provider
-                        ? `Gespeichert: ${models.find((model) => model.id === project.ai_provider)?.name || project.ai_provider}`
-                        : "Noch kein Projektmodell gespeichert."}
-                  </p>
-                  <span className="font-medium">{models.length} Modelle freigegeben</span>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => setActiveTab("ai-settings")}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  KI-Einstellungen öffnen
+                </Button>
               </CardContent>
             </Card>
+
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -2687,6 +2682,112 @@ export default function ProjectPage() {
                 Hinweis: Kosten sind Schätzwerte basierend auf hinterlegten Preistabellen. Abweichungen zum tatsächlichen OpenRouter-Guthaben sind möglich.
               </p>
             </div>
+          </TabsContent>
+
+          <TabsContent value="ai-settings">
+            <Card className="overflow-hidden border-primary/25 bg-card/90">
+              <CardContent className="p-0">
+                <div className="relative p-5 md:p-6">
+                  <div className="absolute bottom-0 left-0 top-0 w-1 bg-primary" />
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Settings2 className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Projektkonfiguration</p>
+                        <Badge variant="success">KI-Modell</Badge>
+                      </div>
+                      <CardTitle className="mt-2 text-xl tracking-tight">KI-Einstellungen</CardTitle>
+                      <CardDescription className="mt-1 max-w-2xl">
+                        Wähle das Modell, das für die Generierung in diesem Projekt verwendet werden soll.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+                {modelFallback && (
+                  <div className="mx-5 mb-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300 md:mx-6">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>Das bisherige Modell ist nicht mehr freigegeben. Bitte wähle ein neues Modell oder setze den aktuellen Admin-Standard.</span>
+                  </div>
+                )}
+                {modelError && (
+                  <p className="mx-5 mb-4 text-sm text-destructive md:mx-6">{modelError}</p>
+                )}
+                {models.length > 0 ? (
+                  <div className="border-t bg-muted/15 p-5 md:p-6">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <Label className="text-xs font-semibold text-muted-foreground">Aktives Modell</Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Wähle aus den {models.length} zentral freigegebenen Modellen.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateModel(defaultModel)}
+                        disabled={savingModel || !defaultModel || project.ai_provider === defaultModel}
+                      >
+                        {savingModel ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        Admin-Standard
+                      </Button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {models.map((model) => {
+                        const isSelected = model.id === project.ai_provider;
+                        const isDefault = model.id === defaultModel;
+                        return (
+                          <button
+                            key={model.id}
+                            type="button"
+                            aria-pressed={isSelected}
+                            disabled={savingModel}
+                            onClick={() => updateModel(model.id)}
+                            className={`group relative rounded-xl border p-4 text-left transition-all duration-200 ${
+                              isSelected
+                                ? "border-primary bg-primary/[0.08] shadow-sm ring-1 ring-primary/25"
+                                : "bg-card hover:border-primary/40 hover:bg-muted/25"
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                                isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                              }`}>
+                                {isSelected ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                              </div>
+                              <div className="flex flex-wrap justify-end gap-1.5">
+                                {isDefault && <Badge variant="success" className="text-[10px]">Standard</Badge>}
+                                {isSelected && <Badge className="text-[10px]">Aktiv</Badge>}
+                              </div>
+                            </div>
+                            <p className="mt-3 truncate font-semibold">{model.name}</p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">{model.provider}</p>
+                            <p className="mt-3 line-clamp-2 min-h-8 text-[11px] leading-relaxed text-muted-foreground">
+                              {model.description || model.id}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="border-t p-5 text-sm text-muted-foreground md:p-6">
+                    Die freigegebenen Modelle sind momentan nicht verfügbar. KI-Aufrufe verwenden den serverseitigen Fallback.
+                  </p>
+                )}
+                <div className="flex flex-col gap-2 border-t bg-primary/[0.035] px-5 py-3.5 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between md:px-6">
+                  <p>
+                    {project.ai_provider === defaultModel && defaultModel
+                      ? "Dieses Projekt verwendet den aktuellen Admin-Standard."
+                      : project.ai_provider
+                        ? `Gespeichert: ${activeModelName}`
+                        : "Noch kein Projektmodell gespeichert."}
+                  </p>
+                  <span className="font-medium">{models.length} Modelle freigegeben</span>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

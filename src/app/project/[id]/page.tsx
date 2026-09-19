@@ -955,69 +955,107 @@ export default function ProjectPage() {
           </TabsList>
 
           <TabsContent value="overview">
-            <Card className="mb-6 border-primary/20 bg-primary/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">KI-Modell für dieses Projekt</CardTitle>
-                <CardDescription>
-                  Die Auswahl bleibt für dieses Projekt gespeichert und beeinflusst Stil und Ton der nächsten Generierungen.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <Card className="mb-6 overflow-hidden border-primary/25 bg-card/90">
+              <CardContent className="p-0">
+                <div className="relative p-5 md:p-6">
+                  <div className="absolute bottom-0 left-0 top-0 w-1 bg-primary" />
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Projektkonfiguration</p>
+                        <Badge variant="success">KI-Modell</Badge>
+                      </div>
+                      <CardTitle className="mt-2 text-xl tracking-tight">KI-Modell für dieses Projekt</CardTitle>
+                      <CardDescription className="mt-1 max-w-2xl">
+                        Die Auswahl bleibt gespeichert und beeinflusst Stil und Ton der nächsten Generierungen.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
                 {modelFallback && (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                  <div className="mx-5 mb-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300 md:mx-6">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>Das bisherige Modell ist nicht mehr freigegeben. Bitte wähle ein neues Modell oder setze den aktuellen Admin-Standard.</span>
                   </div>
                 )}
                 {modelError && (
-                  <p className="text-sm text-destructive">{modelError}</p>
+                  <p className="mx-5 mb-4 text-sm text-destructive md:mx-6">{modelError}</p>
                 )}
                 {models.length > 0 ? (
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="project-model">Aktives Modell</Label>
-                      <Select
-                        value={
-                          models.some((model) => model.id === project.ai_provider)
-                            ? project.ai_provider
-                            : ""
-                        }
-                        onValueChange={updateModel}
-                        disabled={savingModel}
+                  <div className="border-t bg-muted/15 p-5 md:p-6">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <Label className="text-xs font-semibold text-muted-foreground">Aktives Modell</Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Wähle aus den {models.length} zentral freigegebenen Modellen.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateModel(defaultModel)}
+                        disabled={savingModel || !defaultModel || project.ai_provider === defaultModel}
                       >
-                        <SelectTrigger id="project-model">
-                          <SelectValue placeholder="Modell auswählen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {models.map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                                {model.name}{model.id === defaultModel ? " · Empfohlen" : ""} · {model.provider}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        {savingModel ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        Admin-Standard
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => updateModel(defaultModel)}
-                      disabled={savingModel || !defaultModel || project.ai_provider === defaultModel}
-                    >
-                      {savingModel ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      Admin-Standard verwenden
-                    </Button>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {models.map((model) => {
+                        const isSelected = model.id === project.ai_provider;
+                        const isDefault = model.id === defaultModel;
+                        return (
+                          <button
+                            key={model.id}
+                            type="button"
+                            aria-pressed={isSelected}
+                            disabled={savingModel}
+                            onClick={() => updateModel(model.id)}
+                            className={`group relative rounded-xl border p-4 text-left transition-all duration-200 ${
+                              isSelected
+                                ? "border-primary bg-primary/[0.08] shadow-sm ring-1 ring-primary/25"
+                                : "bg-card hover:border-primary/40 hover:bg-muted/25"
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                                isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                              }`}>
+                                {isSelected ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                              </div>
+                              <div className="flex flex-wrap justify-end gap-1.5">
+                                {isDefault && <Badge variant="success" className="text-[10px]">Standard</Badge>}
+                                {isSelected && <Badge className="text-[10px]">Aktiv</Badge>}
+                              </div>
+                            </div>
+                            <p className="mt-3 truncate font-semibold">{model.name}</p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">{model.provider}</p>
+                            <p className="mt-3 line-clamp-2 min-h-8 text-[11px] leading-relaxed text-muted-foreground">
+                              {model.description || model.id}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="border-t p-5 text-sm text-muted-foreground md:p-6">
                     Die freigegebenen Modelle sind momentan nicht verfügbar. KI-Aufrufe verwenden den serverseitigen Fallback.
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  {project.ai_provider === defaultModel && defaultModel
-                    ? "Dieses Projekt verwendet den aktuellen Admin-Standard."
-                    : project.ai_provider
-                      ? `Gespeichert: ${models.find((model) => model.id === project.ai_provider)?.name || project.ai_provider}`
-                      : "Noch kein Projektmodell gespeichert."}
-                </p>
+                <div className="flex flex-col gap-2 border-t bg-primary/[0.035] px-5 py-3.5 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between md:px-6">
+                  <p>
+                    {project.ai_provider === defaultModel && defaultModel
+                      ? "Dieses Projekt verwendet den aktuellen Admin-Standard."
+                      : project.ai_provider
+                        ? `Gespeichert: ${models.find((model) => model.id === project.ai_provider)?.name || project.ai_provider}`
+                        : "Noch kein Projektmodell gespeichert."}
+                  </p>
+                  <span className="font-medium">{models.length} Modelle freigegeben</span>
+                </div>
               </CardContent>
             </Card>
             <div className="grid gap-6 md:grid-cols-2">

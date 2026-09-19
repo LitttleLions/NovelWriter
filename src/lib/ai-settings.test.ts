@@ -71,12 +71,13 @@ describe("AI model permission policy", () => {
     mockSettings();
   });
 
-  it("accepts one default and no more than four additional live models", async () => {
+  it("accepts one default and no more than five additional live models", async () => {
     const additionalModels = [
       alternateModel,
       thirdModel,
       "deepseek/deepseek-chat",
       "qwen/qwen-max",
+      "moonshotai/kimi-k2",
     ];
     mockLiveModels([standardModel, ...additionalModels]);
 
@@ -90,18 +91,19 @@ describe("AI model permission policy", () => {
     );
   });
 
-  it("rejects a fifth additional model and models outside the live allowlist", async () => {
+  it("rejects a sixth additional model and models outside the live allowlist", async () => {
     const additionalModels = [
       alternateModel,
       thirdModel,
       "deepseek/deepseek-chat",
       "qwen/qwen-max",
       "openai/gpt-4o",
+      "moonshotai/kimi-k2",
     ];
     mockLiveModels([standardModel, ...additionalModels]);
 
     await expect(setAiSettings(standardModel, additionalModels)).rejects.toThrow(
-      "höchstens 4 zusätzliche Modelle",
+      "höchstens 5 zusätzliche Modelle",
     );
 
     clearModelsCache();
@@ -109,6 +111,25 @@ describe("AI model permission policy", () => {
     await expect(setAiSettings(standardModel, ["not-allowlisted/model"])).rejects.toThrow(
       "nicht verfügbar",
     );
+  });
+
+  it("keeps the default model and caps a legacy allowlist at six total models", async () => {
+    const legacyAllowlist = [
+      "provider/legacy-one",
+      "provider/legacy-two",
+      "provider/legacy-three",
+      "provider/legacy-four",
+      "provider/legacy-five",
+      "provider/legacy-six",
+      "provider/legacy-seven",
+    ];
+    mockSettings(standardModel, [standardModel, ...legacyAllowlist]);
+
+    const settings = await getAiSettings();
+
+    expect(settings.allowed_models).toHaveLength(6);
+    expect(settings.allowed_models[0]).toBe(standardModel);
+    expect(settings.allowed_models).toEqual([standardModel, ...legacyAllowlist.slice(0, 5)]);
   });
 
   it("includes GLM and Kimi models while excluding legacy OpenAI families", async () => {

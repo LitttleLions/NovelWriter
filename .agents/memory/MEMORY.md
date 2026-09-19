@@ -1,3 +1,4 @@
 - [Concurrent schema initialization](schema-initialization-lock.md) — first-request DDL must be serialized at the database level across independently evaluated Next.js route bundles.
 - [Production-to-development sync](production-development-data-sync.md) — refresh Development only with explicit confirmation, a backup, transactional ordering, and post-restore verification.
 - [Generation checkpoint safety](generation-checkpoint-safety.md) — only validated segments may be resumable; promotion of chapter, handoff, job, and revision must share one transaction.
+- [Generation continuation hardening](generation-continuation-hardening.md) — Task #42 follow-up: no silent client auto-resume, split finish_reason handling, sentence-boundary trim before continue, real attempt tracking. Do not restore `romanforge_export.sql`.

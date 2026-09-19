@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "P2ZM9vlDNIghf1zwZdDX-"
+uri = "file://romanforge_export.sql"
+type = "unspecified"
+title = "RomanForge AI Produktions-Dump"
+description = "Vollständiger Plain-Text-PostgreSQL-16-Dump mit Schema, Daten, Fremdschlüsseln und Sequenzständen. Enthält unveränderte bcrypt-Passwort-Hashes; bitte vertraulich behandeln."
+logical_id = "d6f54682-f2de-431c-9999-3f6a25df49b2"
+content_hash = "sha256:a7ad8b373dca116c2dad2a96142aaacfbd443f69bdd0219ddd084cff800ad952"
+size = 3500365
+mtime_ms = 1789806317343
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:1db0da66-38ea-407a-8824-9a287f7fba39/d6f54682-f2de-431c-9999-3f6a25df49b2/26bdd3c5-1d2f-4f49-8c8b-3cae633f25ff"
+storage_version_token = "1789806339245376"
+content_type = "application/octet-stream"

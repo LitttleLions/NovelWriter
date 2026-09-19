@@ -67,10 +67,10 @@
 
 ## 5. KI-Kosten & Generierungs-Log
 - **Tabelle**: `generation_log` in PostgreSQL speichert jede KI-Anfrage mit Aktion, Modell, Token-Zählung und geschätzten Kosten (USD).
-- **API**: `GET /api/projects/[id]/log` liefert alle Einträge plus Summenwerte.
+- **API**: `GET /api/projects/[id]/log` liefert alle Einträge plus Summenwerte. `GET /api/projects/[id]` ergänzt die aktuellste KI-Aktion für die Übersicht.
 - **Preistabelle**: `estimateCost()` nutzt aktuelle Preise der Live-Modellliste, wenn verfügbar, und fällt für historische/alte Modell-IDs auf die hinterlegte Kompatibilitätstabelle zurück.
 - **generateText()**: Gibt jetzt `{ content, prompt_tokens, completion_tokens, total_tokens }` zurück (statt nur String).
-- **UI**: Tab "KI-Log" zeigt alle Generierungen in einer Tabelle inkl. Zeitstempel, Aktion, Modell, Tokens und Kostenschätzung. Summenkarten zeigen Gesamtkosten und -tokens.
+- **UI**: Die Projektübersicht zeigt den lokalisierten Zeitpunkt der letzten Bearbeitung sowie die jüngste KI-Aktion; bei fehlenden Daten erscheinen neutrale Hinweise. Der Tab "KI-Log" zeigt alle Generierungen in einer Tabelle inkl. Zeitstempel, Aktion, Modell, Tokens und Kostenschätzung. Summenkarten zeigen Gesamtkosten und -tokens.
 
 ## 6. Regeln für zukünftige Entwicklungen
 - **Aktualisierung**: Diese Datei (`PROJECT_DOC.md`) muss bei jeder neuen Funktion oder Architekturänderung aktualisiert werden.

@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const logs = await query(
-    "SELECT * FROM generation_log WHERE project_id = $1 ORDER BY created_at DESC",
+    "SELECT * FROM generation_log WHERE project_id = $1 ORDER BY created_at DESC, id DESC",
     [id]
   );
 

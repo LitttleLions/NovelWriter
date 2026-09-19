@@ -27,11 +27,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     "SELECT * FROM chapter_outlines WHERE project_id = $1 ORDER BY chapter_number",
     [id]
   );
+  const latestAiActivity = await query(
+    `SELECT action, details, created_at
+     FROM generation_log
+     WHERE project_id = $1
+     ORDER BY created_at DESC, id DESC
+     LIMIT 1`,
+    [id]
+  );
 
   return NextResponse.json({
     project: result.rows[0],
     chapters: chapters.rows,
     outlines: outlines.rows,
+    latestAiActivity: latestAiActivity.rows[0] ?? null,
   });
 }
 

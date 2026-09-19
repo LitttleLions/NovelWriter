@@ -38,12 +38,17 @@ interface Project {
   style_notes: string;
   ai_provider: string;
   status: string;
-  updated_at?: string;
+  updated_at?: string | null;
   project_type?: string;
   screenplay_format?: string;
   screenplay_style_preset?: string;
 }
 
+interface LatestAiActivity {
+  action: string;
+  details?: string | null;
+  created_at?: string | null;
+}
 interface AiModel {
   id: string;
   name: string;
@@ -109,6 +114,7 @@ export default function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [outlines, setOutlines] = useState<ChapterOutline[]>([]);
+  const [latestAiActivity, setLatestAiActivity] = useState<LatestAiActivity | null>(null);
   const [models, setModels] = useState<AiModel[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [savingModel, setSavingModel] = useState(false);
@@ -235,6 +241,7 @@ export default function ProjectPage() {
     setProject(data.project);
     setChapters(data.chapters || []);
     setOutlines(data.outlines || []);
+    setLatestAiActivity(data.latestAiActivity || null);
     setCharactersText(data.project.characters || "");
     setStyleSample(data.project.style_sample || "");
     setStyleNotes(data.project.style_notes || "");
@@ -256,8 +263,7 @@ export default function ProjectPage() {
     const charRes = await fetch(`/api/projects/${projectId}/characters`, { headers: authHeaders });
     const charData = await charRes.json();
     if (charRes.ok) setProjectCharacters(charData.characters || []);
-    void loadLogs();
-  }, [projectId, router, loadLogs]);
+  }, [projectId, router]);
 
   const outlineCharLoadedRef = useRef<Set<number>>(new Set());
   useEffect(() => {
@@ -304,7 +310,7 @@ export default function ProjectPage() {
     return `${Math.floor(sec / 60)}m ${sec % 60}s`;
   }
 
-  function formatActivityDate(value?: string) {
+  function formatActivityDate(value?: string | null) {
     if (!value) return "Noch nicht erfasst";
     const date = new Date(String(value).replace(" ", "T"));
     if (Number.isNaN(date.getTime())) return "Noch nicht erfasst";
@@ -943,8 +949,6 @@ export default function ProjectPage() {
   const activeModel = models.find((model) => model.id === project.ai_provider);
   const activeModelName = activeModel?.name || project.ai_provider || "Noch nicht festgelegt";
   const activeModelProvider = activeModel?.provider || (project.ai_provider ? "Nicht mehr freigegeben" : "Noch keine Auswahl");
-  const latestGeneration = generationLogs[0];
-
   return (
     <div className="min-h-screen">
       <header className="border-b border-border/60 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
@@ -1110,11 +1114,11 @@ export default function ProjectPage() {
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Letzte KI-Aktion</p>
                     <p className="mt-1 truncate text-sm font-medium">
-                      {latestGeneration ? formatGenerationAction(latestGeneration.action) : "Noch keine KI-Aktion"}
+                      {latestAiActivity ? formatGenerationAction(latestAiActivity.action) : "Noch keine KI-Aktion"}
                     </p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {latestGeneration?.created_at
-                        ? formatActivityDate(latestGeneration.created_at)
+                      {latestAiActivity?.created_at
+                        ? formatActivityDate(latestAiActivity.created_at)
                         : "Noch keine Generierung protokolliert"}
                     </p>
                   </div>

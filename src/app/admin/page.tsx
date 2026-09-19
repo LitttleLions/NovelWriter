@@ -31,10 +31,15 @@ interface AiModel {
   completion_price_per_million: number;
   context_length: number;
   supports_vision: boolean;
+  created_at: string | null;
+  expiration_date: string | null;
+  freshness: ModelFreshness;
 }
 
 type VisionFilter = "all" | "vision" | "text";
 type PriceRange = "all" | "free" | "under-2" | "2-10" | "10-20" | "over-20";
+type ModelFreshness = "current" | "older" | "unknown";
+type FreshnessFilter = "current" | "older" | "unknown" | "all";
 
 const PRICE_RANGE_LABELS: Record<PriceRange, string> = {
   all: "Alle Preisbereiche",
@@ -43,6 +48,19 @@ const PRICE_RANGE_LABELS: Record<PriceRange, string> = {
   "2-10": "Über 2 bis 10 USD",
   "10-20": "Über 10 bis 20 USD",
   "over-20": "Über 20 USD",
+};
+
+const FRESHNESS_FILTER_LABELS: Record<FreshnessFilter, string> = {
+  current: "Aktuelle Modelle",
+  older: "Ältere Varianten (12–24 Monate)",
+  unknown: "Alter unbekannt",
+  all: "Alle verfügbaren Altersstufen",
+};
+
+const FRESHNESS_BADGE_LABELS: Record<ModelFreshness, string> = {
+  current: "Aktuell",
+  older: "Ältere Variante",
+  unknown: "Alter unbekannt",
 };
 
 function formatPrice(value: number) {
@@ -80,6 +98,10 @@ function isInPriceRange(model: AiModel, range: PriceRange) {
   }
 }
 
+function isInFreshnessFilter(model: AiModel, filter: FreshnessFilter) {
+  return filter === "all" || model.freshness === filter;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [models, setModels] = useState<AiModel[]>([]);
@@ -89,6 +111,7 @@ export default function AdminPage() {
   const [providerFilter, setProviderFilter] = useState("all");
   const [visionFilter, setVisionFilter] = useState<VisionFilter>("all");
   const [priceRange, setPriceRange] = useState<PriceRange>("all");
+  const [freshnessFilter, setFreshnessFilter] = useState<FreshnessFilter>("current");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -112,14 +135,18 @@ export default function AdminPage() {
       if (!response.ok) throw new Error(data.error || "Die Modellliste konnte nicht geladen werden.");
       setModels(data.models || []);
       setDefaultModel(data.defaultModel || "");
-      const liveModelIds = new Set((data.models || []).map((model: AiModel) => model.id));
+      const selectableModelIds = new Set(
+        (data.models || [])
+          .filter((model: AiModel) => model.freshness === "current")
+          .map((model: AiModel) => model.id),
+      );
       const configuredModels = [data.defaultModel, ...(data.additionalModels || [])].filter(
         (id: unknown): id is string => typeof id === "string" && id.length > 0,
       );
-      setUnavailableModels([...new Set(configuredModels.filter((id) => !liveModelIds.has(id)))]);
+      setUnavailableModels([...new Set(configuredModels.filter((id) => !selectableModelIds.has(id)))]);
       setAdditionalModels(
         (data.additionalModels || [])
-          .filter((id: string) => id !== data.defaultModel && liveModelIds.has(id))
+          .filter((id: string) => id !== data.defaultModel && selectableModelIds.has(id))
           .slice(0, 4),
       );
     } catch (err: any) {
@@ -180,23 +207,31 @@ export default function AdminPage() {
       const matchesVision = visionFilter === "all" ||
         (visionFilter === "vision" ? model.supports_vision : !model.supports_vision);
 
-      return matchesSearch && matchesProvider && matchesVision && isInPriceRange(model, priceRange);
+      return matchesSearch &&
+        matchesProvider &&
+        matchesVision &&
+        isInPriceRange(model, priceRange) &&
+        isInFreshnessFilter(model, freshnessFilter);
     });
-  }, [models, search, providerFilter, visionFilter, priceRange]);
+  }, [models, search, providerFilter, visionFilter, priceRange, freshnessFilter]);
 
   const hasActiveFilters = Boolean(search.trim()) ||
     providerFilter !== "all" ||
     visionFilter !== "all" ||
-    priceRange !== "all";
+    priceRange !== "all" ||
+    freshnessFilter !== "current";
 
   function resetAllFilters() {
     setSearch("");
     setProviderFilter("all");
     setVisionFilter("all");
     setPriceRange("all");
+    setFreshnessFilter("current");
   }
 
-  const selectedDefault = models.find((model) => model.id === defaultModel);
+  const selectableModels = models.filter((model) => model.freshness === "current");
+  const configuredDefault = models.find((model) => model.id === defaultModel);
+  const selectedDefault = selectableModels.find((model) => model.id === defaultModel);
 
   if (forbidden) {
     return (
@@ -266,10 +301,10 @@ export default function AdminPage() {
                       <Badge variant="success">Für neue Projekte</Badge>
                     </div>
                     <p className="mt-2 truncate text-xl font-bold tracking-tight">
-                      {selectedDefault?.name || defaultModel || (loading ? "Wird geladen …" : "Noch nicht festgelegt")}
+                      {configuredDefault?.name || defaultModel || (loading ? "Wird geladen …" : "Noch nicht festgelegt")}
                     </p>
                     <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                      {selectedDefault?.id || defaultModel || "Kein Modell ausgewählt"}
+                      {configuredDefault?.id || defaultModel || "Kein Modell ausgewählt"}
                     </p>
                     <p className="mt-3 max-w-xl text-xs leading-relaxed text-muted-foreground">
                       Dieser Standard steht neuen Projekten zur Verfügung. Bestehende Projekte behalten ihre gültige Auswahl.
@@ -282,7 +317,7 @@ export default function AdminPage() {
                   Standardmodell festlegen
                 </label>
                 <Select
-                  value={models.some((model) => model.id === defaultModel) ? defaultModel : ""}
+                  value={selectableModels.some((model) => model.id === defaultModel) ? defaultModel : ""}
                   onValueChange={(value) => {
                     setDefaultModel(value);
                     setAdditionalModels((current) => current.filter((id) => id !== value));
@@ -293,14 +328,14 @@ export default function AdminPage() {
                     <SelectValue placeholder="Standardmodell auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    {models.map((model) => (
+                    {selectableModels.map((model) => (
                       <SelectItem key={model.id} value={model.id}>{model.name} · {model.provider}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {defaultModel && !selectedDefault && (
                   <p className="mt-2 text-xs leading-relaxed text-destructive">
-                    Das bisherige Standardmodell ist live nicht mehr verfügbar. Bitte ein neues auswählen.
+                   Das bisherige Standardmodell ist nicht mehr aktuell oder nicht mehr verfügbar. Bitte ein aktuelles Modell auswählen und speichern.
                   </p>
                 )}
               </div>
@@ -347,7 +382,17 @@ export default function AdminPage() {
                   <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 </Button>
               </div>
-              <div className="grid gap-2 sm:grid-cols-3">
+               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                 <Select value={freshnessFilter} onValueChange={(value) => setFreshnessFilter(value as FreshnessFilter)}>
+                   <SelectTrigger aria-label="Nach Aktualität filtern" className="rounded-xl bg-background">
+                     <SelectValue placeholder="Aktualität" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {Object.entries(FRESHNESS_FILTER_LABELS).map(([value, label]) => (
+                       <SelectItem key={value} value={value}>{label}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
                 <Select value={providerFilter} onValueChange={setProviderFilter}>
                   <SelectTrigger aria-label="Nach Anbieter filtern" className="rounded-xl bg-background">
                     <SelectValue placeholder="Anbieter" />
@@ -388,7 +433,7 @@ export default function AdminPage() {
               <div className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="font-medium text-destructive">Gespeicherte Modellfreigaben aktualisieren</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Nicht mehr verfügbare Modelle: <span className="font-mono">{unavailableModels.join(", ")}</span>. Bitte ein neues Standardmodell wählen und speichern.
+                  Ersatzbedarf für gespeicherte Modellfreigaben: <span className="font-mono">{unavailableModels.join(", ")}</span>. Diese Auswahlwerte bleiben erhalten, bis du ein aktuelles Modell wählst und speicherst.
                 </p>
               </div>
             )}
@@ -421,6 +466,11 @@ export default function AdminPage() {
                     {PRICE_RANGE_LABELS[priceRange]} <X className="h-3.5 w-3.5" />
                   </Button>
                 )}
+                {freshnessFilter !== "current" && (
+                  <Button variant="secondary" size="sm" onClick={() => setFreshnessFilter("current")}>
+                    {FRESHNESS_FILTER_LABELS[freshnessFilter]} <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={resetAllFilters} className="ml-auto">
                   Alle zurücksetzen
                 </Button>
@@ -447,12 +497,16 @@ export default function AdminPage() {
                   const isDefault = model.id === defaultModel;
                   const isAdditional = additionalModels.includes(model.id);
                   const isAtLimit = !isAdditional && additionalModels.length >= 4;
+                  const isSelectable = model.freshness === "current";
                   return (
                     <div key={model.id} className={`group rounded-xl border p-4 transition-colors duration-200 ${isDefault ? "border-primary/50 bg-primary/[0.045]" : "bg-card hover:border-primary/35 hover:bg-muted/20"}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="truncate font-semibold">{model.name}</h3>
+                            <Badge variant={model.freshness === "current" ? "success" : "outline"} className="shrink-0">
+                              {FRESHNESS_BADGE_LABELS[model.freshness]}
+                            </Badge>
                             {isDefault && <Badge className="shrink-0">Standard</Badge>}
                             {isAdditional && <Badge variant="success" className="shrink-0">Freigegeben</Badge>}
                           </div>
@@ -461,13 +515,13 @@ export default function AdminPage() {
                         <Button
                           size="sm"
                           variant={isAdditional ? "default" : "outline"}
-                          disabled={isDefault || saving !== null || isAtLimit}
+                           disabled={isDefault || saving !== null || isAtLimit || !isSelectable}
                           onClick={() => toggleAdditionalModel(model.id)}
                           className="shrink-0"
-                          title={isAtLimit ? "Maximal vier Zusatzmodelle" : undefined}
+                           title={!isSelectable ? "Nur aktuelle Modelle können neu freigegeben werden." : isAtLimit ? "Maximal vier Zusatzmodelle" : undefined}
                         >
                           {isAdditional && <Check className="h-3.5 w-3.5" />}
-                          {isAdditional ? "Entfernen" : isDefault ? "Standard" : "Freigeben"}
+                           {isAdditional ? "Entfernen" : isDefault ? "Standard" : isSelectable ? "Freigeben" : "Nicht freigebbar"}
                         </Button>
                       </div>
                       {model.description && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{model.description}</p>}

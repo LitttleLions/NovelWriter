@@ -14,6 +14,8 @@ export const MAX_PRICE_USD_PER_MILLION_TOKENS = 20;
 export const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
 export const DEFAULT_MODEL_ID = "anthropic/claude-sonnet-4.6";
 export const MAX_ADDITIONAL_MODELS = 4;
+export const MODEL_CURRENT_MAX_AGE_MONTHS = 12;
+export const MODEL_OLDER_MAX_AGE_MONTHS = 24;
 
 const LEGACY_OPENAI_MODEL_PATTERNS = [
   /^openai\/gpt-3\.5(?:-|$)/i,
@@ -33,7 +35,25 @@ export interface AiModel {
   completion_price_per_million: number;
   context_length: number;
   supports_vision: boolean;
+  created_at: string | null;
+  expiration_date: string | null;
+  freshness: ModelFreshness;
 }
+
+export type ModelFreshness =
+  | "current"
+  | "older"
+  | "historical"
+  | "deprecated"
+  | "unknown";
+
+const MODEL_FRESHNESS_SORT_ORDER: Record<ModelFreshness, number> = {
+  current: 0,
+  older: 1,
+  unknown: 2,
+  historical: 3,
+  deprecated: 4,
+};
 
 let schemaPromise: Promise<void> | null = null;
 const AI_SCHEMA_LOCK_KEY = 731942;
@@ -154,7 +174,54 @@ function modelSupportsVision(raw: any): boolean {
   return legacyModality.includes("image");
 }
 
-function toSlimModel(raw: any): AiModel | null {
+function parseModelDate(value: unknown): Date | null {
+  if (typeof value === "number" || (typeof value === "string" && value.trim() && !Number.isNaN(Number(value)))) {
+    const numericValue = Number(value);
+    const milliseconds = numericValue < 1_000_000_000_000 ? numericValue * 1_000 : numericValue;
+    const date = new Date(milliseconds);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value !== "string" || !value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toIsoDate(date: Date | null): string | null {
+  return date ? date.toISOString() : null;
+}
+
+export function classifyModelFreshness(
+  createdAt: unknown,
+  expirationDate: unknown,
+  now = new Date(),
+): ModelFreshness {
+  const expiration = parseModelDate(expirationDate);
+  if (expiration && expiration.getTime() <= now.getTime()) return "deprecated";
+
+  const created = parseModelDate(createdAt);
+  if (!created) return "unknown";
+  if (created.getTime() > now.getTime()) return "unknown";
+
+  function monthsBefore(date: Date, months: number) {
+    const result = new Date(date);
+    const originalDay = result.getUTCDate();
+    result.setUTCDate(1);
+    result.setUTCMonth(result.getUTCMonth() - months);
+    const lastDayOfMonth = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+    result.setUTCDate(Math.min(originalDay, lastDayOfMonth));
+    return result;
+  }
+
+  if (created.getTime() >= monthsBefore(now, MODEL_CURRENT_MAX_AGE_MONTHS).getTime()) return "current";
+  if (created.getTime() >= monthsBefore(now, MODEL_OLDER_MAX_AGE_MONTHS).getTime()) return "older";
+  return "historical";
+}
+
+export function isCurrentModel(model: AiModel): boolean {
+  return model.freshness === "current";
+}
+
+function toSlimModel(raw: any, now = new Date()): AiModel | null {
   if (!raw || typeof raw.id !== "string") return null;
   if (!ALLOWED_PROVIDER_PREFIXES.some((prefix) => raw.id.startsWith(prefix))) return null;
   if (isLegacyOpenAiModel(raw.id)) return null;
@@ -170,6 +237,11 @@ function toSlimModel(raw: any): AiModel | null {
     return null;
   }
 
+  const createdAt = parseModelDate(raw.created);
+  const expirationDate = parseModelDate(raw.expiration_date);
+  const freshness = classifyModelFreshness(raw.created, raw.expiration_date, now);
+  if (freshness === "historical" || freshness === "deprecated") return null;
+
   return {
     id: raw.id,
     name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim() : raw.id,
@@ -179,6 +251,9 @@ function toSlimModel(raw: any): AiModel | null {
     completion_price_per_million: completionPrice,
     context_length: Number.isFinite(Number(raw.context_length)) ? Number(raw.context_length) : 0,
     supports_vision: modelSupportsVision(raw),
+    created_at: toIsoDate(createdAt),
+    expiration_date: toIsoDate(expirationDate),
+    freshness,
   };
 }
 
@@ -205,9 +280,11 @@ async function fetchLiveModels(): Promise<AiModel[]> {
 
   const data = await response.json();
   const models = Array.isArray(data?.data)
-    ? data.data.map(toSlimModel).filter(Boolean) as AiModel[]
+    ? data.data.map((model: unknown) => toSlimModel(model)).filter(Boolean) as AiModel[]
     : [];
   models.sort((a, b) =>
+    MODEL_FRESHNESS_SORT_ORDER[a.freshness] - MODEL_FRESHNESS_SORT_ORDER[b.freshness] ||
+    (b.created_at ? Date.parse(b.created_at) : -Infinity) - (a.created_at ? Date.parse(a.created_at) : -Infinity) ||
     (a.prompt_price_per_million + a.completion_price_per_million) -
     (b.prompt_price_per_million + b.completion_price_per_million) ||
     a.name.localeCompare(b.name),
@@ -282,7 +359,7 @@ export async function getSelectableModels(forceRefresh = false): Promise<AiModel
     getAvailableModels(forceRefresh),
     getAiSettings(),
   ]);
-  return modelsByIds(models, settings.allowed_models);
+  return modelsByIds(models.filter(isCurrentModel), settings.allowed_models);
 }
 
 export async function validateProjectModel(modelId?: unknown): Promise<string> {
@@ -312,7 +389,7 @@ export async function setAiSettings(defaultModel: string, additionalModels: stri
   }
 
   const ids = [nextDefault, ...extras];
-  const selectedModels = modelsByIds(models, ids);
+  const selectedModels = modelsByIds(models.filter(isCurrentModel), ids);
   if (!nextDefault || selectedModels.length !== ids.length) {
     throw new Error("Mindestens ein gewähltes Modell ist nicht verfügbar oder überschreitet die erlaubte Preisgrenze.");
   }
@@ -355,7 +432,12 @@ export async function resolveModel(preferredModel?: string): Promise<string> {
     throw new Error("Keine zulässigen KI-Modelle verfügbar. Prüfe die OpenRouter-Modellliste und den API-Key.");
   }
 
-  const liveIds = new Set(models.map((model) => model.id));
+  const currentModels = models.filter(isCurrentModel);
+  if (currentModels.length === 0) {
+    throw new Error("Keine aktuellen KI-Modelle verfügbar. Bitte prüfe die OpenRouter-Modellliste.");
+  }
+
+  const liveIds = new Set(currentModels.map((model) => model.id));
   const selectableIds = settings.allowed_models.filter((modelId) => liveIds.has(modelId));
   if (preferredModel && selectableIds.includes(preferredModel)) return preferredModel;
   if (settings.default_model && selectableIds.includes(settings.default_model)) {
@@ -365,7 +447,7 @@ export async function resolveModel(preferredModel?: string): Promise<string> {
   const operatorModel = process.env.OPENROUTER_MODEL?.trim();
   if (operatorModel && liveIds.has(operatorModel)) return operatorModel;
 
-  return models.find((model) => selectableIds.includes(model.id))?.id || models[0].id;
+  return currentModels.find((model) => selectableIds.includes(model.id))?.id || currentModels[0].id;
 }
 
 export function clearModelsCache() {

@@ -12,9 +12,11 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
+  classifyModelFreshness,
   clearModelsCache,
   getAiSettings,
   getAvailableModels,
+  getSelectableModels,
   resolveModel,
   setAiSettings,
   validateProjectModel,
@@ -28,6 +30,7 @@ function rawModel(id: string) {
   return {
     id,
     name: id,
+    created: new Date().toISOString(),
     pricing: { prompt: "0.000001", completion: "0.000002" },
     context_length: 100_000,
   };
@@ -148,6 +151,56 @@ describe("AI model permission policy", () => {
     const models = await getAvailableModels();
 
     expect(models.map((model) => model.id)).toEqual(["moonshotai/kimi-k2"]);
+  });
+
+  it("classifies current, older, historical, deprecated, and unknown catalog entries", () => {
+    const now = new Date("2026-09-19T12:00:00.000Z");
+    expect(classifyModelFreshness("2025-09-19T12:00:00.000Z", null, now)).toBe("current");
+    expect(classifyModelFreshness("2025-09-18T12:00:00.000Z", null, now)).toBe("older");
+    expect(classifyModelFreshness("2024-09-18T12:00:00.000Z", null, now)).toBe("historical");
+    expect(classifyModelFreshness("2026-01-01T12:00:00.000Z", "2026-09-18T12:00:00.000Z", now)).toBe("deprecated");
+    expect(classifyModelFreshness(undefined, undefined, now)).toBe("unknown");
+  });
+
+  it("returns older and unknown models only as explicitly filtered catalog entries", async () => {
+    const current = rawModel("qwen/current");
+    const older = { ...rawModel("qwen/older"), created: "2025-01-01T00:00:00.000Z" };
+    const historical = { ...rawModel("qwen/historical"), created: "2024-01-01T00:00:00.000Z" };
+    const deprecated = {
+      ...rawModel("qwen/deprecated"),
+      expiration_date: "2026-01-01T00:00:00.000Z",
+    };
+    const unknown = { ...rawModel("qwen/unknown"), created: undefined };
+    mockRawLiveModels([older, unknown, historical, deprecated, current]);
+
+    const models = await getAvailableModels();
+
+    expect(models.map((model) => model.id)).toEqual(["qwen/current", "qwen/older", "qwen/unknown"]);
+    expect(models.map((model) => model.freshness)).toEqual(["current", "older", "unknown"]);
+  });
+
+  it("does not allow older or unknown models for new global approvals", async () => {
+    const current = rawModel(standardModel);
+    const older = { ...rawModel(alternateModel), created: "2025-01-01T00:00:00.000Z" };
+    const unknown = { ...rawModel(thirdModel), created: undefined };
+    mockRawLiveModels([current, older, unknown]);
+
+    await expect(setAiSettings(alternateModel, [])).rejects.toThrow("nicht verfügbar");
+    await expect(setAiSettings(standardModel, [thirdModel])).rejects.toThrow("nicht verfügbar");
+  });
+
+  it("keeps saved historical selections while excluding them from new selectable models", async () => {
+    const historicalModel = "qwen/historical";
+    mockSettings(historicalModel, [historicalModel, standardModel]);
+    mockLiveModels([standardModel]);
+
+    await expect(getAiSettings()).resolves.toMatchObject({
+      default_model: historicalModel,
+      allowed_models: [historicalModel, standardModel],
+    });
+    await expect(getSelectableModels()).resolves.toEqual([
+      expect.objectContaining({ id: standardModel, freshness: "current" }),
+    ]);
   });
 
   it("preserves approved project choices and rejects arbitrary IDs", async () => {

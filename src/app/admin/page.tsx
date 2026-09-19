@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldAlert,
   Sparkles,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,18 @@ interface AiModel {
   supports_vision: boolean;
 }
 
+type VisionFilter = "all" | "vision" | "text";
+type PriceRange = "all" | "free" | "under-2" | "2-10" | "10-20" | "over-20";
+
+const PRICE_RANGE_LABELS: Record<PriceRange, string> = {
+  all: "Alle Preisbereiche",
+  free: "Kostenlos",
+  "under-2": "Bis 2 USD",
+  "2-10": "Über 2 bis 10 USD",
+  "10-20": "Über 10 bis 20 USD",
+  "over-20": "Über 20 USD",
+};
+
 function formatPrice(value: number) {
   if (value === 0) return "Kostenlos";
   if (value < 0.01) return `$${value.toFixed(4)}`;
@@ -45,12 +58,37 @@ function formatContext(value: number) {
   return value.toLocaleString("de-DE");
 }
 
+function modelTotalPrice(model: AiModel) {
+  return model.prompt_price_per_million + model.completion_price_per_million;
+}
+
+function isInPriceRange(model: AiModel, range: PriceRange) {
+  const totalPrice = modelTotalPrice(model);
+  switch (range) {
+    case "free":
+      return totalPrice === 0;
+    case "under-2":
+      return totalPrice > 0 && totalPrice <= 2;
+    case "2-10":
+      return totalPrice > 2 && totalPrice <= 10;
+    case "10-20":
+      return totalPrice > 10 && totalPrice <= 20;
+    case "over-20":
+      return totalPrice > 20;
+    default:
+      return true;
+  }
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [models, setModels] = useState<AiModel[]>([]);
   const [defaultModel, setDefaultModel] = useState("");
   const [additionalModels, setAdditionalModels] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [providerFilter, setProviderFilter] = useState("all");
+  const [visionFilter, setVisionFilter] = useState<VisionFilter>("all");
+  const [priceRange, setPriceRange] = useState<PriceRange>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -128,13 +166,35 @@ export default function AdminPage() {
     );
   }
 
+  const providers = useMemo(
+    () => [...new Set(models.map((model) => model.provider))].sort((a, b) => a.localeCompare(b, "de")),
+    [models],
+  );
+
   const filteredModels = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    if (!needle) return models;
-    return models.filter((model) =>
-      `${model.name} ${model.id} ${model.provider} ${model.description}`.toLowerCase().includes(needle),
-    );
-  }, [models, search]);
+    return models.filter((model) => {
+      const matchesSearch = !needle ||
+        `${model.name} ${model.id} ${model.provider} ${model.description}`.toLowerCase().includes(needle);
+      const matchesProvider = providerFilter === "all" || model.provider === providerFilter;
+      const matchesVision = visionFilter === "all" ||
+        (visionFilter === "vision" ? model.supports_vision : !model.supports_vision);
+
+      return matchesSearch && matchesProvider && matchesVision && isInPriceRange(model, priceRange);
+    });
+  }, [models, search, providerFilter, visionFilter, priceRange]);
+
+  const hasActiveFilters = Boolean(search.trim()) ||
+    providerFilter !== "all" ||
+    visionFilter !== "all" ||
+    priceRange !== "all";
+
+  function resetAllFilters() {
+    setSearch("");
+    setProviderFilter("all");
+    setVisionFilter("all");
+    setPriceRange("all");
+  }
 
   const selectedDefault = models.find((model) => model.id === defaultModel);
 
@@ -263,26 +323,64 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">Modellkatalog</CardTitle>
-                <Badge variant="secondary">{filteredModels.length}</Badge>
+                <Badge variant="secondary" aria-live="polite">
+                  {hasActiveFilters ? `${filteredModels.length} von ${models.length}` : models.length} sichtbar
+                </Badge>
               </div>
               <CardDescription className="mt-1 max-w-2xl text-xs leading-relaxed">
-                Bis zu vier Modelle können Projekt-Ersteller zusätzlich zum Standard auswählen.
+                Durchsuche und vergleiche die Modelle, bevor du bis zu vier davon zusätzlich zum Standard freigibst.
               </CardDescription>
             </div>
-            <div className="flex w-full gap-2 md:w-auto">
-              <div className="relative min-w-0 flex-1 md:w-72">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  aria-label="Modellkatalog durchsuchen"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Katalog durchsuchen …"
-                  className="h-10 rounded-xl bg-background pl-9"
-                />
+            <div className="w-full space-y-2 md:w-auto">
+              <div className="flex w-full gap-2 md:w-auto">
+                <div className="relative min-w-0 flex-1 md:w-72">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label="Modellkatalog durchsuchen"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Katalog durchsuchen …"
+                    className="h-10 rounded-xl bg-background pl-9"
+                  />
+                </div>
+                <Button variant="outline" size="icon" onClick={loadSettings} disabled={loading} title="Modellliste aktualisieren">
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
               </div>
-              <Button variant="outline" size="icon" onClick={loadSettings} disabled={loading} title="Modellliste aktualisieren">
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </Button>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Select value={providerFilter} onValueChange={setProviderFilter}>
+                  <SelectTrigger aria-label="Nach Anbieter filtern" className="rounded-xl bg-background">
+                    <SelectValue placeholder="Anbieter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Anbieter</SelectItem>
+                    {providers.map((provider) => <SelectItem key={provider} value={provider}>{provider}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={visionFilter} onValueChange={(value) => setVisionFilter(value as VisionFilter)}>
+                  <SelectTrigger aria-label="Nach Bildfähigkeit filtern" className="rounded-xl bg-background">
+                    <SelectValue placeholder="Bildfähigkeit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Fähigkeiten</SelectItem>
+                    <SelectItem value="vision">Bildfähig</SelectItem>
+                    <SelectItem value="text">Nur Text</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={priceRange} onValueChange={(value) => setPriceRange(value as PriceRange)}>
+                  <SelectTrigger aria-label="Nach Preisbereich filtern" className="rounded-xl bg-background">
+                    <SelectValue placeholder="Preisbereich" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PRICE_RANGE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Preisbereich: Prompt- und Completion-Kosten zusammen pro 1 Mio. Tokens.
+              </p>
             </div>
           </CardHeader>
           <CardContent className="p-3 md:p-4">
@@ -300,13 +398,48 @@ export default function AdminPage() {
                 <Button variant="outline" size="sm" onClick={loadSettings} disabled={loading}><RefreshCw className="h-3.5 w-3.5" /> Erneut versuchen</Button>
               </div>
             )}
+            {hasActiveFilters && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/25 p-3">
+                <span className="text-xs font-medium text-muted-foreground">Aktive Filter:</span>
+                {search.trim() && (
+                  <Button variant="secondary" size="sm" onClick={() => setSearch("")}>
+                    Suche: „{search.trim()}“ <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {providerFilter !== "all" && (
+                  <Button variant="secondary" size="sm" onClick={() => setProviderFilter("all")}>
+                    Anbieter: {providerFilter} <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {visionFilter !== "all" && (
+                  <Button variant="secondary" size="sm" onClick={() => setVisionFilter("all")}>
+                    {visionFilter === "vision" ? "Bildfähig" : "Nur Text"} <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                {priceRange !== "all" && (
+                  <Button variant="secondary" size="sm" onClick={() => setPriceRange("all")}>
+                    {PRICE_RANGE_LABELS[priceRange]} <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={resetAllFilters} className="ml-auto">
+                  Alle zurücksetzen
+                </Button>
+              </div>
+            )}
             {loading ? (
               <div className="grid gap-3 md:grid-cols-2">
                 {[1, 2, 3, 4].map((item) => <div key={item} className="h-44 animate-pulse rounded-xl bg-muted/60" />)}
               </div>
             ) : filteredModels.length === 0 ? (
               <div className="rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">
-                {models.length === 0 ? "Keine zulässigen Modelle verfügbar." : "Keine Modelle für diese Suche gefunden."}
+                {models.length === 0 ? (
+                  "Keine zulässigen Modelle verfügbar."
+                ) : (
+                  <div className="space-y-3">
+                    <p>Keine Modelle entsprechen deiner Suche oder den ausgewählten Filtern.</p>
+                    <Button variant="outline" size="sm" onClick={resetAllFilters}>Filter zurücksetzen</Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2">

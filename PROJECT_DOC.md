@@ -14,7 +14,7 @@
 - Beim Anlegen und in der Projektansicht kann ein Nutzer eines der freigegebenen Modelle wählen. Diese Auswahl wird pro Projekt gespeichert und beeinflusst die folgenden KI-Aufrufe.
 - Ein Projekt kann jederzeit wieder auf den aktuellen Admin-Standard zurückgesetzt werden. Eine gültige Projektwahl wird durch spätere Admin-Änderungen nicht überschrieben.
 - Die Admin-Modellliste wird live von OpenRouter geladen und serverseitig nach Anbieter-Allowlist, Legacy-Ausschlüssen für alte OpenAI-Familien und einem Preisdeckel von 20 USD pro 1 Mio. Tokens gefiltert. Unterstützt werden unter anderem DeepSeek, Google, Anthropic, Moonshot AI, OpenAI, Qwen und Z.ai.
-- Die Auswahl zeigt aktuelle Prompt-/Completion-Preise, Kontextlänge und Bildfähigkeit. Der Admin-Bereich bündelt den globalen Standard und optionale Freigaben in einer kompakten Konfiguration; der Katalog ist als responsive Modellkartenliste ohne horizontales Scrollen aufbereitet. Die Modellliste wird eine Stunde serverseitig gecacht und kann explizit aktualisiert werden.
+- Die Auswahl zeigt aktuelle Prompt-/Completion-Preise, Kontextlänge und Bildfähigkeit. Der Admin-Bereich bündelt den globalen Standard und optionale Freigaben in einer kompakten Konfiguration; der Katalog ist als responsive Modellkartenliste ohne horizontales Scrollen aufbereitet. Volltextsuche, Anbieter, Bildfähigkeit und klar beschriftete Gesamtpreise pro 1 Mio. Tokens lassen sich kombinieren; aktive Einschränkungen sind einzeln oder gemeinsam zurücksetzbar. Die Modellliste wird eine Stunde serverseitig gecacht und kann explizit aktualisiert werden.
 
 ### Stil-Engine
 - **Beispieltext**: Analyse von Textproben zur Erstellung eines Stil-Profils.

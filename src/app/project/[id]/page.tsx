@@ -323,6 +323,12 @@ export default function ProjectPage() {
       outline_generation: "Outline-Generierung",
       chapter_generation: "Kapitel-Generierung",
       character_extraction: "Figuren-Extraktion",
+      "Stil analysiert": "Stil-Analyse",
+      "Outline generiert": "Outline-Generierung",
+      "Outline-Punkte aus Freitext": "Outline aus Freitext",
+      "Kapitel generiert": "Kapitel-Generierung",
+      "Charaktere extrahiert": "Figuren-Extraktion",
+      "Narrative Zusammenfassung": "Narrative Zusammenfassung",
     };
     return labels[action || ""] || action || "KI-Generierung";
   }

@@ -13,7 +13,8 @@ export const ALLOWED_PROVIDER_PREFIXES = [
 export const MAX_PRICE_USD_PER_MILLION_TOKENS = 20;
 export const MODELS_CACHE_TTL_MS = 60 * 60 * 1000;
 export const DEFAULT_MODEL_ID = "anthropic/claude-sonnet-4.6";
-export const MAX_ADDITIONAL_MODELS = 4;
+export const MAX_ADDITIONAL_MODELS = 5;
+export const MAX_ALLOWED_MODELS = MAX_ADDITIONAL_MODELS + 1;
 export const MODEL_CURRENT_MAX_AGE_MONTHS = 12;
 export const MODEL_OLDER_MAX_AGE_MONTHS = 24;
 
@@ -341,12 +342,14 @@ export async function getAiSettings(): Promise<AiSettings> {
   }
   const defaultModel = String(row.default_model || DEFAULT_MODEL_ID);
   const configuredModels = normalizeModelIds(row.allowed_models);
+  const allowedModels = [
+    defaultModel,
+    ...configuredModels.filter((modelId) => modelId !== defaultModel),
+  ].slice(0, MAX_ALLOWED_MODELS);
   return {
     ...row,
     default_model: defaultModel,
-    allowed_models: configuredModels.includes(defaultModel)
-      ? configuredModels
-      : [defaultModel, ...configuredModels],
+    allowed_models: allowedModels,
   };
 }
 

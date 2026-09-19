@@ -117,6 +117,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [unavailableModels, setUnavailableModels] = useState<string[]>([]);
   const [forbidden, setForbidden] = useState(false);
+  const [maxAdditionalModels, setMaxAdditionalModels] = useState(5);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -135,6 +136,10 @@ export default function AdminPage() {
       if (!response.ok) throw new Error(data.error || "Die Modellliste konnte nicht geladen werden.");
       setModels(data.models || []);
       setDefaultModel(data.defaultModel || "");
+       const configuredMaxAdditional = Number(data.maxAdditionalModels);
+       if (Number.isFinite(configuredMaxAdditional) && configuredMaxAdditional >= 0) {
+         setMaxAdditionalModels(configuredMaxAdditional);
+       }
       const selectableModelIds = new Set(
         (data.models || [])
           .filter((model: AiModel) => model.freshness === "current")
@@ -147,7 +152,7 @@ export default function AdminPage() {
       setAdditionalModels(
         (data.additionalModels || [])
           .filter((id: string) => id !== data.defaultModel && selectableModelIds.has(id))
-          .slice(0, 4),
+           .slice(0, Number(data.maxAdditionalModels) || 5),
       );
     } catch (err: any) {
       setError(err?.message || "Die Modellliste konnte nicht geladen werden.");
@@ -187,7 +192,7 @@ export default function AdminPage() {
     setAdditionalModels((current) =>
       current.includes(modelId)
         ? current.filter((id) => id !== modelId)
-        : current.length < 4
+        : current.length < maxAdditionalModels
           ? [...current, modelId]
           : current,
     );
@@ -231,7 +236,10 @@ export default function AdminPage() {
 
   const selectableModels = models.filter((model) => model.freshness === "current");
   const configuredDefault = models.find((model) => model.id === defaultModel);
-  const selectedDefault = selectableModels.find((model) => model.id === defaultModel);
+  const configuredSelectableModels = selectableModels.filter(
+    (model) => model.id === defaultModel || additionalModels.includes(model.id),
+  );
+  const selectedDefault = configuredSelectableModels.find((model) => model.id === defaultModel);
 
   if (forbidden) {
     return (
@@ -278,7 +286,7 @@ export default function AdminPage() {
             <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">RomanForge AI / Admin</p>
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl">KI-Modelle zentral verwalten</h2>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Ein Standard für neue Projekte, bis zu vier Alternativen für kreative Freiheit.
+              Bis zu sechs freigegebene Modelle für alle Projekte – eines davon als Standard.
             </p>
           </div>
           <Badge variant="outline" className="w-fit gap-1.5 py-1.5">
@@ -317,10 +325,22 @@ export default function AdminPage() {
                   Standardmodell festlegen
                 </label>
                 <Select
-                  value={selectableModels.some((model) => model.id === defaultModel) ? defaultModel : ""}
+                   value={configuredSelectableModels.some((model) => model.id === defaultModel) ? defaultModel : ""}
                   onValueChange={(value) => {
+                     const previousDefault = defaultModel;
                     setDefaultModel(value);
-                    setAdditionalModels((current) => current.filter((id) => id !== value));
+                     setAdditionalModels((current) => {
+                       const next = current.filter((id) => id !== value);
+                       if (
+                         previousDefault &&
+                         previousDefault !== value &&
+                         !next.includes(previousDefault) &&
+                         next.length < maxAdditionalModels
+                       ) {
+                         next.push(previousDefault);
+                       }
+                       return next;
+                     });
                   }}
                   disabled={saving !== null || loading}
                 >
@@ -328,7 +348,7 @@ export default function AdminPage() {
                     <SelectValue placeholder="Standardmodell auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    {selectableModels.map((model) => (
+                   {configuredSelectableModels.map((model) => (
                       <SelectItem key={model.id} value={model.id}>{model.name} · {model.provider}</SelectItem>
                     ))}
                   </SelectContent>
@@ -343,7 +363,7 @@ export default function AdminPage() {
             <div className="flex flex-col gap-3 border-t bg-primary/[0.035] px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between md:px-6">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Layers3 className="h-4 w-4 text-primary" />
-                <span><strong className="text-foreground">{additionalModels.length} / 4</strong> optionale Modelle freigegeben</span>
+                 <span><strong className="text-foreground">{additionalModels.length + 1} / {maxAdditionalModels + 1}</strong> Modelle freigegeben</span>
               </div>
               <Button onClick={saveSettings} disabled={saving !== null || !defaultModel || !selectedDefault} size="sm">
                 {saving === "settings" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -363,7 +383,7 @@ export default function AdminPage() {
                 </Badge>
               </div>
               <CardDescription className="mt-1 max-w-2xl text-xs leading-relaxed">
-                Durchsuche und vergleiche die Modelle, bevor du bis zu vier davon zusätzlich zum Standard freigibst.
+                 Durchsuche und vergleiche den Katalog, bevor du bis zu {maxAdditionalModels + 1} Modelle für Projekte freigibst.
               </CardDescription>
             </div>
             <div className="w-full space-y-2 md:w-auto">
@@ -496,7 +516,7 @@ export default function AdminPage() {
                 {filteredModels.map((model) => {
                   const isDefault = model.id === defaultModel;
                   const isAdditional = additionalModels.includes(model.id);
-                  const isAtLimit = !isAdditional && additionalModels.length >= 4;
+                   const isAtLimit = !isAdditional && additionalModels.length >= maxAdditionalModels;
                   const isSelectable = model.freshness === "current";
                   return (
                     <div key={model.id} className={`group rounded-xl border p-4 transition-colors duration-200 ${isDefault ? "border-primary/50 bg-primary/[0.045]" : "bg-card hover:border-primary/35 hover:bg-muted/20"}`}>
@@ -518,7 +538,7 @@ export default function AdminPage() {
                            disabled={isDefault || saving !== null || isAtLimit || !isSelectable}
                           onClick={() => toggleAdditionalModel(model.id)}
                           className="shrink-0"
-                           title={!isSelectable ? "Nur aktuelle Modelle können neu freigegeben werden." : isAtLimit ? "Maximal vier Zusatzmodelle" : undefined}
+                            title={!isSelectable ? "Nur aktuelle Modelle können neu freigegeben werden." : isAtLimit ? `Maximal ${maxAdditionalModels} zusätzliche Modelle` : undefined}
                         >
                           {isAdditional && <Check className="h-3.5 w-3.5" />}
                            {isAdditional ? "Entfernen" : isDefault ? "Standard" : isSelectable ? "Freigeben" : "Nicht freigebbar"}

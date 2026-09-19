@@ -3,6 +3,7 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import {
   getAiSettings,
   getAvailableModels,
+  MAX_ALLOWED_MODELS,
   MAX_ADDITIONAL_MODELS,
   setAiSettings,
 } from "@/lib/ai-settings";
@@ -29,6 +30,7 @@ export async function GET() {
       allowedModels: settings.allowed_models,
       additionalModels: settings.allowed_models.filter((id: string) => id !== settings.default_model),
       maxAdditionalModels: MAX_ADDITIONAL_MODELS,
+      maxModels: MAX_ALLOWED_MODELS,
     });
   } catch (error) {
     console.error("Load admin AI settings error:", error);

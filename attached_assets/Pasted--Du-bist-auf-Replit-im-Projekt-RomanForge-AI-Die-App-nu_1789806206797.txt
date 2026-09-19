@@ -1,0 +1,121 @@
+> Du bist auf Replit im Projekt **RomanForge AI**. Die App nutzt eine
+> PostgreSQL-Datenbank (`DATABASE_URL` ist im Secrets-Tab gesetzt, i. d. R.
+> eine Neon-Postgres-Instanz).
+>
+> **Aufgabe:** Erstelle einen **vollständigen, wiederherstellbaren SQL-Dump**
+> der Produktionsdatenbank, den ich auf einen anderen PostgreSQL-16-Server
+> importieren kann. Bitte führe die Schritte selbst in der Replit-Shell aus
+> und liefere die fertige Datei.
+>
+> ### 1. Dump erzeugen
+> Nutze `pg_dump` mit **Plain-Text-SQL** (kein Custom-Format), ohne
+> Eigentümer-/Rechte-Anweisungen, damit die Fremdumgebung sauber importiert:
+>
+> ```bash
+> # Wichtig: für pg_dump den DIREKTEN (ungepoolten) Neon-DATABASE_URL nutzen,
+> # nicht den -pooler Host, sonst schlägt pg_dump fehl.
+> pg_dump "$DATABASE_URL" \
+>   --no-owner --no-privileges \
+>   --schema=public \
+>   --format=plain \
+>   --encoding=UTF8 \
+>   -f romanforge_export.sql
+> ```
+>
+> Falls `pg_dump` fehlt oder die Version inkompatibel ist:
+> `pg_dump --version` prüfen und ggf. installieren; als Alternative `psql "$DATABASE_URL" -c "\l"`-Daten nicht, sondern stattdessen den Fallback unter Punkt 6 verwenden.
+>
+> ### 2. Ergebnis prüfen (bitte mit ausgeben)
+> ```bash
+> ls -la romanforge_export.sql
+> head -40 romanforge_export.sql
+> grep -cE '^CREATE TABLE' romanforge_export.sql
+> grep -cE '^COPY |^INSERT INTO' romanforge_export.sql
+> ```
+>
+> ### 3. Alle Tabellen müssen enthalten sein
+> Der Dump muss **mindestens** diese Tabellen enthalten (pruefe mit
+> `grep -oE 'CREATE TABLE [^ ]+' romanforge_export.sql`):
+> - `users`
+> - `projects`
+> - `chapters`
+> - `chapter_outlines`
+> - `project_characters`   ← Achtung: fehlt in schema.sql, aber der Code nutzt sie!
+> - `outline_characters`   ← Achtung: fehlt in schema.sql, aber der Code nutzt sie!
+> - `generation_log`
+> - `ai_settings`
+>
+> Wenn eine dieser Tabellen im Dump fehlt, obwohl sie in der DB existiert,
+> nutze zusätzlich einen gezielten Schema-Dump:
+> ```bash
+> pg_dump "$DATABASE_URL" --schema-only --no-owner --no-privileges \
+>   -t project_characters -t outline_characters
+> ```
+>
+> ### 4. Import-Kompatibilität sicherstellen
+> Der Dump soll **idempotent wiederherstellbar** sein. Falls der Standard-Dump
+> `DROP TABLE`/`CREATE TABLE` (ohne `IF NOT EXISTS`) enthält, ist das ok —
+> wir importieren in eine **frische, leere** DB. Bitte stelle zusätzlich sicher:
+> - Alle `CREATE TABLE`-Anweisungen sind vorhanden (inkl. der beiden o. g. Tabellen).
+> - Am Ende stehen `setval(...)`-Aufrufe für **alle** Sequences
+>   (`users_id_seq`, `projects_id_seq`, `chapters_id_seq`,
+>   `chapter_outlines_id_seq`, `generation_log_id_seq` sowie ggf. die von
+>   `project_characters`/`outline_characters`).
+> - Der Dump ist gültiges UTF-8 und enthält die Umlaute/Emojis korrekt.
+>
+> ### 5. Verifikations-Report (bitte als Text mitliefern)
+> Führe aus und gib die Zahlen im Chat zurück:
+> ```bash
+> psql "$DATABASE_URL" -c "
+> SELECT 'users' AS tabelle, count(*) FROM users
+> UNION ALL SELECT 'projects', count(*) FROM projects
+> UNION ALL SELECT 'chapters', count(*) FROM chapters
+> UNION ALL SELECT 'chapter_outlines', count(*) FROM chapter_outlines
+> UNION ALL SELECT 'project_characters', count(*) FROM project_characters
+> UNION ALL SELECT 'outline_characters', count(*) FROM outline_characters
+> UNION ALL SELECT 'generation_log', count(*) FROM generation_log
+> UNION ALL SELECT 'ai_settings', count(*) FROM ai_settings;"
+> ```
+> Zusätzlich: die `ai_settings`-Zeile vollständig zeigen
+> (`SELECT * FROM ai_settings;`) — sie enthält Standardmodell + freigegebene Modelle.
+>
+> ### 6. Fallback, falls pg_dump nicht möglich ist
+> Erzeuge dann ein **INSERT-basiertes** SQL-Skript per Python, das dieselben
+> Tabellen in Fremdschlüssel-Reihenfolge (**users → projects → chapters →
+> chapter_outlines → project_characters → outline_characters → generation_log →
+> ai_settings**) schreibt, mit `--column-inserts`-Stil (explizite Spaltennamen),
+> `ON CONFLICT DO NOTHING` und abschließenden `setval(...)`-Aufrufen.
+>
+> ### 7. Datenschutz / Sicherheit (WICHTIG)
+> - **Keine Secrets** in die Datei schreiben: **kein** `OPENROUTER_API_KEY`,
+>   **kein** `JWT_SECRET`, keine `.env`-Werte, keine Replit-/Neon-Connection-Strings.
+> - **Passwort-Hashes** (`users.password_hash`) **müssen** mit exportiert werden —
+>   sie sind bcrypt-Hashes und für die Anmeldung nötig. **Nicht** anfassen,
+>   **nicht** neu hashen, **nicht** löschen.
+> - Keine Session-/Token-Daten exportieren (existieren nicht als Tabelle, nur zur Sicherheit).
+>
+> ### 8. Ausgabe
+> - Datei: `romanforge_export.sql` (Plain-Text).
+> - Bitte die Datei im Chat als **Download** verfügbar machen.
+> - Zusätzlich den Verifikations-Report aus Schritt 5 und die Anzahl
+>   `CREATE TABLE` / `COPY`-Blöcke ausgeben.
+
+## ⬆️ Ende COPY-PASTE-PROMPT
+
+---
+
+## 🔧 Anhang: So importieren wir auf dem VPS (interne Notiz)
+
+1. Frische, leere Ziel-DB bereitstellen (bestehende ist leer bis auf Schema):
+   ```bash
+   sudo -u postgres psql -c "DROP DATABASE IF EXISTS romanforge;"
+   sudo -u postgres psql -c "CREATE DATABASE romanforge OWNER romanforge;"
+   ```
+2. Dump kopieren und einspielen:
+   ```bash
+   PGPASSWORD=<dbpass> psql -h 127.0.0.1 -U romanforge -d romanforge -f romanforge_export.sql
+   ```
+3. Verifizieren (Zeilenzahlen wie im Replit-Report + `ai_settings`).
+4. Ersten echten User anlegen bzw. importierten Admin behalten.
+5. Hinweis: Falls `project_characters`/`outline_characters` im Dump fehlen,
+   fehlen sie auch produktiv — dann Replit bitten, den Schema-Dump aus Schritt 3 nachzuliefern.

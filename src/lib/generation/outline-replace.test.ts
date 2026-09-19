@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const withTransactionMock = vi.fn();
+const { withTransactionMock } = vi.hoisted(() => ({
+  withTransactionMock: vi.fn(),
+}));
 
 vi.mock("@/lib/db", () => ({
   withTransaction: withTransactionMock,
